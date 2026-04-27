@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  db-auth:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: auth_db
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - travel-network
+  db-catalog:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: catalog_db
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - travel-network
+  db-booking:
+    image: mysql:8.0
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_DATABASE: booking_db
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - travel-network
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - travel-network
+networks:
+  travel-network:
+    driver: bridge
