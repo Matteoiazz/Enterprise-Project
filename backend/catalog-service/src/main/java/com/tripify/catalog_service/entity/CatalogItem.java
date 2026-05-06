@@ -1,4 +1,4 @@
-package it.unical.webapp.enterpriseback.Entity;
+package com.tripify.catalog_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
