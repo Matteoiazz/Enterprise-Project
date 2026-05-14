@@ -9,10 +9,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor // Lombok genera il costruttore per noi!
+@RequiredArgsConstructor
 public class CatalogServiceImpl implements CatalogService {
 
-    // Spring inietta automaticamente il repository
     private final CatalogItemRepository catalogItemRepository;
 
     @Override
@@ -28,5 +27,11 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     public List<CatalogItem> getItemsByHost(Long hostId) {
         return catalogItemRepository.findByHostId(hostId);
+    }
+
+    // NUOVO: Implementazione del salvataggio
+    @Override
+    public CatalogItem saveItem(CatalogItem item) {
+        return catalogItemRepository.save(item);
     }
 }

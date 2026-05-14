@@ -1,10 +1,12 @@
 package com.tripify.catalog_service.controller;
 
 import com.tripify.catalog_service.entity.CatalogItem;
+import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Itinerary;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.service.ItineraryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,5 +45,16 @@ public class CatalogController {
             @RequestParam Long travelerId,
             @RequestParam boolean isPrivate) {
         return ResponseEntity.ok(itineraryService.createFavoriteList(title, travelerId, isPrivate));
+    }
+    // Ricordati di aggiungere questo import in alto, insieme agli altri:
+    // import com.tripify.catalog_service.entity.Flight;
+    // import org.springframework.http.HttpStatus;
+
+    // 5. Crea un nuovo Volo
+    @PostMapping("/items/flights")
+    public ResponseEntity<Flight> createFlight(@RequestBody Flight flight) {
+        // Riceve il JSON da Postman, lo trasforma in un oggetto Flight e lo salva
+        Flight savedFlight = (Flight) catalogService.saveItem(flight);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedFlight);
     }
 }

@@ -14,5 +14,6 @@ public interface CatalogService {
     // Trova tutti gli elementi creati da un organizzatore specifico
     List<CatalogItem> getItemsByHost(Long hostId);
 
-    // ... potrai aggiungere altri metodi come getFlightDetails, ecc.
+    // NUOVO: Salva un nuovo elemento nel database
+    CatalogItem saveItem(CatalogItem item);
 }
