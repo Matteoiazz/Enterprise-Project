@@ -1,39 +1,55 @@
 version: '3.8'
+
 services:
-  db-auth:
-    image: mysql:8.0
-    ports:
-      - "3306:3306"
-    environment:
-      MYSQL_DATABASE: auth_db
-      MYSQL_ROOT_PASSWORD: root
-    networks:
-      - travel-network
+  # Database per il servizio Catalog (il tuo)
   db-catalog:
-    image: mysql:8.0
+    image: postgres:15
+    container_name: db-catalog
     ports:
-      - "3307:3306"
+      - "5432:5432"
     environment:
-      MYSQL_DATABASE: catalog_db
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: db_catalog
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     networks:
       - travel-network
+
+  # Database per il servizio Booking
   db-booking:
-    image: mysql:8.0
+    image: postgres:15
+    container_name: db-booking
     ports:
-      - "3308:3306"
+      - "5433:5432" # Porta esterna 5433 per non conflittare con catalog
     environment:
-      MYSQL_DATABASE: booking_db
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: db_booking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     networks:
       - travel-network
+
+  # Database per l'Auth (User)
+  db-auth:
+    image: postgres:15
+    container_name: db-auth
+    ports:
+      - "5434:5432" # Porta esterna 5434
+    environment:
+      POSTGRES_DB: db_auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    networks:
+      - travel-network
+
+  # RabbitMQ per le comunicazioni asincrone
   rabbitmq:
     image: rabbitmq:3-management
+    container_name: rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5672:5672"   # Porta per i messaggi
+      - "15672:15672" # Interfaccia web di gestione
     networks:
       - travel-network
+
 networks:
   travel-network:
     driver: bridge
