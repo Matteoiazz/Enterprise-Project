@@ -2,6 +2,7 @@ package com.tripify.catalog_service.controller;
 
 import com.tripify.catalog_service.entity.CatalogItem;
 import com.tripify.catalog_service.entity.Flight;
+import com.tripify.catalog_service.entity.Hotel;
 import com.tripify.catalog_service.entity.Itinerary;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.service.ItineraryService;
@@ -56,5 +57,10 @@ public class CatalogController {
         // Riceve il JSON da Postman, lo trasforma in un oggetto Flight e lo salva
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedFlight);
+    }
+    @PostMapping("/items/hotels")
+    public ResponseEntity<Hotel> createHotel(@RequestBody Hotel hotel) {
+        Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedHotel);
     }
 }
