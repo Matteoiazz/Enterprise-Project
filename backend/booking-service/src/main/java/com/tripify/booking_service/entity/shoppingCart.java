@@ -1,4 +1,4 @@
-package com.travelapp.booking_service.entity;
+package com.tripify.booking_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,5 +28,5 @@ public class shoppingCart {
      * orphanRemoval = true serve a cancellare dal DB un CartItem se lo rimuovi dalla lista Java.
      */
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CartItem> items;
+    private List<cartItem> items;
 }
