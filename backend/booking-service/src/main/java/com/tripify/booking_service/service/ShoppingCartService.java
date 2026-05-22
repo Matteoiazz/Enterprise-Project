@@ -51,7 +51,7 @@ public class ShoppingCartService {
                     .cart(cart)
                     .catalogItemId(catalogItemId)
                     .quantity(quantity)
-                    .price(price)
+                    .priceAtAdded(price)
                     .build();
             itemRepository.save(newItem);
         }

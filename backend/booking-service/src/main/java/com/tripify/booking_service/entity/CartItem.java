@@ -28,5 +28,5 @@ public class CartItem {
     private Integer quantity;
 
     @Column(nullable = false)
-    private Double price;
+    private Double priceAtAdded;
 }
