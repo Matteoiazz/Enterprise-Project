@@ -1,6 +1,6 @@
 package com.tripify.booking_service.entity;
 
-public enum bookingStatus {
+public enum BookingStatus {
 
     PENDING,
     CONFIRMED,

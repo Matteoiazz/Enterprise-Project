@@ -11,7 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 
-public class passenger {
+public class Passenger {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,7 +19,7 @@ public class passenger {
 
     @ManyToOne
     @JoinColumn(name = "booking_line_id", nullable = false)
-    private bookingLine bookingLine;
+    private BookingLine bookingLine;
 
     // Dati "congelati" al momento dell'acquisto
     @Column(nullable = false)

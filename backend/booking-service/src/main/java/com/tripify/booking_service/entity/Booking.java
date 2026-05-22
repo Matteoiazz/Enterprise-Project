@@ -30,10 +30,10 @@ public class Booking {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private bookingStatus status;
+    private BookingStatus status;
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<bookingLine> lines;
+    private List<BookingLine> lines;
 
     // Per l'Audit Logging richiesto dal PDF
     private LocalDateTime updatedAt;

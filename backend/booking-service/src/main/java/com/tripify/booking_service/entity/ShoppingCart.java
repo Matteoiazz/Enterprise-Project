@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 
-public class shoppingCart {
+public class ShoppingCart {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,5 +28,5 @@ public class shoppingCart {
      * orphanRemoval = true serve a cancellare dal DB un CartItem se lo rimuovi dalla lista Java.
      */
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<cartItem> items;
+    private List<CartItem> items;
 }
