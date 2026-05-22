@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 
-public class booking {
+public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
