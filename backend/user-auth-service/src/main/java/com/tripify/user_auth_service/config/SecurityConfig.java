@@ -1,6 +1,6 @@
-package com.travelapp.user_auth_service.config;
+package com.tripify.user_auth_service.config;
 
-import com.travelapp.user_auth_service.security.JwtAuthenticationFilter;
+import com.tripify.user_auth_service.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
