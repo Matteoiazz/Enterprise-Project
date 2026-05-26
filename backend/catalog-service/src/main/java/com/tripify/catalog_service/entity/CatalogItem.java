@@ -6,6 +6,7 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Table(name = "catalog_items")
@@ -27,7 +28,7 @@ public abstract class CatalogItem {
     // VINCOLO MICROSERVIZI: Nessuna Foreign Key verso la tabella Users di Dario!
     // È solo un ID che l'API Gateway o il Frontend si occuperanno di risolvere.
     @Column(name = "host_id", nullable = false)
-    private Long hostId;
+    private UUID hostId;
 
     @Column(nullable = false)
     private String title;
