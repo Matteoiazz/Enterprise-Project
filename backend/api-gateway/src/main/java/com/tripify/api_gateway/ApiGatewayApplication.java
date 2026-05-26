@@ -1,4 +1,4 @@
-package com.travelapp.api_gateway;
+package com.tripify.api_gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

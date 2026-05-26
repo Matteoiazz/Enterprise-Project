@@ -1,4 +1,4 @@
-package com.travelapp.user_auth_service.entity;
+package com.tripify.user_auth_service.entity;
 import lombok.*;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;

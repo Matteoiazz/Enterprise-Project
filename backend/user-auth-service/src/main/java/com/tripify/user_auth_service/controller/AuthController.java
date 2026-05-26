@@ -1,9 +1,9 @@
-package com.travelapp.user_auth_service.controller;
+package com.tripify.user_auth_service.controller;
 
-import com.travelapp.user_auth_service.dto.request.LoginRequest;
-import com.travelapp.user_auth_service.dto.request.RegisterRequest;
-import com.travelapp.user_auth_service.dto.response.AuthResponse;
-import com.travelapp.user_auth_service.service.AuthService;
+import com.tripify.user_auth_service.dto.request.LoginRequest;
+import com.tripify.user_auth_service.dto.request.RegisterRequest;
+import com.tripify.user_auth_service.dto.response.AuthResponse;
+import com.tripify.user_auth_service.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

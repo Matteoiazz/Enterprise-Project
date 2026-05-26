@@ -1,11 +1,11 @@
-package com.travelapp.user_auth_service.service;
+package com.tripify.user_auth_service.service;
 
-import com.travelapp.user_auth_service.dto.request.LoginRequest;
-import com.travelapp.user_auth_service.dto.request.RegisterRequest;
-import com.travelapp.user_auth_service.dto.response.AuthResponse;
-import com.travelapp.user_auth_service.entity.User;
-import com.travelapp.user_auth_service.repository.UserRepository;
-import com.travelapp.user_auth_service.security.JwtService;
+import com.tripify.user_auth_service.dto.request.LoginRequest;
+import com.tripify.user_auth_service.dto.request.RegisterRequest;
+import com.tripify.user_auth_service.dto.response.AuthResponse;
+import com.tripify.user_auth_service.entity.User;
+import com.tripify.user_auth_service.repository.UserRepository;
+import com.tripify.user_auth_service.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

@@ -1,4 +1,4 @@
-package com.travelapp.user_auth_service.dto.response;
+package com.tripify.user_auth_service.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

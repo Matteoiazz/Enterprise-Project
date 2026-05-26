@@ -1,4 +1,4 @@
-package com.travelapp.user_auth_service.dto.request;
+package com.tripify.user_auth_service.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

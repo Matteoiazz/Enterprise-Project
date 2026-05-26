@@ -1,4 +1,4 @@
-package com.travelapp.user_auth_service;
+package com.tripify.user_auth_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
