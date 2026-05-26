@@ -1,5 +1,6 @@
 package com.tripify.user_auth_service.security;
 
+import com.tripify.user_auth_service.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -30,6 +31,10 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    public Integer extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get("userId", Integer.class));
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
@@ -38,11 +43,15 @@ public class JwtService {
     public String generateToken(UserDetails userDetails) {
 
         Map<String, Object> extraClaims = new HashMap<>();
+
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
-
         extraClaims.put("roles", roles);
+
+        if (userDetails instanceof User customUser) {
+            extraClaims.put("userId", customUser.getId());
+        }
 
         return generateToken(extraClaims, userDetails);
     }
