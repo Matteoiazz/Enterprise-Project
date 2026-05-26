@@ -3,12 +3,12 @@ POST http://localhost:8081/api/v1/auth/register
 Content-Type: application/json
 
 {
-  "email": "dario.elia@unical.it",
+  "email": "dario.elia61@unical.it",
   "password": "password123",
   "role": "ROLE_TRAVELER",
-  "name": "Dario",
-  "surname": "Elia",
-  "username": "dario_dev"
+  "name": "Dario2",
+  "surname": "Elia2",
+  "username": "dario_dev2"
 }
 
 ### 2. Test di Login
@@ -16,6 +16,6 @@ POST http://localhost:8080/api/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "dario.elia@unical.it",
+  "email": "dario.elia61@unical.it",
   "password": "password123"
 }

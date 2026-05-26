@@ -1,4 +1,4 @@
-package com.travelapp.user_auth_service.security;
+package com.tripify.user_auth_service.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
