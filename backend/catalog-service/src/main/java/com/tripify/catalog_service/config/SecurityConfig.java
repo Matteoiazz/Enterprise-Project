@@ -17,7 +17,8 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthFilter;
+    // CAMBIATO: Inietto il nuovo filtro del Gateway
+    private final GatewayAuthenticationFilter gatewayAuthFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,8 +39,8 @@ public class SecurityConfig {
                         // Qualsiasi altra richiesta deve essere autenticata
                         .anyRequest().authenticated()
                 )
-                // Aggiungiamo il nostro filtro custom PRIMA di quello standard di Spring
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // CAMBIATO: Uso il nuovo filtro
+                .addFilterBefore(gatewayAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable());
 

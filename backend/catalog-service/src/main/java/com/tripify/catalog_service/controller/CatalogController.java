@@ -1,6 +1,5 @@
 package com.tripify.catalog_service.controller;
 
-import com.tripify.catalog_service.config.JwtService; // Assicurati che questo import corrisponda al tuo package reale!
 import com.tripify.catalog_service.entity.CatalogItem;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
@@ -21,9 +20,6 @@ public class CatalogController {
 
     private final CatalogService catalogService;
     private final ItineraryService itineraryService;
-
-    // --- AGGIUNTO: Iniezione del JwtService ---
-    private final JwtService jwtService;
 
     // 1. Ottieni tutto il catalogo (voli, hotel, attività)
     @GetMapping("/items")
@@ -52,39 +48,27 @@ public class CatalogController {
         return ResponseEntity.ok(itineraryService.createFavoriteList(title, travelerId, isPrivate));
     }
 
-    // 5. Crea un nuovo Volo (ORA SICURO E CON ASSOCIAZIONE AUTOMATICA)
+    // 5. Crea un nuovo Volo
     @PostMapping("/items/flights")
     public ResponseEntity<Flight> createFlight(
             @RequestBody Flight flight,
-            @RequestHeader("Authorization") String tokenHeader) {
+            @RequestHeader("X-User-Id") String userId) { // Leggiamo l'header passatoci dal Gateway
 
-        String jwt = tokenHeader.substring(7);
-
-        // 1. Estraiamo la stringa dal token
-        String userIdStr = jwtService.extractUserId(jwt);
-        // 2. La trasformiamo in UUID
-        java.util.UUID hostId = java.util.UUID.fromString(userIdStr);
-        // 3. Assegniamo l'UUID al volo
-        flight.setHostId(hostId);
+        // Convertiamo la stringa in UUID e la assegniamo
+        flight.setHostId(java.util.UUID.fromString(userId));
 
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedFlight);
     }
 
-    // 6. Crea un nuovo Hotel (ORA SICURO E CON ASSOCIAZIONE AUTOMATICA)
+    // 6. Crea un nuovo Hotel
     @PostMapping("/items/hotels")
     public ResponseEntity<Hotel> createHotel(
             @RequestBody Hotel hotel,
-            @RequestHeader("Authorization") String tokenHeader) {
+            @RequestHeader("X-User-Id") String userId) { // Leggiamo l'header passatoci dal Gateway
 
-        String jwt = tokenHeader.substring(7);
-
-        // 1. Estraiamo la stringa dal token
-        String userIdStr = jwtService.extractUserId(jwt);
-        // 2. La trasformiamo in UUID
-        java.util.UUID hostId = java.util.UUID.fromString(userIdStr);
-        // 3. Assegniamo l'UUID all'hotel
-        hotel.setHostId(hostId);
+        // Convertiamo la stringa in UUID e la assegnamo
+        hotel.setHostId(java.util.UUID.fromString(userId));
 
         Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedHotel);
