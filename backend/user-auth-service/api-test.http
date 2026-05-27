@@ -3,12 +3,12 @@ POST http://localhost:8081/api/v1/auth/register
 Content-Type: application/json
 
 {
-  "email": "dario.elia61@unical.it",
+  "email": "dario.elia62@unical.it",
   "password": "password123",
   "role": "ROLE_TRAVELER",
-  "name": "Dario2",
-  "surname": "Elia2",
-  "username": "dario_dev2"
+  "name": "Dario3",
+  "surname": "Elia3",
+  "username": "dario_dev3"
 }
 
 ### 2. Test di Login
@@ -16,6 +16,13 @@ POST http://localhost:8080/api/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "dario.elia61@unical.it",
+  "email": "dario.elia62@unical.it",
   "password": "password123"
 }
+
+### Chiamata SENZA token (Dovrebbe fallire)
+GET http://localhost:8080/api/v1/prenotazioni/viaggi
+
+### Chiamata CON token
+GET http://localhost:8080/api/v1/prenotazioni/viaggi
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlcyI6WyJST0xFX1RSQVZFTEVSIl0sInVzZXJJZCI6IjU3ZGY5ZWU5LThlMDMtNDUxOS04MjY5LTQ1YzIwMzM5OWI5YSIsInN1YiI6ImRhcmlvLmVsaWE2MkB1bmljYWwuaXQiLCJpYXQiOjE3Nzk4MTM2NjYsImV4cCI6MTc3OTkwMDA2Nn0.AnlXS21wjUSfbVo2nTVvrI6DyuIr-C5nJmdM2P0Yi9o
