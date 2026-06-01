@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.FlightLand
 import androidx.compose.material.icons.filled.FlightTakeoff
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.TripMock
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HybridHomeScreen() {
     val viaggiInEvidenza = List(3) {
@@ -35,8 +37,42 @@ fun HybridHomeScreen() {
     }
 
     Scaffold(
-        containerColor = Color(0xFFF0F2F5) // Sfondo grigio chiarissimo
+        containerColor = Color(0xFFF0F2F5), // Sfondo grigio chiarissimo
+
+        // LA NUOVA BARRA SUPERIORE
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "TRIPIFY",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 20.sp,
+                        letterSpacing = 4.sp // Spazia le lettere per un look più elegante
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { /* TODO: Apri menu laterale */ }) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Menu Principale")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { /* TODO: Naviga alla schermata di Dario */ }) {
+                        Text(
+                            text = "ACCEDI",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = Color.Black
+                )
+            )
+        }
     ) { innerPadding ->
+
+        // IL RESTO RIMANE IDENTICO
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
@@ -55,7 +91,6 @@ fun HybridHomeScreen() {
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
-                    // Gradiente per far staccare la Card di ricerca
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -91,7 +126,7 @@ fun HybridHomeScreen() {
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
-                        .offset(y = (-20).dp) // Aggiustiamo l'offset per compensare il form
+                        .offset(y = (-20).dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -101,13 +136,12 @@ fun HybridHomeScreen() {
                     .padding(horizontal = 20.dp, vertical = 12.dp)
                     .offset(y = (-20).dp)
                 ) {
-                    SivolaTripCard(viaggio) // La funzione che abbiamo creato prima
+                    SivolaTripCard(viaggio)
                 }
             }
         }
     }
 }
-
 @Composable
 fun RyanairSearchForm(modifier: Modifier = Modifier) {
     var da by remember { mutableStateOf("") }
