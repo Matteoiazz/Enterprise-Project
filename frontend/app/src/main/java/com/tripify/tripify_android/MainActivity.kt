@@ -9,7 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.tripify.tripify_android.catalog.ui.HybridHomeScreen
+import com.tripify.tripify_android.catalog.ui.HomeScreen
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                     // Rotta B: Il Catalogo principale
                     composable("catalog") {
                         // Richiamiamo la schermata creata dal tuo collega
-                        HybridHomeScreen()
+                        HomeScreen()
                     }
                 }
             }
