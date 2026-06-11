@@ -24,7 +24,10 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
 
-        if (path.contains("/api/v1/auth")) {
+        if (path.contains("/api/v1/auth") ||
+                path.contains("/api/v1/catalog/items/search") ||
+                path.equals("/api/v1/catalog/items")) {
+
             return chain.filter(exchange);
         }
 

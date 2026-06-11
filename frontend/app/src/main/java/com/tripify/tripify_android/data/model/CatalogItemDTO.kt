@@ -9,6 +9,7 @@ data class CatalogItemDto(
     val itemType: String,
     val category: String?,
     val rating: Int?,
+    val imageUrls: List<String>?,
 
     // --- CAMPI SPECIFICI VOLO ---
     val departureAirport: String?,

@@ -6,6 +6,8 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -50,4 +52,14 @@ public abstract class CatalogItem {
 
     @Column
     private Integer rating; // Da 1 a 5
+
+
+    @OneToMany(mappedBy = "catalogItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CatalogImage> images = new ArrayList<>();
+
+    // Metodo di utilità per mantenere la coerenza bidirezionale
+    public void addImage(CatalogImage image) {
+        images.add(image);
+        image.setCatalogItem(this);
+    }
 }

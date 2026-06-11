@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -21,6 +22,7 @@ public class CatalogItemDTO {
     private String itemType;
     private String category;
     private Integer rating;
+    private List<String> imageUrls;
 
     // --- CAMPI SPECIFICI DEL VOLO (Flight) ---
     private String departureAirport;
@@ -34,4 +36,6 @@ public class CatalogItemDTO {
     private Integer availableRooms;
     private Double locationLat;
     private Double locationLng;
+
+
 }
