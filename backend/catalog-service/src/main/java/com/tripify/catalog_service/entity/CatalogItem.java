@@ -44,4 +44,10 @@ public abstract class CatalogItem {
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
+
+    @Column(length = 50)
+    private String category;
+
+    @Column
+    private Integer rating; // Da 1 a 5
 }

@@ -51,6 +51,12 @@ fun HomeScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val catalogItems by viewModel.catalogList.collectAsState()
 
+    val searchQuery by viewModel.searchQuery.collectAsState()
+
+    val maxPrice by viewModel.maxPrice.collectAsState()
+    val minRating by viewModel.minRating.collectAsState()
+    var showFilterSheet by remember { mutableStateOf(false) } // Controlla la tendina
+
     // IL MENU A TENDINA
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -127,7 +133,17 @@ fun HomeScreen(
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+
                 )
+                if (showFilterSheet) {
+                    AdvancedFilterBottomSheet(
+                        onDismiss = { showFilterSheet = false },
+                        maxPrice = maxPrice,
+                        onMaxPriceChange = { viewModel.updateMaxPrice(it) },
+                        minRating = minRating,
+                        onMinRatingChange = { viewModel.updateMinRating(it) }
+                    )
+                }
             }
         ) { innerPadding ->
             LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
@@ -185,9 +201,10 @@ fun HomeScreen(
 
                         // Il form Universale
                         UniversalSearchForm(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .offset(y = 80.dp)
+                            searchQuery = searchQuery,
+                            onQueryChange = { viewModel.updateSearchQuery(it) },
+                            onOpenFilters = { showFilterSheet = true }, // APRE LA TENDINA
+                            modifier = Modifier.align(Alignment.BottomCenter).offset(y = 80.dp)
                         )
                     }
 
@@ -245,6 +262,68 @@ fun HomeScreen(
                 }
 
                 item { Spacer(modifier = Modifier.height(30.dp)) }
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdvancedFilterBottomSheet(
+    onDismiss: () -> Unit,
+    maxPrice: Float,
+    onMaxPriceChange: (Float) -> Unit,
+    minRating: Int,
+    onMinRatingChange: (Int) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text("Filtri Avanzati", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // SLIDER PREZZO
+            Text("Prezzo Massimo: €${maxPrice.toInt()}", fontWeight = FontWeight.Bold)
+            Slider(
+                value = maxPrice,
+                onValueChange = onMaxPriceChange,
+                valueRange = 0f..1000f,
+                steps = 20,
+                colors = SliderDefaults.colors(thumbColor = TripifyGreen, activeTrackColor = TripifyGreen)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // STELLE (Solo per Hotel)
+            Text("Categoria minima (Hotel)", fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 3, 4, 5).forEach { stars ->
+                    FilterChip(
+                        selected = minRating == stars,
+                        onClick = { onMinRatingChange(stars) },
+                        label = { Text(if (stars == 0) "Tutte" else "$stars+ Stelle") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = TripifyGreen.copy(alpha = 0.2f),
+                            selectedLabelColor = TripifyDarkGreen
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen)
+            ) {
+                Text("APPLICA E CHIUDI", fontWeight = FontWeight.Bold)
             }
         }
     }

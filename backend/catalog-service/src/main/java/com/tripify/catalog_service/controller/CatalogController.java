@@ -6,12 +6,15 @@ import com.tripify.catalog_service.entity.Hotel;
 import com.tripify.catalog_service.entity.Itinerary;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.service.ItineraryService;
+import com.tripify.catalog_service.dto.CatalogItemDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/catalog") // L'URL base per questo microservizio
@@ -27,10 +30,16 @@ public class CatalogController {
         return ResponseEntity.ok(catalogService.getAllItems());
     }
 
-    // 2. Motore di ricerca (es. /api/v1/catalog/items/search?keyword=Parigi)
+    // 2. Super Motore di Ricerca Avanzato con DTO e Specifications
     @GetMapping("/items/search")
-    public ResponseEntity<List<CatalogItem>> searchItems(@RequestParam String keyword) {
-        return ResponseEntity.ok(catalogService.searchItems(keyword));
+    public ResponseEntity<List<CatalogItemDTO>> searchCatalog(
+            @RequestParam(required = false, defaultValue = "Tutti") String category,
+            @RequestParam(required = false, defaultValue = "") String query,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false, defaultValue = "0") Integer minRating
+    ) {
+        List<CatalogItemDTO> results = catalogService.search(category, query, maxPrice, minRating);
+        return ResponseEntity.ok(results);
     }
 
     // 3. Ottieni i pacchetti commerciali in vendita
@@ -52,10 +61,10 @@ public class CatalogController {
     @PostMapping("/items/flights")
     public ResponseEntity<Flight> createFlight(
             @RequestBody Flight flight,
-            @RequestHeader("X-User-Id") String userId) { // Leggiamo l'header passatoci dal Gateway
+            @RequestHeader("X-User-Id") String userId) {
 
         // Convertiamo la stringa in UUID e la assegniamo
-        flight.setHostId(java.util.UUID.fromString(userId));
+        flight.setHostId(UUID.fromString(userId));
 
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedFlight);
@@ -65,10 +74,10 @@ public class CatalogController {
     @PostMapping("/items/hotels")
     public ResponseEntity<Hotel> createHotel(
             @RequestBody Hotel hotel,
-            @RequestHeader("X-User-Id") String userId) { // Leggiamo l'header passatoci dal Gateway
+            @RequestHeader("X-User-Id") String userId) {
 
-        // Convertiamo la stringa in UUID e la assegnamo
-        hotel.setHostId(java.util.UUID.fromString(userId));
+        // Convertiamo la stringa in UUID e la assegniamo
+        hotel.setHostId(UUID.fromString(userId));
 
         Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedHotel);

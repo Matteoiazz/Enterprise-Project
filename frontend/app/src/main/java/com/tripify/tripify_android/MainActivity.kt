@@ -1,4 +1,4 @@
-package com.tripify.tripify_android // o il tuo package di base
+package com.tripify.tripify_android
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -6,13 +6,12 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.tripify.tripify_android.catalog.ui.HomeScreen
+
+// Import fondamentali
+import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
-import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
+import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,36 +20,19 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 val context = LocalContext.current
 
-                // Inizializziamo il manager del token e il ViewModel
+                // 1. Inizializziamo il manager del token e il ViewModel di Dario (Login)
                 val tokenManager = remember { TokenManager(context) }
                 val loginViewModel = remember { LoginViewModel(tokenManager) }
 
-                // 1. Creiamo il controller della navigazione
-                val navController = rememberNavController()
+                // 2. NUOVO: Creiamo l'API del catalogo e il nostro ViewModel!
+                val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
+                val catalogViewModel = remember { CatalogViewModel(catalogApi) }
 
-                // 2. Definiamo la mappa delle schermate (NavHost)
-                NavHost(navController = navController, startDestination = "login") {
-
-                    // Rotta A: Schermata di Login
-                    composable("login") {
-                        LoginScreen(
-                            viewModel = loginViewModel,
-                            onNavigateToCatalog = {
-                                // Quando il login ha successo, naviga verso il catalogo...
-                                navController.navigate("catalog") {
-                                    // ...e rimuovi il login dalla cronologia (BackStack)
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            }
-                        )
-                    }
-
-                    // Rotta B: Il Catalogo principale
-                    composable("catalog") {
-                        // Richiamiamo la schermata creata dal tuo collega
-                        HomeScreen()
-                    }
-                }
+                // 3. Passiamo ENTRAMBI i ViewModel al nostro "Cervello" centrale
+                TripifyApp(
+                    loginViewModel = loginViewModel,
+                    catalogViewModel = catalogViewModel
+                )
             }
         }
     }

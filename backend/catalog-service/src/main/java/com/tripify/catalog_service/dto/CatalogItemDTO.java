@@ -1,0 +1,37 @@
+package com.tripify.catalog_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CatalogItemDTO {
+    // Campi comuni a tutti
+    private Long id;
+    private String title;
+    private String description;
+    private BigDecimal price;
+    private String currency;
+    private String itemType;
+    private String category;
+    private Integer rating;
+
+    // --- CAMPI SPECIFICI DEL VOLO (Flight) ---
+    private String departureAirport;
+    private String arrivalAirport;
+    private LocalDateTime departureTime;
+    private LocalDateTime arrivalTime;
+    private Integer availableSeats;
+
+    // --- CAMPI SPECIFICI DELL'HOTEL (Hotel) ---
+    private String roomType;
+    private Integer availableRooms;
+    private Double locationLat;
+    private Double locationLng;
+}

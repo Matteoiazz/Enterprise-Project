@@ -5,31 +5,34 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tripify.tripify_android.core.theme.SfondoPremium
+import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 
 @Composable
-fun UniversalSearchForm(modifier: Modifier = Modifier) {
-    var query by remember { mutableStateOf("") }
-
+fun UniversalSearchForm(
+    searchQuery: String, // RICEVE IL TESTO DAL VIEWMODEL
+    onQueryChange: (String) -> Unit, // COMUNICA AL VIEWMODEL COSA SCRIVE L'UTENTE
+    onOpenFilters: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
-        shape = RoundedCornerShape(24.dp), // Bordi ancora più smussati
-        elevation = CardDefaults.cardElevation(defaultElevation = 24.dp), // Ombra fortissima per farlo "staccare" dallo sfondo
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
 
-            // Unico campo di ricerca grande e accogliente
             OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
+                value = searchQuery,
+                onValueChange = onQueryChange, // Aggiorna in tempo reale
                 placeholder = { Text("Es. Napoli, Tokyo, Maldive...") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Cerca", tint = TripifyGreen) },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -45,39 +48,31 @@ fun UniversalSearchForm(modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Bottoni per date e passeggeri
+            // Sostituisci il vecchio bottone CERCA con questo:
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = { },
-                    colors = ButtonDefaults.buttonColors(containerColor = SfondoPremium, contentColor = Color.DarkGray),
-                    shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1.2f)
+                    onClick = { /* In futuro: apri data picker */ },
+                    colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f).height(56.dp)
                 ) {
-                    Icon(Icons.Filled.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Aggiungi date", fontSize = 13.sp)
+                    Text("CERCA", fontSize = 16.sp, fontWeight = FontWeight.Black)
                 }
-                Button(
-                    onClick = { },
-                    colors = ButtonDefaults.buttonColors(containerColor = SfondoPremium, contentColor = Color.DarkGray),
-                    shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(0.8f)
+
+                // IL NUOVO TASTO FILTRI
+                FilledIconButton(
+                    onClick = { onOpenFilters() }, // Aggiungi questo parametro alla funzione UniversalSearchForm!
+                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = TripifyDarkGreen),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("2 Ospiti", fontSize = 13.sp)
+                    Icon(Icons.Filled.Tune, contentDescription = "Filtri Avanzati", tint = Color.White)
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Call to Action enorme
-            Button(
-                onClick = { },
-                colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().height(56.dp)
-            ) {
-                Text("CERCA", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 2.sp)
-            }
+
         }
     }
 }
