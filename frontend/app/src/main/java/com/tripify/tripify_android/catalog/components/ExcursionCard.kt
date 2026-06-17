@@ -1,6 +1,7 @@
 package com.tripify.tripify_android.catalog.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable // <-- IMPORT AGGIUNTO
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,11 +22,17 @@ import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 
 @Composable
-fun ExcursionCard(excursion: CatalogItem.Excursion) {
+fun ExcursionCard(
+    excursion: CatalogItem.Excursion,
+    onClick: () -> Unit // <-- PARAMETRO AGGIUNTO
+) {
     Card(
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        modifier = Modifier.fillMaxWidth().height(300.dp) // Leggermente più bassa per variare il layout
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp) // Leggermente più bassa per variare il layout
+            .clickable { onClick() } // <-- LA CARD ORA È CLICCABILE
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(

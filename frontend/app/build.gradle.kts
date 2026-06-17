@@ -30,7 +30,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"http://${backendIp}:8080\"")
+        // CONTROLLO INTELLIGENTE AGGIORNATO
+        val finalUrl = if (backendIp.contains("ngrok")) {
+            "https://$backendIp" // Se è Ngrok, usa HTTPS e NIENTE porta
+        } else if (backendIp.contains("http")) {
+            backendIp // Se ha già http, lo lascia così com'è
+        } else {
+            "http://$backendIp:8080" // Se è un IP classico (es. 10.0.2.2), mette HTTP e porta 8080
+        }
+
+        buildConfigField("String", "BASE_URL", "\"$finalUrl\"")
     }
 
     buildTypes {

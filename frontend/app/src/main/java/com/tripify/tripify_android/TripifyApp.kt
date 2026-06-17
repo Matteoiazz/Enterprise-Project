@@ -1,5 +1,6 @@
 package com.tripify.tripify_android
 
+import androidx.compose.material3.Text // <-- Import aggiunto per il test
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -9,9 +10,9 @@ import com.tripify.tripify_android.core.navigation.Route
 
 // Importiamo il lavoro
 import com.tripify.tripify_android.auth.ui.LoginScreen
-import com.tripify.tripify_android.auth.ui.RegisterScreen // <-- AGGIUNTO
+import com.tripify.tripify_android.auth.ui.RegisterScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
-import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel // <-- AGGIUNTO
+import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 
 // Importiamo il nuovo ViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
@@ -19,7 +20,7 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 @Composable
 fun TripifyApp(
     loginViewModel: LoginViewModel,
-    registerViewModel: RegisterViewModel, // <-- AGGIUNTO
+    registerViewModel: RegisterViewModel,
     catalogViewModel: CatalogViewModel
 ) {
     val navController = rememberNavController()
@@ -35,6 +36,9 @@ fun TripifyApp(
                 viewModel = catalogViewModel,
                 onNavigateToAuth = {
                     navController.navigate(Route.Auth.path)
+                },
+                onNavigateToDetail = { itemId -> // <-- RICEVE L'ID E APRE IL DETTAGLIO
+                    navController.navigate("detail/$itemId")
                 }
             )
         }
@@ -46,27 +50,30 @@ fun TripifyApp(
                 onNavigateToCatalog = {
                     navController.popBackStack() // Torna alla Home
                 },
-                onNavigateToRegister = { // <-- AGGIUNTO
-                    // Uso la stringa "register", ma se vuoi puoi aggiungerla in Route.kt
+                onNavigateToRegister = {
                     navController.navigate("register")
                 }
             )
         }
 
-        // ROTTA 3: La schermata di Registrazione <-- NUOVA ROTTA
+        // ROTTA 3: La schermata di Registrazione
         composable("register") {
             RegisterScreen(
                 viewModel = registerViewModel,
                 onNavigateToCatalog = {
-                    // Se la registrazione va a buon fine, torna alla Home
-                    // popUpTo assicura di non lasciare la schermata di login appesa in memoria
                     navController.popBackStack(Route.Home.path, inclusive = false)
                 },
                 onNavigateBackToLogin = {
-                    // L'utente ha cliccato "Hai già un account? Accedi"
                     navController.popBackStack()
                 }
             )
+        }
+
+        // ROTTA 4: La schermata di Dettaglio <-- NUOVA ROTTA
+        composable("detail/{itemId}") { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId")
+            // Placeholder temporaneo per verificare che il click funzioni!
+            Text(text = "Dettaglio in costruzione. ID ricevuto: $itemId")
         }
     }
 }

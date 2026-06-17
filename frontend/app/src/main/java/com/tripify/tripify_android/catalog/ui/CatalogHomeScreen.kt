@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     viewModel: CatalogViewModel = viewModel(),
-    onNavigateToAuth: () -> Unit = {} // <-- Parametro per la navigazione aggiunto qui
+    onNavigateToAuth: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {} // <-- NUOVO PARAMETRO
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -55,9 +56,8 @@ fun HomeScreen(
 
     val maxPrice by viewModel.maxPrice.collectAsState()
     val minRating by viewModel.minRating.collectAsState()
-    var showFilterSheet by remember { mutableStateOf(false) } // Controlla la tendina
+    var showFilterSheet by remember { mutableStateOf(false) }
 
-    // IL MENU A TENDINA
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -127,13 +127,11 @@ fun HomeScreen(
                         }
                     },
                     actions = {
-                        // <-- Azione di navigazione collegata al click
                         TextButton(onClick = { onNavigateToAuth() }) {
                             Text("ACCEDI", fontWeight = FontWeight.ExtraBold, color = TripifyGreen)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
-
                 )
                 if (showFilterSheet) {
                     AdvancedFilterBottomSheet(
@@ -148,11 +146,8 @@ fun HomeScreen(
         ) { innerPadding ->
             LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
 
-                // 1. L'HEADER EMOZIONALE CON IL NUOVO FORM
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
-
-                        // Immagine di sfondo epica
                         Box(modifier = Modifier.fillMaxWidth().height(420.dp)) {
                             AsyncImage(
                                 model = "https://picsum.photos/seed/epic_travel/800/600",
@@ -160,7 +155,6 @@ fun HomeScreen(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
-                            // Doppio gradiente per leggibilità perfetta
                             Box(
                                 modifier = Modifier.fillMaxSize().background(
                                     Brush.verticalGradient(
@@ -175,7 +169,6 @@ fun HomeScreen(
                                 )
                             )
 
-                            // Testo centrale
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.Center)
@@ -199,20 +192,16 @@ fun HomeScreen(
                             }
                         }
 
-                        // Il form Universale
                         UniversalSearchForm(
                             searchQuery = searchQuery,
                             onQueryChange = { viewModel.updateSearchQuery(it) },
-                            onOpenFilters = { showFilterSheet = true }, // APRE LA TENDINA
+                            onOpenFilters = { showFilterSheet = true },
                             modifier = Modifier.align(Alignment.BottomCenter).offset(y = 80.dp)
                         )
                     }
-
-                    // Compensatore spaziale aggiornato per l'offset di 80dp
                     Spacer(modifier = Modifier.height(100.dp))
                 }
 
-                // 2. BARRA DELLE CATEGORIE
                 item {
                     val categorie = listOf("Tutti", "Voli", "Hotel", "Escursioni")
                     Row(
@@ -238,7 +227,6 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // 3. TITOLO SEZIONE DINAMICO
                 item {
                     Text(
                         text = if (selectedCategory == "Tutti") "Esplora tutto" else selectedCategory,
@@ -250,13 +238,22 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // 4. CARDS DEL CATALOGO DINAMICHE
+                // <-- QUI INIETTIAMO L'ID SUL CLICK DELLE CARD
                 items(catalogItems) { item ->
                     Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
                         when (item) {
-                            is CatalogItem.Flight -> FlightCard(flight = item)
-                            is CatalogItem.Hotel -> HotelCard(hotel = item)
-                            is CatalogItem.Excursion -> ExcursionCard(excursion = item)
+                            is CatalogItem.Flight -> FlightCard(
+                                flight = item,
+                                onClick = { onNavigateToDetail(item.id.toString()) }
+                            )
+                            is CatalogItem.Hotel -> HotelCard(
+                                hotel = item,
+                                onClick = { onNavigateToDetail(item.id.toString()) }
+                            )
+                            is CatalogItem.Excursion -> ExcursionCard(
+                                excursion = item,
+                                onClick = { onNavigateToDetail(item.id.toString()) }
+                            )
                         }
                     }
                 }
@@ -266,6 +263,7 @@ fun HomeScreen(
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvancedFilterBottomSheet(
@@ -288,7 +286,6 @@ fun AdvancedFilterBottomSheet(
             Text("Filtri Avanzati", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // SLIDER PREZZO
             Text("Prezzo Massimo: €${maxPrice.toInt()}", fontWeight = FontWeight.Bold)
             Slider(
                 value = maxPrice,
@@ -300,7 +297,6 @@ fun AdvancedFilterBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // STELLE (Solo per Hotel)
             Text("Categoria minima (Hotel)", fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
