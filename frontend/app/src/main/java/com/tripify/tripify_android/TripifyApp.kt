@@ -1,6 +1,6 @@
 package com.tripify.tripify_android
 
-import androidx.compose.material3.Text // <-- Import aggiunto per il test
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -14,14 +14,19 @@ import com.tripify.tripify_android.auth.ui.RegisterScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 
-// Importiamo il nuovo ViewModel
+// Import Profilo
+import com.tripify.tripify_android.profile.ui.ProfileScreen
+import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
+
+// Import Catalogo
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 
 @Composable
 fun TripifyApp(
     loginViewModel: LoginViewModel,
     registerViewModel: RegisterViewModel,
-    catalogViewModel: CatalogViewModel
+    catalogViewModel: CatalogViewModel,
+    profileViewModel: ProfileViewModel // <-- 1. Aggiunto qui!
 ) {
     val navController = rememberNavController()
 
@@ -37,8 +42,11 @@ fun TripifyApp(
                 onNavigateToAuth = {
                     navController.navigate(Route.Auth.path)
                 },
-                onNavigateToDetail = { itemId -> // <-- RICEVE L'ID E APRE IL DETTAGLIO
-                    navController.navigate("detail/$itemId")
+                onNavigateToDetail = { itemId ->
+                    navController.navigate("detail/$itemId") // Qui lo lasciamo a stringa per via del parametro
+                },
+                onNavigateToProfile = { // <-- Assicurati di aggiungere questo parametro in HomeScreen!
+                    navController.navigate(Route.Profile.path)
                 }
             )
         }
@@ -48,20 +56,25 @@ fun TripifyApp(
             LoginScreen(
                 viewModel = loginViewModel,
                 onNavigateToCatalog = {
-                    navController.popBackStack() // Torna alla Home
+                    // Dopo il login, vai alla Home e cancella la rotta Auth dallo stack
+                    navController.navigate(Route.Home.path) {
+                        popUpTo(Route.Auth.path) { inclusive = true }
+                    }
                 },
                 onNavigateToRegister = {
-                    navController.navigate("register")
+                    navController.navigate(Route.Register.path) // Usiamo la sealed class
                 }
             )
         }
 
         // ROTTA 3: La schermata di Registrazione
-        composable("register") {
+        composable(Route.Register.path) { // Usiamo la sealed class
             RegisterScreen(
                 viewModel = registerViewModel,
                 onNavigateToCatalog = {
-                    navController.popBackStack(Route.Home.path, inclusive = false)
+                    navController.navigate(Route.Home.path) {
+                        popUpTo(0) { inclusive = true } // Pulisce tutto se la registrazione è ok
+                    }
                 },
                 onNavigateBackToLogin = {
                     navController.popBackStack()
@@ -69,11 +82,24 @@ fun TripifyApp(
             )
         }
 
-        // ROTTA 4: La schermata di Dettaglio <-- NUOVA ROTTA
-        composable("detail/{itemId}") { backStackEntry ->
+        // ROTTA 4: La schermata di Dettaglio
+        composable(Route.Detail.path) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId")
-            // Placeholder temporaneo per verificare che il click funzioni!
             Text(text = "Dettaglio in costruzione. ID ricevuto: $itemId")
+        }
+
+        // ROTTA 5: La schermata Profilo <-- NUOVA ROTTA
+        composable(Route.Profile.path) {
+            ProfileScreen(
+                viewModel = profileViewModel,
+                onLogoutSuccess = {
+                    // Svuota l'intera cronologia per non far tornare indietro col tasto back e naviga al Login
+                    navController.navigate(Route.Auth.path) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
     }
 }

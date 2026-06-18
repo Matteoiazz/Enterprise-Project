@@ -14,6 +14,9 @@ import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 
+// 1. NUOVO IMPORT per il Profilo
+import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,21 +24,21 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 val context = LocalContext.current
 
-                // 1. Inizializziamo il manager del token e il ViewModel di Dario (Login)
                 val tokenManager = remember { TokenManager(context) }
-                val loginViewModel = remember { LoginViewModel(tokenManager) }
 
-                // 2. NUOVO: Creiamo l'API del catalogo e il nostro ViewModel!
-                val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
-                val catalogViewModel = remember { CatalogViewModel(catalogApi) }
+                val loginViewModel = remember { LoginViewModel(tokenManager) }
                 val registerViewModel = remember { RegisterViewModel(tokenManager) }
 
-                // 3. Passiamo ENTRAMBI i ViewModel al nostro "Cervello" centrale
+                val profileViewModel = remember { ProfileViewModel(tokenManager) }
+
+                val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
+                val catalogViewModel = remember { CatalogViewModel(catalogApi) }
+
                 TripifyApp(
                     loginViewModel = loginViewModel,
                     registerViewModel = registerViewModel,
-                    catalogViewModel = catalogViewModel
-
+                    catalogViewModel = catalogViewModel,
+                    profileViewModel = profileViewModel
                 )
             }
         }

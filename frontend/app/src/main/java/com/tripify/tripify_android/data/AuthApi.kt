@@ -3,6 +3,7 @@ package com.tripify.tripify_android.data
 import androidx.compose.ui.semantics.Role
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
 
 data class LoginRequest(val email: String, val password: String)
@@ -22,4 +23,7 @@ interface AuthApi {
 
     @POST("/api/v1/auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<AuthResponse>
+
+    @GET("api/v1/auth/me")
+    suspend fun getCurrentUser(): Response<UserResponse>
 }

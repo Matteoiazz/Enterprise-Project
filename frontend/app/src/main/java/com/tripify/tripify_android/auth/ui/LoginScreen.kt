@@ -32,10 +32,11 @@ fun LoginScreen(
     onNavigateToCatalog: () -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
-    // Navigazione automatica se il login ha successo
-    LaunchedEffect(viewModel.isLoginSuccessful) {
-        if (viewModel.isLoginSuccessful) {
+
+    if (viewModel.isLoginSuccessful) {
+        LaunchedEffect(Unit) {
             onNavigateToCatalog()
+            viewModel.isLoginSuccessful = false
         }
     }
 
