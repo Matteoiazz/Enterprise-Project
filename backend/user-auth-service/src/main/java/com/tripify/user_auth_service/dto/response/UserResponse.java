@@ -1,4 +1,8 @@
 package com.tripify.user_auth_service.dto.response;
 
-public class UserResponse {
+public record UserResponse(
+        String name,
+        String surname,
+        String email
+) {
 }
