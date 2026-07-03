@@ -1,6 +1,7 @@
 package com.tripify.tripify_android.catalog.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,7 +45,8 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     viewModel: CatalogViewModel = viewModel(),
     onNavigateToAuth: () -> Unit = {},
-    onNavigateToDetail: (String) -> Unit = {}
+    onNavigateToDetail: (String) -> Unit = {},
+    onNavigateToProfile: () -> Unit = {} // <-- Conflitto risolto: uniti entrambi i parametri!
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -81,7 +83,11 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(Color.White)
+                                .clickable {
+                                    scope.launch { drawerState.close() }
+                                    onNavigateToProfile()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Filled.Person, contentDescription = "Avatar", modifier = Modifier.size(40.dp), tint = TripifyGreen)
@@ -93,6 +99,18 @@ fun HomeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                NavigationDrawerItem(
+                    label = { Text("Il mio Profilo", fontWeight = FontWeight.Bold) },
+                    selected = voceSelezionata == "Profilo",
+                    onClick = {
+                        voceSelezionata = "Profilo"
+                        scope.launch { drawerState.close() }
+                        onNavigateToProfile()
+                    },
+                    icon = { Icon(Icons.Filled.AccountCircle, contentDescription = "Profilo") },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
 
                 NavigationDrawerItem(
                     label = { Text("Vetrina Viaggi", fontWeight = FontWeight.Bold) },
