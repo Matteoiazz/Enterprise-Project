@@ -13,6 +13,7 @@ import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.ui.RegisterScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
+import com.tripify.tripify_android.catalog.ui.DetailScreen
 
 // Importiamo il nuovo ViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
@@ -69,11 +70,23 @@ fun TripifyApp(
             )
         }
 
-        // ROTTA 4: La schermata di Dettaglio <-- NUOVA ROTTA
-        composable("detail/{itemId}") { backStackEntry ->
-            val itemId = backStackEntry.arguments?.getString("itemId")
-            // Placeholder temporaneo per verificare che il click funzioni!
-            Text(text = "Dettaglio in costruzione. ID ricevuto: $itemId")
+        // ROTTA 4: La schermata di Dettaglio
+        composable(route = "detail/{itemId}") { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
+
+            DetailScreen(
+                itemId = itemId,
+                viewModel = catalogViewModel, // (usa il nome della tua variabile qui)
+                onNavigateBack = {
+                    navController.popBackStack() // Fa tornare l'utente indietro alla Home
+                },
+                onBookNow = { clickedItemId -> // <-- ECCO IL PARAMETRO MANCANTE!
+                    // TODO per Mattia: L'utente ha premuto PRENOTA!
+                    // Usa clickedItemId per aggiungerlo al Booking/Itinerary.
+                    // es: navController.navigate("booking/$clickedItemId")
+                    println("Inizio prenotazione per l'ID: $clickedItemId")
+                }
+            )
         }
     }
 }
