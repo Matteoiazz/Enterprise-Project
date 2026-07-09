@@ -1,5 +1,7 @@
 package com.tripify.tripify_android.catalog.ui
 
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -46,7 +48,7 @@ fun HomeScreen(
     viewModel: CatalogViewModel = viewModel(),
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onNavigateToProfile: () -> Unit = {} // <-- Conflitto risolto: uniti entrambi i parametri!
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -54,10 +56,20 @@ fun HomeScreen(
 
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val catalogItems by viewModel.catalogList.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState() // <-- Stato di caricamento
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val searchQuery by viewModel.searchQuery.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
+
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearErrorMessage()
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -133,6 +145,7 @@ fun HomeScreen(
     ) {
         Scaffold(
             containerColor = SfondoPremium,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
@@ -156,8 +169,8 @@ fun HomeScreen(
                     ComplexFilterBottomSheet(
                         currentCategory = selectedCategory,
                         onDismiss = { showFilterSheet = false },
-                        onApplyFilters = { price, rating, amenities, direct, guide ->
-                            // Chiamata UNIFICATA al ViewModel con tutti i parametri
+                        onApplyFilters = { price, rating, amenities, direct, guide, destination, departure ->
+                            // TODO: Nel prossimo step aggiorneremo il ViewModel per usare anche 'destination' e 'departure' al posto della query generica!
                             viewModel.applyAdvancedFilters(price, rating, amenities, direct, guide)
                         }
                     )
@@ -166,10 +179,10 @@ fun HomeScreen(
         ) { innerPadding ->
             LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
 
-                // HEADER EMOZIONALE
+                // HEADER EMOZIONALE RIDIMENSIONATO
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(420.dp)) {
+                        Box(modifier = Modifier.fillMaxWidth().height(260.dp)) { // <-- Altezza ridotta
                             AsyncImage(
                                 model = "https://picsum.photos/seed/epic_travel/800/600",
                                 contentDescription = "Sfondo",
@@ -180,12 +193,12 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize().background(
                                     Brush.verticalGradient(
                                         colors = listOf(
-                                            Color.Black.copy(alpha = 0.2f),
+                                            Color.Black.copy(alpha = 0.3f),
                                             Color.Transparent,
                                             Color.Black.copy(alpha = 0.7f)
                                         ),
                                         startY = 0f,
-                                        endY = 1000f
+                                        endY = 800f
                                     )
                                 )
                             )
@@ -193,13 +206,13 @@ fun HomeScreen(
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.Center)
-                                    .offset(y = (-40).dp),
+                                    .offset(y = (-20).dp), // <-- Offset modificato
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "Il mondo ti aspetta.",
+                                    text = "Esplora il mondo.",
                                     color = Color.White,
-                                    fontSize = 36.sp,
+                                    fontSize = 32.sp,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = 1.sp
                                 )
@@ -217,10 +230,10 @@ fun HomeScreen(
                             searchQuery = searchQuery,
                             onQueryChange = { viewModel.updateSearchQuery(it) },
                             onOpenFilters = { showFilterSheet = true },
-                            modifier = Modifier.align(Alignment.BottomCenter).offset(y = 80.dp)
+                            modifier = Modifier.align(Alignment.BottomCenter).offset(y = 40.dp) // <-- Offset ridotto
                         )
                     }
-                    Spacer(modifier = Modifier.height(100.dp))
+                    Spacer(modifier = Modifier.height(60.dp)) // <-- Spazio ridotto
                 }
 
                 // BARRA DELLE CATEGORIE

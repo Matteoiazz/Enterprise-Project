@@ -22,23 +22,21 @@ import com.tripify.tripify_android.core.theme.TripifyGreen
 fun ComplexFilterBottomSheet(
     currentCategory: String, // "Tutti", "Voli", "Hotel", "Escursioni"
     onDismiss: () -> Unit,
-    // Qui in futuro passeremo l'oggetto "FilterState" completo, per ora teniamo stati locali per la UI
-    onApplyFilters: (maxPrice: Float, minRating: Int, amenities: List<String>, directOnly: Boolean, guideOnly: Boolean) -> Unit
+    onApplyFilters: (price: Float, rating: Int, amenities: List<String>, direct: Boolean, guide: Boolean, destination: String, departure: String) -> Unit
 ) {
-    // Stati temporanei per la UI della tendina
+    // Stati Generali
+    var destination by remember { mutableStateOf("") }
     var maxPrice by remember { mutableFloatStateOf(1000f) }
-    var minRating by remember { mutableIntStateOf(0) }
 
-    // Hotel
+    // Stati Specifici
+    var departure by remember { mutableStateOf("") } // Solo Voli
+    var directFlightOnly by remember { mutableStateOf(false) } // Solo Voli
+
+    var minRating by remember { mutableIntStateOf(0) } // Solo Hotel
     val availableAmenities = listOf("Wi-Fi", "Piscina", "Spa", "Colazione", "Parcheggio")
-    var selectedAmenities by remember { mutableStateOf(setOf<String>()) }
+    var selectedAmenities by remember { mutableStateOf(setOf<String>()) } // Solo Hotel
 
-    // Voli
-    var directFlightOnly by remember { mutableStateOf(false) }
-    var selectedTime by remember { mutableStateOf("Qualsiasi") }
-
-    // Escursioni
-    var guideIncludedOnly by remember { mutableStateOf(false) }
+    var guideIncludedOnly by remember { mutableStateOf(false) } // Solo Escursioni
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -49,22 +47,45 @@ fun ComplexFilterBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()) // Rende la tendina scrollabile se ci sono tanti filtri
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Filtri Avanzati", fontSize = 24.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
-                TextButton(onClick = { /* TODO: Resetta tutti gli stati */ }) {
+            // HEADER
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Cerca $currentCategory", fontSize = 24.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+                TextButton(onClick = { /* TODO: Resetta tutto */ }) {
                     Text("Resetta", color = Color.Gray, fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // --- SEZIONE 1: FILTRI GENERALI (Prezzo) ---
+            // --- SEZIONE: DESTINAZIONE E PARTENZA ---
+            OutlinedTextField(
+                value = destination,
+                onValueChange = { destination = it },
+                label = { Text(if (currentCategory == "Voli") "Dove vuoi volare?" else "Dove vuoi andare?") },
+                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = TripifyGreen) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            if (currentCategory == "Voli") {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = departure,
+                    onValueChange = { departure = it },
+                    label = { Text("Da dove parti?") },
+                    leadingIcon = { Icon(Icons.Filled.FlightTakeoff, contentDescription = null, tint = TripifyGreen) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
+
+            // --- SEZIONE: BUDGET ---
             Text("Budget Massimo", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
             Spacer(modifier = Modifier.height(8.dp))
             Text(if (maxPrice >= 1000f) "Nessun limite" else "Fino a €${maxPrice.toInt()}", fontWeight = FontWeight.Bold, color = TripifyGreen)
@@ -72,16 +93,18 @@ fun ComplexFilterBottomSheet(
                 value = maxPrice,
                 onValueChange = { maxPrice = it },
                 valueRange = 50f..1000f,
-                steps = 19, // Passi da 50€
+                steps = 19,
                 colors = SliderDefaults.colors(thumbColor = TripifyGreen, activeTrackColor = TripifyGreen)
             )
-            Divider(modifier = Modifier.padding(vertical = 16.dp), color = Color.LightGray.copy(alpha = 0.5f))
 
-            // --- SEZIONE 2: HOTEL ---
+            // --- SEZIONE DINAMICA: CARATTERISTICHE HOTEL ---
             if (currentCategory == "Tutti" || currentCategory == "Hotel") {
-                Text("Stelle Hotel", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
+                Text("Caratteristiche Hotel", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Categoria minima", fontSize = 14.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                     listOf(0, 3, 4, 5).forEach { stars ->
                         FilterChip(
                             selected = minRating == stars,
@@ -91,83 +114,63 @@ fun ComplexFilterBottomSheet(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text("Servizi Extra", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
                 Spacer(modifier = Modifier.height(8.dp))
-                // FlowRow sarebbe ideale qui, ma usiamo righe scindibili per compatibilità
+
+                Text("Servizi desiderati", fontSize = 14.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(8.dp))
                 availableAmenities.chunked(3).forEach { rowItems ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowItems.forEach { amenity ->
                             val isSelected = selectedAmenities.contains(amenity)
                             FilterChip(
                                 selected = isSelected,
-                                onClick = {
-                                    selectedAmenities = if (isSelected) selectedAmenities - amenity else selectedAmenities + amenity
-                                },
+                                onClick = { selectedAmenities = if (isSelected) selectedAmenities - amenity else selectedAmenities + amenity },
                                 label = { Text(amenity) },
                                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TripifyGreen.copy(alpha = 0.2f), selectedLabelColor = TripifyDarkGreen)
                             )
                         }
                     }
                 }
-                Divider(modifier = Modifier.padding(vertical = 16.dp), color = Color.LightGray.copy(alpha = 0.5f))
             }
 
-            // --- SEZIONE 3: VOLI ---
+            // --- SEZIONE DINAMICA: OPZIONI VOLO ---
             if (currentCategory == "Tutti" || currentCategory == "Voli") {
-                Text("Preferenze Volo", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Solo voli diretti (Senza scali)", fontSize = 16.sp)
+                Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
+                Text("Opzioni Volo", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Mostra solo voli diretti", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = directFlightOnly,
                         onCheckedChange = { directFlightOnly = it },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = TripifyGreen)
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Orario di partenza", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Qualsiasi", "Mattina", "Sera").forEach { time ->
-                        FilterChip(
-                            selected = selectedTime == time,
-                            onClick = { selectedTime = time },
-                            label = { Text(time) },
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TripifyGreen.copy(alpha = 0.2f), selectedLabelColor = TripifyDarkGreen)
-                        )
-                    }
-                }
-                Divider(modifier = Modifier.padding(vertical = 16.dp), color = Color.LightGray.copy(alpha = 0.5f))
             }
 
-            // --- SEZIONE 4: ESCURSIONI ---
+            // --- SEZIONE DINAMICA: ESCURSIONI ---
             if (currentCategory == "Tutti" || currentCategory == "Escursioni") {
+                Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
                 Text("Dettagli Esperienza", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Richiede guida turistica inclusa", fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Richiede guida inclusa", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = guideIncludedOnly,
                         onCheckedChange = { guideIncludedOnly = it },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = TripifyGreen)
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
 
             // BOTTONE APPLICA
             Button(
                 onClick = {
-                    onApplyFilters(maxPrice, minRating, selectedAmenities.toList(), directFlightOnly, guideIncludedOnly)
+                    onApplyFilters(maxPrice, minRating, selectedAmenities.toList(), directFlightOnly, guideIncludedOnly, destination, departure)
                     onDismiss()
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),

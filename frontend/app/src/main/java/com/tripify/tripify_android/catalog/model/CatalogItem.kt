@@ -26,7 +26,9 @@ sealed class CatalogItem {
         override val priceValue: Int, override val imageUrls: List<String>,
         val address: String,
         val rating: Double,
-        val roomType: String
+        val roomType: String,
+        val locationLat: Double? = null,
+        val locationLng: Double? = null
     ) : CatalogItem()
 
     data class Excursion(

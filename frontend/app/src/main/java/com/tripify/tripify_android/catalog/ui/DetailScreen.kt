@@ -30,6 +30,9 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -58,6 +61,7 @@ fun DetailScreen(
     )
 
     val pagerState = rememberPagerState(pageCount = { mockImageGallery.size })
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = SfondoPremium,
@@ -184,6 +188,24 @@ fun DetailScreen(
                         DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = item.address)
                         DetailRow(icon = Icons.Filled.Star, title = "Valutazione", subtitle = "${item.rating} Stelle - Eccellente", iconColor = Color(0xFFFFD700))
                         DetailRow(icon = Icons.Filled.Bed, title = "Tipologia", subtitle = item.roomType)
+                        // IL TASTO MAPPA! Apre Google Maps nativamente
+                        if (item.locationLat != null && item.locationLng != null) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    val uri = Uri.parse("geo:${item.locationLat},${item.locationLng}?q=${item.locationLat},${item.locationLng}(${item.title})")
+                                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                                    intent.setPackage("com.google.android.apps.maps") // Forza l'uso di Maps se installato
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Filled.Map, contentDescription = "Mappa", tint = TripifyGreen)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Vedi sulla mappa", color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(24.dp))
                         Text("Cosa ti aspetta", fontWeight = FontWeight.Black, fontSize = 20.sp, color = TripifyDarkGreen)
