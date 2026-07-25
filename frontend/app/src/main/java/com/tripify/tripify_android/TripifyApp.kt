@@ -13,6 +13,7 @@ import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.ui.RegisterScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
+import com.tripify.tripify_android.booking.ui.BookingsScreen
 import com.tripify.tripify_android.catalog.ui.DetailScreen
 
 // Import Profilo
@@ -48,6 +49,9 @@ fun TripifyApp(
                 },
                 onNavigateToProfile = { // <-- Assicurati di aggiungere questo parametro in HomeScreen!
                     navController.navigate(Route.Profile.path)
+                },
+                onNavigateToBookings = {
+                    navController.navigate(Route.Bookings.path)
                 }
             )
         }
@@ -102,7 +106,8 @@ fun TripifyApp(
             )
         }
 
-        // ROTTA 5: La schermata Profilo <-- NUOVA ROTTA
+
+        // ROTTA 5: La schermata Profilo
         composable(Route.Profile.path) {
             ProfileScreen(
                 viewModel = profileViewModel,
@@ -112,7 +117,17 @@ fun TripifyApp(
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
+                },
+                // AGGIUNGI QUESTA PARTE:
+                onNavigateToLogin = {
+                    // Manda l'utente non loggato alla schermata di Login
+                    navController.navigate(Route.Auth.path)
                 }
+            )
+        }
+        composable(Route.Bookings.path) {
+            BookingsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

@@ -6,7 +6,7 @@ services:
     image: postgres:15
     container_name: db-catalog
     ports:
-      - "5432:5432"
+      - "5435:5432"
     environment:
       POSTGRES_DB: db_catalog
       POSTGRES_USER: postgres

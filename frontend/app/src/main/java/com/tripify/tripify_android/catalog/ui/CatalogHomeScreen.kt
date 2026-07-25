@@ -48,7 +48,8 @@ fun HomeScreen(
     viewModel: CatalogViewModel = viewModel(),
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onNavigateToProfile: () -> Unit = {}
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToBookings: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -71,6 +72,18 @@ fun HomeScreen(
         }
     }
 
+    NavigationDrawerItem(
+        label = { Text("Le mie Prenotazioni") },
+        selected = voceSelezionata == "Prenotazioni",
+        onClick = {
+            voceSelezionata = "Prenotazioni"
+            scope.launch { drawerState.close() }
+            onNavigateToBookings() // <-- CHIAMA LA ROTTA
+        },
+        icon = { Icon(Icons.Filled.ConfirmationNumber, contentDescription = "Prenotazioni") },
+        modifier = Modifier.padding(horizontal = 12.dp)
+    )
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -78,6 +91,7 @@ fun HomeScreen(
                 drawerContainerColor = Color.White,
                 modifier = Modifier.width(300.dp)
             ) {
+                // ... Header con il gradiente e l'avatar ...
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -133,10 +147,15 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
+                // ECCO QUELLO CORRETTO ALLA FINE DEL MENU:
                 NavigationDrawerItem(
                     label = { Text("Le mie Prenotazioni") },
                     selected = voceSelezionata == "Prenotazioni",
-                    onClick = { voceSelezionata = "Prenotazioni"; scope.launch { drawerState.close() } },
+                    onClick = {
+                        voceSelezionata = "Prenotazioni"
+                        scope.launch { drawerState.close() }
+                        onNavigateToBookings() // <-- Chiama la rotta corretta
+                    },
                     icon = { Icon(Icons.Filled.ConfirmationNumber, contentDescription = "Prenotazioni") },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
