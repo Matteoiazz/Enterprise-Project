@@ -35,4 +35,18 @@ object RetrofitClient {
             .build()
             .create(CatalogApi::class.java)
     }
+
+    // --- LA TUA NUOVA FUNZIONE PER IL BOOKING ---
+    fun createBookingApi(tokenManager: TokenManager): BookingApi {
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor(tokenManager))
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(BookingApi::class.java)
+    }
 }
