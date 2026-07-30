@@ -13,6 +13,7 @@ import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.ui.RegisterScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
+import com.tripify.tripify_android.catalog.ui.DetailScreen
 
 // Import Profilo
 import com.tripify.tripify_android.profile.ui.ProfileScreen
@@ -83,9 +84,22 @@ fun TripifyApp(
         }
 
         // ROTTA 4: La schermata di Dettaglio
-        composable(Route.Detail.path) { backStackEntry ->
-            val itemId = backStackEntry.arguments?.getString("itemId")
-            Text(text = "Dettaglio in costruzione. ID ricevuto: $itemId")
+        composable(route = "detail/{itemId}") { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
+
+            DetailScreen(
+                itemId = itemId,
+                viewModel = catalogViewModel,
+                onNavigateBack = {
+                    navController.popBackStack() // Fa tornare l'utente indietro alla Home
+                },
+                onBookNow = { clickedItemId ->
+                    // TODO per Mattia: L'utente ha premuto PRENOTA!
+                    // Usa clickedItemId per aggiungerlo al Booking/Itinerary.
+                    // es: navController.navigate("booking/$clickedItemId")
+                    println("Inizio prenotazione per l'ID: $clickedItemId")
+                }
+            )
         }
 
         // ROTTA 5: La schermata Profilo <-- NUOVA ROTTA

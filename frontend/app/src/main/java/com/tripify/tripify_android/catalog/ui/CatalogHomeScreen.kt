@@ -1,5 +1,7 @@
 package com.tripify.tripify_android.catalog.ui
 
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -31,6 +33,7 @@ import com.tripify.tripify_android.catalog.ui.components.UniversalSearchForm
 import com.tripify.tripify_android.catalog.ui.components.HotelCard
 import com.tripify.tripify_android.catalog.ui.components.ExcursionCard
 import com.tripify.tripify_android.catalog.ui.components.FlightCard
+import com.tripify.tripify_android.catalog.ui.components.ComplexFilterBottomSheet
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 
 // Colori di base
@@ -45,7 +48,7 @@ fun HomeScreen(
     viewModel: CatalogViewModel = viewModel(),
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -53,12 +56,20 @@ fun HomeScreen(
 
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val catalogItems by viewModel.catalogList.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val searchQuery by viewModel.searchQuery.collectAsState()
-
-    val maxPrice by viewModel.maxPrice.collectAsState()
-    val minRating by viewModel.minRating.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
+
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearErrorMessage()
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -134,6 +145,7 @@ fun HomeScreen(
     ) {
         Scaffold(
             containerColor = SfondoPremium,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
@@ -151,22 +163,26 @@ fun HomeScreen(
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
                 )
+
+                // BOTTOM SHEET DEI FILTRI AVANZATI
                 if (showFilterSheet) {
-                    AdvancedFilterBottomSheet(
+                    ComplexFilterBottomSheet(
+                        currentCategory = selectedCategory,
                         onDismiss = { showFilterSheet = false },
-                        maxPrice = maxPrice,
-                        onMaxPriceChange = { viewModel.updateMaxPrice(it) },
-                        minRating = minRating,
-                        onMinRatingChange = { viewModel.updateMinRating(it) }
+                        onApplyFilters = { price, rating, amenities, direct, guide, destination, departure ->
+                            // TODO: Nel prossimo step aggiorneremo il ViewModel per usare anche 'destination' e 'departure' al posto della query generica!
+                            viewModel.applyAdvancedFilters(price, rating, amenities, direct, guide)
+                        }
                     )
                 }
             }
         ) { innerPadding ->
             LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
 
+                // HEADER EMOZIONALE RIDIMENSIONATO
                 item {
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(420.dp)) {
+                        Box(modifier = Modifier.fillMaxWidth().height(260.dp)) { // <-- Altezza ridotta
                             AsyncImage(
                                 model = "https://picsum.photos/seed/epic_travel/800/600",
                                 contentDescription = "Sfondo",
@@ -177,12 +193,12 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize().background(
                                     Brush.verticalGradient(
                                         colors = listOf(
-                                            Color.Black.copy(alpha = 0.2f),
+                                            Color.Black.copy(alpha = 0.3f),
                                             Color.Transparent,
                                             Color.Black.copy(alpha = 0.7f)
                                         ),
                                         startY = 0f,
-                                        endY = 1000f
+                                        endY = 800f
                                     )
                                 )
                             )
@@ -190,13 +206,13 @@ fun HomeScreen(
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.Center)
-                                    .offset(y = (-40).dp),
+                                    .offset(y = (-20).dp), // <-- Offset modificato
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "Il mondo ti aspetta.",
+                                    text = "Esplora il mondo.",
                                     color = Color.White,
-                                    fontSize = 36.sp,
+                                    fontSize = 32.sp,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = 1.sp
                                 )
@@ -214,12 +230,13 @@ fun HomeScreen(
                             searchQuery = searchQuery,
                             onQueryChange = { viewModel.updateSearchQuery(it) },
                             onOpenFilters = { showFilterSheet = true },
-                            modifier = Modifier.align(Alignment.BottomCenter).offset(y = 80.dp)
+                            modifier = Modifier.align(Alignment.BottomCenter).offset(y = 40.dp) // <-- Offset ridotto
                         )
                     }
-                    Spacer(modifier = Modifier.height(100.dp))
+                    Spacer(modifier = Modifier.height(60.dp)) // <-- Spazio ridotto
                 }
 
+                // BARRA DELLE CATEGORIE
                 item {
                     val categorie = listOf("Tutti", "Voli", "Hotel", "Escursioni")
                     Row(
@@ -256,88 +273,32 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // <-- QUI INIETTIAMO L'ID SUL CLICK DELLE CARD
-                items(catalogItems) { item ->
-                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                        when (item) {
-                            is CatalogItem.Flight -> FlightCard(
-                                flight = item,
-                                onClick = { onNavigateToDetail(item.id.toString()) }
-                            )
-                            is CatalogItem.Hotel -> HotelCard(
-                                hotel = item,
-                                onClick = { onNavigateToDetail(item.id.toString()) }
-                            )
-                            is CatalogItem.Excursion -> ExcursionCard(
-                                excursion = item,
-                                onClick = { onNavigateToDetail(item.id.toString()) }
-                            )
+                // --- SEZIONE DINAMICA: Loading, Vuoto o Risultati ---
+                if (isLoading) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = TripifyGreen)
+                        }
+                    }
+                } else if (catalogItems.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                            Text("Nessun viaggio trovato con questi filtri \uD83D\uDE1E", color = Color.Gray, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    items(catalogItems) { item ->
+                        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                            when (item) {
+                                is CatalogItem.Flight -> FlightCard(flight = item, onClick = { onNavigateToDetail(item.id.toString()) })
+                                is CatalogItem.Hotel -> HotelCard(hotel = item, onClick = { onNavigateToDetail(item.id.toString()) })
+                                is CatalogItem.Excursion -> ExcursionCard(excursion = item, onClick = { onNavigateToDetail(item.id.toString()) })
+                            }
                         }
                     }
                 }
 
                 item { Spacer(modifier = Modifier.height(30.dp)) }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AdvancedFilterBottomSheet(
-    onDismiss: () -> Unit,
-    maxPrice: Float,
-    onMaxPriceChange: (Float) -> Unit,
-    minRating: Int,
-    onMinRatingChange: (Int) -> Unit
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(bottom = 32.dp)
-        ) {
-            Text("Filtri Avanzati", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text("Prezzo Massimo: €${maxPrice.toInt()}", fontWeight = FontWeight.Bold)
-            Slider(
-                value = maxPrice,
-                onValueChange = onMaxPriceChange,
-                valueRange = 0f..1000f,
-                steps = 20,
-                colors = SliderDefaults.colors(thumbColor = TripifyGreen, activeTrackColor = TripifyGreen)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text("Categoria minima (Hotel)", fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0, 3, 4, 5).forEach { stars ->
-                    FilterChip(
-                        selected = minRating == stars,
-                        onClick = { onMinRatingChange(stars) },
-                        label = { Text(if (stars == 0) "Tutte" else "$stars+ Stelle") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = TripifyGreen.copy(alpha = 0.2f),
-                            selectedLabelColor = TripifyDarkGreen
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen)
-            ) {
-                Text("APPLICA E CHIUDI", fontWeight = FontWeight.Bold)
             }
         }
     }
