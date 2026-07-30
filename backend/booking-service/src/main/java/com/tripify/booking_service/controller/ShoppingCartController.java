@@ -22,10 +22,10 @@ public class ShoppingCartController {
     public ResponseEntity<String> addItemToCart(
             @PathVariable String userId,
             @RequestParam Long catalogItemId,
-            @RequestParam Integer quantity,
-            @RequestParam Double price) {
+            @RequestParam Integer quantity) { // PREZZO RIMOSSO DAI PARAMETRI
 
-        cartService.addItem(userId, catalogItemId, quantity, price);
+        // CHIAMATA AL SERVICE SENZA IL PREZZO (se lo calcola da solo tramite Feign!)
+        cartService.addItem(userId, catalogItemId, quantity);
         return ResponseEntity.ok("Elemento aggiunto al carrello con successo");
     }
 

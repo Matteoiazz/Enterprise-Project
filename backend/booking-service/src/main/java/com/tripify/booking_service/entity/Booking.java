@@ -3,7 +3,9 @@ package com.tripify.booking_service.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "bookings")
@@ -12,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
 public class Booking {
 
     @Id
@@ -20,7 +21,13 @@ public class Booking {
     private Long id;
 
     @Column(nullable = false)
-    private String userId; // Soft link verso l'utente dell'Auth Service
+    private String userId; // Questo è il LEADER (chi paga/crea il viaggio)
+
+    // LA NOVITÀ: Lista degli User ID degli amici invitati
+    @ElementCollection
+    @CollectionTable(name = "booking_participants", joinColumns = @JoinColumn(name = "booking_id"))
+    @Column(name = "participant_id")
+    private Set<String> participantIds = new HashSet<>();
 
     @Column(nullable = false)
     private Double totalAmount;
@@ -35,6 +42,5 @@ public class Booking {
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookingLine> lines;
 
-    // Per l'Audit Logging richiesto dal PDF
     private LocalDateTime updatedAt;
 }
