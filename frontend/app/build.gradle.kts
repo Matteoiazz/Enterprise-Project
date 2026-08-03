@@ -104,4 +104,10 @@ dependencies {
     // Lifecycle e Coroutines (Per chiamate asincrone senza bloccare la UI)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    // --- LIBRERIE PER I WEBSOCKETS (CHAT) ---
+    // Client STOMP per connettersi a Spring Boot
+    implementation("com.github.NaikSoftware:StompProtocolAndroid:1.6.6")
+    // Reactor Netty / Core (spesso richiesto come dipendenza sottostante per la gestione dei flussi asincroni dei socket)
+    implementation("io.reactivex.rxjava2:rxjava:2.2.21")
+    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
 }
