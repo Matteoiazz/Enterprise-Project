@@ -40,6 +40,19 @@ services:
     networks:
       - travel-network
 
+    # Database per il servizio Communication (Gianmaria)
+  communication-service:
+    image: postgres:15
+    container_name: communication-service
+    ports:
+      - "5435:5432" # Porta esterna 5435
+    environment:
+      POSTGRES_DB: communication-service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    networks:
+      - travel-network
+
   # RabbitMQ per le comunicazioni asincrone
   rabbitmq:
     image: rabbitmq:3-management
