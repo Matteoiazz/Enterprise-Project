@@ -1,7 +1,14 @@
 package com.tripify.tripify_android.catalog.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -12,16 +19,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -30,9 +41,12 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
-import androidx.compose.ui.platform.LocalContext
-import android.content.Intent
-import android.net.Uri
+import kotlinx.coroutines.launch
+
+private val Ink = Color(0xFF1A1A1A)
+private val InkMuted = Color(0xFF7A7A73)
+private val Hairline = Color(0xFFE6E2D8)
+private val CardSurface = Color(0xFFFFFFFF)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -40,222 +54,446 @@ fun DetailScreen(
     itemId: String,
     viewModel: CatalogViewModel,
     onNavigateBack: () -> Unit,
-    onBookNow: (String) -> Unit // <-- IL GANCIO PER MATTIA!
+    onBookNow: (String) -> Unit
 ) {
     val catalogItems by viewModel.catalogList.collectAsState()
     val item = catalogItems.find { it.id.toString() == itemId }
 
     if (item == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Elemento non trovato", fontSize = 18.sp, color = Color.Gray)
+            Text("Elemento non trovato", fontSize = 14.sp, color = InkMuted)
         }
         return
     }
 
-    // SIMULAZIONE IMMAGINI MULTIPLE (Finché il backend non manda una List<String>)
-    // Prendo l'URL base e aggiungo dei parametri random per forzare Picsum a darmi foto diverse
-    val mockImageGallery = listOf(
-        item.imageUrl,
-        "${item.imageUrl}?random=1",
-        "${item.imageUrl}?random=2"
-    )
-
-    val pagerState = rememberPagerState(pageCount = { mockImageGallery.size })
+    val imageList = item.imageUrls.ifEmpty { listOf(item.imageUrl) }
+    val pagerState = rememberPagerState(pageCount = { imageList.size })
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var isDescriptionExpanded by remember { mutableStateOf(false) }
+
+    val imageHeight = 300.dp
+
+    // --- Testo di panoramica generato dai dati reali dell'item ---
+    val overviewText = remember(item) {
+        when (item) {
+            is CatalogItem.Flight -> buildString {
+                append("Volo diretto da ${item.departureAirport} a ${item.arrivalAirport}, ")
+                append("partenza il ${item.departureTime}. ")
+                append(
+                    if (item.availableSeats < 5)
+                        "Attenzione: rimangono solo ${item.availableSeats} posti a questa tariffa."
+                    else
+                        "${item.availableSeats} posti disponibili a questa tariffa."
+                )
+            }
+            is CatalogItem.Hotel -> buildString {
+                append("Sistemazione in ${item.roomType} presso ${item.address}. ")
+                append("Valutazione media degli ospiti: ${item.rating}/5.")
+            }
+            is CatalogItem.Excursion -> buildString {
+                append("Esperienza della durata di ${item.duration}. ")
+                append(
+                    if (item.guideIncluded) "Guida esperta locale inclusa per l'intera durata."
+                    else "Esplorazione libera, senza guida inclusa."
+                )
+            }
+        }
+    }
 
     Scaffold(
         containerColor = SfondoPremium,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // IL BOTTONE DI MATTIA
-            Surface(
-                color = Color.White,
-                shadowElevation = 24.dp,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            // Barra a forma di "matrice di biglietto"
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    color = CardSurface,
+                    shadowElevation = 10.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column {
-                        Text("Prezzo totale", color = Color.Gray, fontSize = 14.sp)
-                        Text(item.price, color = TripifyDarkGreen, fontWeight = FontWeight.Black, fontSize = 24.sp)
-                    }
-                    Button(
-                        onClick = { onBookNow(item.id.toString()) }, // Passiamo l'ID a Mattia
-                        colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.height(56.dp).width(180.dp)
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 22.dp, vertical = 14.dp)
+                            .navigationBarsPadding(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("PRENOTA", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "TOTALE",
+                                color = InkMuted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 1.5.sp
+                            )
+                            Text(
+                                item.price,
+                                color = Ink,
+                                fontFamily = FontFamily.Serif,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 24.sp
+                            )
+                        }
+
+                        Canvas(modifier = Modifier.width(1.dp).height(36.dp)) {
+                            drawLine(
+                                color = Hairline,
+                                start = Offset(0f, 0f),
+                                end = Offset(0f, size.height),
+                                strokeWidth = 2f,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f), 0f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(18.dp))
+
+                        Button(
+                            onClick = { onBookNow(item.id.toString()) },
+                            colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 24.dp),
+                            modifier = Modifier.height(46.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                        ) {
+                            Text(
+                                "PRENOTA ORA",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
                     }
                 }
+
+                // Intagli circolari
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = (-9).dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(SfondoPremium)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = 9.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(SfondoPremium)
+                )
             }
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // --- 1. CAROSELLO IMMAGINI (SWIPE) ---
-            Box(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+
+            // --- 1. CAROSELLO IMMAGINI STATICO  ---
+            Box(modifier = Modifier.fillMaxWidth().height(imageHeight)) {
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     AsyncImage(
-                        model = mockImageGallery[page],
+                        model = imageList[page],
                         contentDescription = "Galleria",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
 
-                // Sfumature per leggibilità
+                // Sfumatura sottile solo per leggibilità delle icone superiori
                 Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent, Color.Black.copy(alpha = 0.6f)),
-                            startY = 0f, endY = 1200f
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(84.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(TripifyDarkGreen.copy(alpha = 0.55f), Color.Transparent)
+                            )
                         )
-                    )
                 )
 
-                // Pulsante Indietro
-                IconButton(
-                    onClick = onNavigateBack,
+                Row(
                     modifier = Modifier
-                        .padding(top = 48.dp, start = 16.dp)
-                        .background(Color.White.copy(alpha = 0.2f), shape = CircleShape)
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 0.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = Color.White)
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.28f))
+                    ) {
+                        Icon(
+                            Icons.Filled.ArrowBack,
+                            contentDescription = "Indietro",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { /* TODO: Aggiungi ai Preferiti */ },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    ) {
+                        Icon(
+                            Icons.Filled.FavoriteBorder,
+                            contentDescription = "Preferito",
+                            tint = TripifyDarkGreen,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
-                // Puntini del Pager (Indicatori)
-                Row(
-                    Modifier.wrapContentHeight().fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 24.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(mockImageGallery.size) { iteration ->
-                        val color = if (pagerState.currentPage == iteration) TripifyGreen else Color.White.copy(alpha = 0.5f)
-                        Box(
-                            modifier = Modifier.padding(2.dp).clip(CircleShape).background(color).size(if (pagerState.currentPage == iteration) 10.dp else 8.dp)
-                        )
+                if (imageList.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        repeat(imageList.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .size(if (index == pagerState.currentPage) 6.dp else 5.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (index == pagerState.currentPage) Color.White
+                                        else Color.White.copy(alpha = 0.45f)
+                                    )
+                            )
+                        }
                     }
                 }
             }
 
-            // --- 2. CONTENUTO E DETTAGLI ---
+            // --- 2. CONTENUTO DETTAGLI ---
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .offset(y = (-20).dp) // Fa sovrapporre la card bianca sull'immagine
-                    .background(Color.White, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .padding(24.dp)
+                    .fillMaxWidth()
+                    .background(CardSurface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .offset(y = (-18).dp)
+                    .padding(horizontal = 20.dp, vertical = 22.dp)
+                    .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
-                // Tipo di item (Chip)
-                Surface(
-                    color = TripifyGreen.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(TripifyGreen)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = when(item) { is CatalogItem.Hotel -> "HOTEL"; is CatalogItem.Flight -> "VOLO"; is CatalogItem.Excursion -> "ESCURSIONE"; else -> "" },
-                        color = TripifyGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        text = when (item) {
+                            is CatalogItem.Hotel -> "HOTEL"
+                            is CatalogItem.Flight -> "VOLO"
+                            is CatalogItem.Excursion -> "ESCURSIONE"
+                            else -> ""
+                        },
+                        color = InkMuted,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.5.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
                     text = item.title,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Black,
-                    color = TripifyDarkGreen,
-                    lineHeight = 34.sp
+                    fontSize = 24.sp,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                    color = Ink,
+                    lineHeight = 28.sp
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
-                Divider(color = Color.LightGray.copy(alpha = 0.3f))
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // SCHEDE SPECIFICHE
                 when (item) {
-                    is CatalogItem.Hotel -> {
-                        DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = item.address)
-                        DetailRow(icon = Icons.Filled.Star, title = "Valutazione", subtitle = "${item.rating} Stelle - Eccellente", iconColor = Color(0xFFFFD700))
-                        DetailRow(icon = Icons.Filled.Bed, title = "Tipologia", subtitle = item.roomType)
-                        // IL TASTO MAPPA! Apre Google Maps nativamente
-                        if (item.locationLat != null && item.locationLng != null) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            OutlinedButton(
-                                onClick = {
-                                    val uri = Uri.parse("geo:${item.locationLat},${item.locationLng}?q=${item.locationLat},${item.locationLng}(${item.title})")
-                                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                                    intent.setPackage("com.google.android.apps.maps") // Forza l'uso di Maps se installato
-                                    context.startActivity(intent)
-                                },
-                                modifier = Modifier.fillMaxWidth().height(50.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Filled.Map, contentDescription = "Mappa", tint = TripifyGreen)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Vedi sulla mappa", color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
+                    is CatalogItem.Flight -> {
+                        SectionLabel("Itinerario")
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Hairline, RoundedCornerShape(12.dp))
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text(item.departureAirport.take(3).uppercase(), fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
+                                Text("Partenza", fontSize = 10.sp, color = InkMuted)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(item.departureTime, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TripifyDarkGreen)
+                            }
+
+                            // Non affermiamo più "Diretto": nessun campo del backend conferma il numero di scali
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Filled.Flight, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(16.dp))
+                                Divider(color = Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 6.dp).fillMaxWidth(0.6f))
+                            }
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text(item.arrivalAirport.take(3).uppercase(), fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
+                                Text("Arrivo", fontSize = 10.sp, color = InkMuted)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text("Cosa ti aspetta", fontWeight = FontWeight.Black, fontSize = 20.sp, color = TripifyDarkGreen)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Situato nel cuore pulsante della destinazione, questo hotel offre un mix perfetto di comfort moderno e fascino locale. Con Wi-Fi super veloce, servizio in camera h24 e una vista mozzafiato, è il luogo ideale per riposarsi dopo una giornata di esplorazione.", color = Color.Gray, fontSize = 16.sp, lineHeight = 24.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DetailRow(
+                            icon = Icons.Filled.AirlineSeatReclineNormal,
+                            title = "Disponibilità",
+                            subtitle = "Rimangono ${item.availableSeats} posti a questo prezzo",
+                            iconColor = if (item.availableSeats < 5) Color(0xFFB3261E) else TripifyGreen
+                        )
                     }
-                    is CatalogItem.Flight -> {
-                        DetailRow(icon = Icons.Filled.FlightTakeoff, title = "Partenza", subtitle = "${item.departureAirport} - ${item.departureTime}")
-                        DetailRow(icon = Icons.Filled.FlightLand, title = "Arrivo", subtitle = item.arrivalAirport)
-                        DetailRow(icon = Icons.Filled.AirlineSeatReclineNormal, title = "Disponibilità", subtitle = "Rimangono solo ${item.availableSeats} posti", iconColor = if(item.availableSeats < 5) Color.Red else TripifyGreen)
 
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text("Regole del volo", fontWeight = FontWeight.Black, fontSize = 20.sp, color = TripifyDarkGreen)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Il biglietto base include un bagaglio a mano da riporre sotto il sedile. Modifiche al volo consentite fino a 24 ore prima della partenza. È richiesto il check-in online.", color = Color.Gray, fontSize = 16.sp, lineHeight = 24.sp)
+                    is CatalogItem.Hotel -> {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            HotelHighlight(icon = Icons.Filled.Star, title = "${item.rating}", subtitle = "Rating", modifier = Modifier.weight(1f))
+                            HotelHighlight(icon = Icons.Filled.Bed, title = item.roomType.take(14), subtitle = "Camera", modifier = Modifier.weight(1f))
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = item.address)
+
+                        if (item.locationLat != null && item.locationLng != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    val geoUri = Uri.parse("geo:${item.locationLat},${item.locationLng}?q=${item.locationLat},${item.locationLng}(${item.title})")
+                                    try {
+                                        // 1° tentativo: apri direttamente Google Maps
+                                        val mapsIntent = Intent(Intent.ACTION_VIEW, geoUri).apply { setPackage("com.google.android.apps.maps") }
+                                        context.startActivity(mapsIntent)
+                                    } catch (e: ActivityNotFoundException) {
+                                        try {
+                                            // 2° tentativo: fallback generico, lascia scegliere all'utente un'app maps qualsiasi
+                                            val genericIntent = Intent(Intent.ACTION_VIEW, geoUri)
+                                            context.startActivity(genericIntent)
+                                        } catch (e: ActivityNotFoundException) {
+                                            // 3° tentativo: nessuna app maps disponibile, avvisa senza crashare
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Nessuna app per le mappe trovata sul dispositivo")
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Hairline)
+                            ) {
+                                Icon(Icons.Filled.Map, contentDescription = "Mappa", tint = TripifyGreen, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Esplora i dintorni", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            }
+                        }
                     }
+
                     is CatalogItem.Excursion -> {
-                        DetailRow(icon = Icons.Filled.Schedule, title = "Durata", subtitle = item.duration)
-                        DetailRow(icon = Icons.Filled.Tour, title = "Guida", subtitle = if(item.guideIncluded) "Guida esperta inclusa" else "Esplorazione libera")
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text("Descrizione dell'attività", fontWeight = FontWeight.Black, fontSize = 20.sp, color = TripifyDarkGreen)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Preparati per un'esperienza indimenticabile. Attraversa paesaggi iconici, scopri la storia nascosta e scatta fotografie spettacolari. L'attrezzatura necessaria è fornita sul posto.", color = Color.Gray, fontSize = 16.sp, lineHeight = 24.sp)
+                        DetailRow(icon = Icons.Filled.Schedule, title = "Durata prevista", subtitle = item.duration)
+                        DetailRow(
+                            icon = Icons.Filled.Tour,
+                            title = "Guida e assistenza",
+                            subtitle = if (item.guideIncluded) "Guida esperta locale inclusa" else "Esplorazione libera"
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(80.dp)) // Spazio vuoto per lo scrolling
+                Spacer(modifier = Modifier.height(20.dp))
+                Divider(color = Hairline)
+                Spacer(modifier = Modifier.height(20.dp))
+
+                SectionLabel("Panoramica")
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(modifier = Modifier.animateContentSize(animationSpec = tween(250))) {
+                    Text(
+                        text = overviewText,
+                        color = InkMuted,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = if (isDescriptionExpanded) "Mostra meno" else "Leggi tutto",
+                        color = TripifyDarkGreen,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
-// Componente di utilità per le righe con icona
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        letterSpacing = 1.2.sp,
+        color = InkMuted
+    )
+}
+
+// Componente di utilità per le righe di dettaglio
 @Composable
 fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, iconColor: Color = TripifyGreen) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(48.dp).background(iconColor.copy(alpha = 0.1f), shape = CircleShape),
+            modifier = Modifier.size(38.dp).background(iconColor.copy(alpha = 0.1f), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text(title, color = Color.Gray, fontSize = 14.sp)
-            Text(subtitle, color = TripifyDarkGreen, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(title, color = InkMuted, fontSize = 11.sp)
+            Text(subtitle, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
+    }
+}
+
+// Griglia degli highlight per gli Hotel
+@Composable
+fun HotelHighlight(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .border(1.dp, Hairline, RoundedCornerShape(12.dp))
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(icon, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(title, fontWeight = FontWeight.Bold, color = Ink, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, color = InkMuted, fontSize = 10.sp)
     }
 }

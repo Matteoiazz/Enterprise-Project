@@ -24,4 +24,7 @@ public class Activity extends CatalogItem {
 
     @Column(name = "max_participants")
     private Integer maxParticipants;
+
+    @Column(name = "guide_included", nullable = false)
+    private boolean guideIncluded;
 }

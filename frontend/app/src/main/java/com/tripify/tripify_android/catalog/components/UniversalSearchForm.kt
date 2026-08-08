@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.catalog.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,64 +16,62 @@ import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 
+private val Hairline = Color(0xFFE6E2D8)
+
 @Composable
 fun UniversalSearchForm(
-    searchQuery: String, // RICEVE IL TESTO DAL VIEWMODEL
-    onQueryChange: (String) -> Unit, // COMUNICA AL VIEWMODEL COSA SCRIVE L'UTENTE
+    searchQuery: String,
+    onQueryChange: (String) -> Unit,
     onOpenFilters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 24.dp),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp)
+        modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
 
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = onQueryChange, // Aggiorna in tempo reale
-                placeholder = { Text("Es. Napoli, Tokyo, Maldive...") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Cerca", tint = TripifyGreen) },
+                onValueChange = onQueryChange,
+                placeholder = { Text("Napoli, Tokyo, Maldive…", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Cerca", tint = TripifyGreen, modifier = Modifier.size(18.dp)) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = TripifyGreen,
-                    unfocusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Hairline,
                     focusedContainerColor = SfondoPremium,
                     unfocusedContainerColor = SfondoPremium
                 ),
-                modifier = Modifier.fillMaxWidth(),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(10.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Sostituisci il vecchio bottone CERCA con questo:
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = { /* In futuro: apri data picker */ },
-                    colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.weight(1f).height(56.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(vertical = 0.dp),
+                    modifier = Modifier.weight(1f).height(44.dp)
                 ) {
-                    Text("CERCA", fontSize = 16.sp, fontWeight = FontWeight.Black)
+                    Text("CERCA", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
                 }
 
-                // IL NUOVO TASTO FILTRI
-                FilledIconButton(
-                    onClick = { onOpenFilters() }, // Aggiungi questo parametro alla funzione UniversalSearchForm!
-                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = TripifyDarkGreen),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(56.dp)
+                OutlinedIconButton(
+                    onClick = { onOpenFilters() },
+                    border = BorderStroke(1.dp, Hairline),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.size(44.dp)
                 ) {
-                    Icon(Icons.Filled.Tune, contentDescription = "Filtri Avanzati", tint = Color.White)
+                    Icon(Icons.Filled.Tune, contentDescription = "Filtri avanzati", tint = TripifyDarkGreen, modifier = Modifier.size(18.dp))
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-
         }
     }
 }

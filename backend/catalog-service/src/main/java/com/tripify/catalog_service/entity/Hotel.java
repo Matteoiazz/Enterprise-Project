@@ -1,9 +1,10 @@
 package com.tripify.catalog_service.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "hotel_details")
@@ -13,7 +14,6 @@ import lombok.*;
 @AllArgsConstructor
 public class Hotel extends CatalogItem {
 
-    // Coordinate per la mappa Android!
     @Column(name = "location_lat", nullable = false)
     private Double locationLat;
 
@@ -21,8 +21,17 @@ public class Hotel extends CatalogItem {
     private Double locationLng;
 
     @Column(name = "room_type", nullable = false)
-    private String roomType; // Es: "Single", "Double", "Suite"
+    private String roomType;
 
     @Column(name = "available_rooms", nullable = false)
     private Integer availableRooms;
+
+    @Column(name = "address", nullable = false)
+    private String address;
+
+    // Tabella separata "hotel_amenities" con FK verso hotel_details
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "hotel_amenities", joinColumns = @JoinColumn(name = "hotel_id"))
+    @Column(name = "amenity")
+    private List<String> amenities = new ArrayList<>();
 }

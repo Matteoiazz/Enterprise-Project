@@ -10,6 +10,10 @@ interface CatalogApi {
         @Query("category") category: String,
         @Query("query") query: String,
         @Query("maxPrice") maxPrice: Int,
-        @Query("minRating") minRating: Int
+        @Query("minRating") minRating: Int,
+        @Query("destination") destination: String? = null,
+        @Query("departure") departure: String? = null,
+        @Query("guideIncluded") guideIncluded: Boolean? = null,
+        @Query("amenities") amenities: String? = null // CSV: "Wi-Fi,Piscina"
     ): List<CatalogItemDto>
 }

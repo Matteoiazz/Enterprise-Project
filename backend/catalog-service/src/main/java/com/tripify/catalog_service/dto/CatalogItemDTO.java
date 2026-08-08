@@ -30,12 +30,20 @@ public class CatalogItemDTO {
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;
     private Integer availableSeats;
+    private Integer stops;
 
     // --- CAMPI SPECIFICI DELL'HOTEL (Hotel) ---
     private String roomType;
     private Integer availableRooms;
     private Double locationLat;
     private Double locationLng;
+    private String address;
+    private List<String> amenities;
 
-
+    // --- CAMPI SPECIFICI DELL'ATTIVITÀ (Activity) ---
+    private String activityType;
+    private String duration;
+    private String meetingPoint;
+    private Integer maxParticipants;
+    private Boolean guideIncluded;
 }

@@ -10,15 +10,15 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "flight_details")
 @Data
-@EqualsAndHashCode(callSuper = true) // Importante per l'ereditarietà con Lombok
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Flight extends CatalogItem {
 
-    @Column(name = "departure_airport", nullable = false, length = 3) // Es: "FCO", "MXP"
+    @Column(name = "departure_airport", nullable = false, length = 3)
     private String departureAirport;
 
-    @Column(name = "arrival_airport", nullable = false, length = 3) // Es: "LHR", "JFK"
+    @Column(name = "arrival_airport", nullable = false, length = 3)
     private String arrivalAirport;
 
     @Column(name = "departure_time", nullable = false)
@@ -29,4 +29,7 @@ public class Flight extends CatalogItem {
 
     @Column(name = "available_seats", nullable = false)
     private Integer availableSeats;
+
+    @Column(name = "stops", nullable = false)
+    private Integer stops = 0; // 0 = diretto.
 }
