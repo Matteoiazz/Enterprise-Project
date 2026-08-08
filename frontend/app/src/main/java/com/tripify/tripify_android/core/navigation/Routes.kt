@@ -9,4 +9,6 @@ sealed class Route(val path: String) {
     object Profile : Route("profile")
     object Detail : Route("detail/{itemId}")
     object Bookings : Route("bookings")
+
+    object Companions : Route("companions")
 }

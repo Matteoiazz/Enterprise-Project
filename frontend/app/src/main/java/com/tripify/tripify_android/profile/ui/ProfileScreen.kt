@@ -37,7 +37,8 @@ import com.tripify.tripify_android.core.theme.TripifyGreen
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onLogoutSuccess: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onNavigateToCompanions: () -> Unit
 ) {
     LaunchedEffect(viewModel) {
         viewModel.loadUserProfile()
@@ -77,7 +78,8 @@ fun ProfileScreen(
             } else if (!isLoggedIn) {
                 GuestProfileView(onNavigateToLogin)
             } else {
-                LoggedProfileContent(viewModel)
+                // Passiamo l'azione giù al contenuto
+                LoggedProfileContent(viewModel, onNavigateToCompanions)
             }
         }
     }
@@ -92,47 +94,25 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Icona in stile Premium
         Box(
             modifier = Modifier
                 .size(100.dp)
                 .background(TripifyGreen.copy(alpha = 0.1f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Lock,
-                contentDescription = "Lock",
-                modifier = Modifier.size(50.dp),
-                tint = TripifyGreen
-            )
+            Icon(Icons.Outlined.Lock, contentDescription = "Lock", modifier = Modifier.size(50.dp), tint = TripifyGreen)
         }
-
         Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = "Accedi a Tripify",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Black,
-            color = TripifyDarkGreen
-        )
-
+        Text("Accedi a Tripify", fontSize = 28.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
         Spacer(modifier = Modifier.height(12.dp))
-
         Text(
             text = "Gestisci i tuoi documenti, aggiungi i tuoi compagni di viaggio e velocizza i tuoi pagamenti.",
-            textAlign = TextAlign.Center,
-            color = Color.Gray,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 16.dp)
         )
-
         Spacer(modifier = Modifier.height(40.dp))
-
         Button(
             onClick = onNavigateToLogin,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -142,80 +122,35 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
 }
 
 @Composable
-fun LoggedProfileContent(viewModel: ProfileViewModel) {
+fun LoggedProfileContent(
+    viewModel: ProfileViewModel,
+    onNavigateToCompanions: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // HEADER CON GRADIENTE E AVATAR
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            ) {
-                // Sfondo Gradiente
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().height(140.dp).background(Brush.verticalGradient(listOf(TripifyGreen, TripifyDarkGreen))))
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(TripifyGreen, TripifyDarkGreen)
-                            )
-                        )
-                )
-
-                // Avatar Sovrapposto
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .size(110.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(4.dp, SfondoPremium, CircleShape),
+                    modifier = Modifier.align(Alignment.BottomCenter).size(110.dp).clip(CircleShape).background(Color.White).border(4.dp, SfondoPremium, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(CircleShape)
-                            .background(TripifyGreen.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = viewModel.name.take(1).uppercase() + viewModel.surname.take(1).uppercase(),
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Black,
-                            color = TripifyDarkGreen
-                        )
+                    Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(TripifyGreen.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                        Text(text = viewModel.name.take(1).uppercase() + viewModel.surname.take(1).uppercase(), fontSize = 36.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "${viewModel.name} ${viewModel.surname}".trim().ifEmpty { "Utente Tripify" },
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                color = TripifyDarkGreen
-            )
-            Text(
-                text = viewModel.email,
-                fontSize = 15.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Medium
-            )
-
+            Text(text = "${viewModel.name} ${viewModel.surname}".trim().ifEmpty { "Utente Tripify" }, fontSize = 24.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+            Text(text = viewModel.email, fontSize = 15.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(40.dp))
         }
 
-        // SEZIONE MENU ACCOUNT PURA
         item {
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                 SectionTitle("Il tuo Account")
-
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -223,22 +158,19 @@ fun LoggedProfileContent(viewModel: ProfileViewModel) {
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
                 ) {
                     Column {
-                        // Tolto "I Miei Viaggi", lasciato solo ciò che appartiene al Profilo
                         ProfileMenuRow(Icons.Outlined.Badge, "Documenti di Viaggio", hasDivider = true)
-                        ProfileMenuRow(Icons.Outlined.Group, "Compagni di Viaggio", hasDivider = true)
+
+                        // COLLEGATO AL CLICK!
+                        ProfileMenuRow(Icons.Outlined.Group, "Compagni di Viaggio", hasDivider = true, onClick = onNavigateToCompanions)
+
                         ProfileMenuRow(Icons.Outlined.AccountBalanceWallet, "Portafoglio e Pagamenti", hasDivider = true)
                         ProfileMenuRow(Icons.Outlined.Settings, "Impostazioni App", hasDivider = false)
                     }
                 }
-
                 Spacer(modifier = Modifier.height(40.dp))
-
-                // Tasto Logout
                 OutlinedButton(
                     onClick = { viewModel.logout() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
@@ -247,38 +179,22 @@ fun LoggedProfileContent(viewModel: ProfileViewModel) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(text = "Esci dall'account", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
-
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }
 }
 
-// UI Component: Titolo Sezione
 @Composable
 fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        fontSize = 20.sp,
-        fontWeight = FontWeight.Black,
-        color = TripifyDarkGreen,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp),
-        textAlign = TextAlign.Start
-    )
+    Text(text = title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), textAlign = TextAlign.Start)
 }
 
-// UI Component: Riga del Menu
+// onClick Aggiunto alla firma e usato nel modifier
 @Composable
-fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean) {
-    Column(modifier = Modifier.clickable { /* TODO: Naviga */ }) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick: () -> Unit = {}) {
+    Column(modifier = Modifier.clickable { onClick() }) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(imageVector = icon, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(28.dp))
             Spacer(modifier = Modifier.width(16.dp))
             Text(text = text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TripifyDarkGreen, modifier = Modifier.weight(1f))

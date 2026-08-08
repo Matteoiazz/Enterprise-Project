@@ -22,13 +22,16 @@ import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 
 // Import Catalogo
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.profile.ui.CompanionsScreen
+import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 
 @Composable
 fun TripifyApp(
     loginViewModel: LoginViewModel,
     registerViewModel: RegisterViewModel,
     catalogViewModel: CatalogViewModel,
-    profileViewModel: ProfileViewModel // <-- 1. Aggiunto qui!
+    profileViewModel: ProfileViewModel,
+    companionsViewModel: CompanionsViewModel
 ) {
     val navController = rememberNavController()
 
@@ -45,9 +48,9 @@ fun TripifyApp(
                     navController.navigate(Route.Auth.path)
                 },
                 onNavigateToDetail = { itemId ->
-                    navController.navigate("detail/$itemId") // Qui lo lasciamo a stringa per via del parametro
+                    navController.navigate("detail/$itemId")
                 },
-                onNavigateToProfile = { // <-- Assicurati di aggiungere questo parametro in HomeScreen!
+                onNavigateToProfile = {
                     navController.navigate(Route.Profile.path)
                 },
                 onNavigateToBookings = {
@@ -61,24 +64,23 @@ fun TripifyApp(
             LoginScreen(
                 viewModel = loginViewModel,
                 onNavigateToCatalog = {
-                    // Dopo il login, vai alla Home e cancella la rotta Auth dallo stack
                     navController.navigate(Route.Home.path) {
                         popUpTo(Route.Auth.path) { inclusive = true }
                     }
                 },
                 onNavigateToRegister = {
-                    navController.navigate(Route.Register.path) // Usiamo la sealed class
+                    navController.navigate(Route.Register.path)
                 }
             )
         }
 
         // ROTTA 3: La schermata di Registrazione
-        composable(Route.Register.path) { // Usiamo la sealed class
+        composable(Route.Register.path) {
             RegisterScreen(
                 viewModel = registerViewModel,
                 onNavigateToCatalog = {
                     navController.navigate(Route.Home.path) {
-                        popUpTo(0) { inclusive = true } // Pulisce tutto se la registrazione è ok
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateBackToLogin = {
@@ -95,36 +97,42 @@ fun TripifyApp(
                 itemId = itemId,
                 viewModel = catalogViewModel,
                 onNavigateBack = {
-                    navController.popBackStack() // Fa tornare l'utente indietro alla Home
+                    navController.popBackStack()
                 },
                 onBookNow = { clickedItemId ->
-                    // TODO per Mattia: L'utente ha premuto PRENOTA!
-                    // Usa clickedItemId per aggiungerlo al Booking/Itinerary.
-                    // es: navController.navigate("booking/$clickedItemId")
                     println("Inizio prenotazione per l'ID: $clickedItemId")
                 }
             )
         }
 
-
-        // ROTTA 5: La schermata Profilo
+        // ROTTA 5: La schermata Profilo UNIFICATA
         composable(Route.Profile.path) {
             ProfileScreen(
                 viewModel = profileViewModel,
                 onLogoutSuccess = {
-                    // Svuota l'intera cronologia per non far tornare indietro col tasto back e naviga al Login
                     navController.navigate(Route.Auth.path) {
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
-                // AGGIUNGI QUESTA PARTE:
                 onNavigateToLogin = {
-                    // Manda l'utente non loggato alla schermata di Login
                     navController.navigate(Route.Auth.path)
+                },
+                onNavigateToCompanions = { // <-- AZIONE DEL CLICK SUI COMPAGNI
+                    navController.navigate(Route.Companions.path)
                 }
             )
         }
+
+        // ROTTA 6: Compagni di Viaggio
+        composable(Route.Companions.path) {
+            CompanionsScreen(
+                viewModel = companionsViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ROTTA 7: Le mie Prenotazioni
         composable(Route.Bookings.path) {
             BookingsScreen(
                 onNavigateBack = { navController.popBackStack() }
