@@ -263,7 +263,7 @@ fun HomeScreen(
 
                 // BARRA DELLE CATEGORIE
                 item {
-                    val categorie = listOf("Tutti", "Voli", "Hotel", "Escursioni")
+                    val categorie = listOf("Tutti", "Voli", "Hotel", "Attività")
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier

@@ -193,7 +193,7 @@ fun ComplexFilterBottomSheet(
                 }
             }
 
-            if (currentCategory == "Tutti" || currentCategory == "Escursioni") {
+            if (currentCategory == "Tutti" || currentCategory == "Attività") {
                 Divider(modifier = Modifier.padding(vertical = 20.dp), color = Hairline)
                 SectionLabel("Dettagli esperienza")
                 Spacer(modifier = Modifier.height(12.dp))

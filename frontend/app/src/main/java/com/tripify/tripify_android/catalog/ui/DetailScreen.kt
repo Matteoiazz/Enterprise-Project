@@ -42,7 +42,7 @@ import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 import kotlinx.coroutines.launch
-
+import com.tripify.tripify_android.BuildConfig
 private val Ink = Color(0xFF1A1A1A)
 private val InkMuted = Color(0xFF7A7A73)
 private val Hairline = Color(0xFFE6E2D8)
@@ -375,7 +375,6 @@ fun DetailScreen(
 
                         DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = "${item.address}, ${item.city}")
 
-                        // Amenities reali, non più inventate — mostrate solo se ce ne sono
                         if (item.amenities.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             SectionLabel("Servizi inclusi")
@@ -416,31 +415,63 @@ fun DetailScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
+                        // Sostituisci il blocco "if (item.locationLat != null && item.locationLng != null) { OutlinedButton(...) }" con questo:
+
                         if (item.locationLat != null && item.locationLng != null) {
-                            OutlinedButton(
-                                onClick = {
-                                    val geoUri = Uri.parse("geo:${item.locationLat},${item.locationLng}?q=${item.locationLat},${item.locationLng}(${item.title})")
+                            // Amenities reali, non più inventate — mostrate solo se ce ne sono
+                            // (questo blocco resta invariato, sopra la mappa)
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            val staticMapUrl = "https://maps.googleapis.com/maps/api/staticmap" +
+                                    "?center=${item.locationLat},${item.locationLng}" +
+                                    "&zoom=15&size=600x300&scale=2" +
+                                    "&markers=color:0x1B4332%7C${item.locationLat},${item.locationLng}" +
+                                    "&key=${BuildConfig.MAPS_API_KEY}"
+
+                            fun openMaps() {
+                                val geoUri = Uri.parse("geo:${item.locationLat},${item.locationLng}?q=${item.locationLat},${item.locationLng}(${item.title})")
+                                try {
+                                    val mapsIntent = Intent(Intent.ACTION_VIEW, geoUri).apply { setPackage("com.google.android.apps.maps") }
+                                    context.startActivity(mapsIntent)
+                                } catch (e: ActivityNotFoundException) {
                                     try {
-                                        val mapsIntent = Intent(Intent.ACTION_VIEW, geoUri).apply { setPackage("com.google.android.apps.maps") }
-                                        context.startActivity(mapsIntent)
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, geoUri))
                                     } catch (e: ActivityNotFoundException) {
-                                        try {
-                                            val genericIntent = Intent(Intent.ACTION_VIEW, geoUri)
-                                            context.startActivity(genericIntent)
-                                        } catch (e: ActivityNotFoundException) {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Nessuna app per le mappe trovata sul dispositivo")
-                                            }
-                                        }
+                                        scope.launch { snackbarHostState.showSnackbar("Nessuna app per le mappe trovata sul dispositivo") }
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(44.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Hairline)
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, Hairline, RoundedCornerShape(12.dp))
+                                    .clickable { openMaps() }
                             ) {
-                                Icon(Icons.Filled.Map, contentDescription = "Mappa", tint = TripifyGreen, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Esplora i dintorni", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                AsyncImage(
+                                    model = staticMapUrl,
+                                    contentDescription = "Mappa della posizione",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                Surface(
+                                    color = Color.White.copy(alpha = 0.95f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Map, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Apri in Maps", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                                    }
+                                }
                             }
                         }
                     }
