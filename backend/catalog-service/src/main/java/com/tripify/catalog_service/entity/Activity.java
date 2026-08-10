@@ -14,13 +14,16 @@ import lombok.*;
 public class Activity extends CatalogItem {
 
     @Column(name = "activity_type", nullable = false)
-    private String activityType; // Es: "Museo", "Tour Gastronomico", "Sport Estremi"
+    private String activityType;
 
     @Column(nullable = false)
-    private String duration; // Es: "2 ore", "Giornata intera"
+    private String duration;
 
     @Column(name = "meeting_point")
-    private String meetingPoint; // Indirizzo di ritrovo per l'attività
+    private String meetingPoint;
+
+    @Column(name = "city", nullable = false)
+    private String city;
 
     @Column(name = "max_participants")
     private Integer maxParticipants;

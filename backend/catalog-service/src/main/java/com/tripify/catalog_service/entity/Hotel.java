@@ -29,7 +29,9 @@ public class Hotel extends CatalogItem {
     @Column(name = "address", nullable = false)
     private String address;
 
-    // Tabella separata "hotel_amenities" con FK verso hotel_details
+    @Column(name = "city", nullable = false)
+    private String city;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "hotel_amenities", joinColumns = @JoinColumn(name = "hotel_id"))
     @Column(name = "amenity")

@@ -75,11 +75,10 @@ fun DetailScreen(
 
     val imageHeight = 300.dp
 
-    // --- Testo di panoramica generato dai dati reali dell'item ---
     val overviewText = remember(item) {
         when (item) {
             is CatalogItem.Flight -> buildString {
-                append("Volo diretto da ${item.departureAirport} a ${item.arrivalAirport}, ")
+                append("Volo da ${item.departureCity} a ${item.arrivalCity}, ")
                 append("partenza il ${item.departureTime}. ")
                 append(
                     if (item.availableSeats < 5)
@@ -89,11 +88,11 @@ fun DetailScreen(
                 )
             }
             is CatalogItem.Hotel -> buildString {
-                append("Sistemazione in ${item.roomType} presso ${item.address}. ")
+                append("Sistemazione in ${item.roomType} a ${item.city}. ")
                 append("Valutazione media degli ospiti: ${item.rating}/5.")
             }
             is CatalogItem.Excursion -> buildString {
-                append("Esperienza della durata di ${item.duration}. ")
+                append("${item.activityType} della durata di ${item.duration}. ")
                 append(
                     if (item.guideIncluded) "Guida esperta locale inclusa per l'intera durata."
                     else "Esplorazione libera, senza guida inclusa."
@@ -106,7 +105,6 @@ fun DetailScreen(
         containerColor = SfondoPremium,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // Barra a forma di "matrice di biglietto"
             Box(modifier = Modifier.fillMaxWidth()) {
                 Surface(
                     color = CardSurface,
@@ -167,7 +165,6 @@ fun DetailScreen(
                     }
                 }
 
-                // Intagli circolari
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
@@ -193,7 +190,6 @@ fun DetailScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
-            // --- 1. CAROSELLO IMMAGINI STATICO  ---
             Box(modifier = Modifier.fillMaxWidth().height(imageHeight)) {
                 HorizontalPager(
                     state = pagerState,
@@ -207,7 +203,6 @@ fun DetailScreen(
                     )
                 }
 
-                // Sfumatura sottile solo per leggibilità delle icone superiori
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -280,7 +275,6 @@ fun DetailScreen(
                 }
             }
 
-            // --- 2. CONTENUTO DETTAGLI ---
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -302,7 +296,7 @@ fun DetailScreen(
                         text = when (item) {
                             is CatalogItem.Hotel -> "HOTEL"
                             is CatalogItem.Flight -> "VOLO"
-                            is CatalogItem.Excursion -> "ESCURSIONE"
+                            is CatalogItem.Excursion -> item.activityType.uppercase()
                             else -> ""
                         },
                         color = InkMuted,
@@ -339,20 +333,26 @@ fun DetailScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                 Text(item.departureAirport.take(3).uppercase(), fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
-                                Text("Partenza", fontSize = 10.sp, color = InkMuted)
+                                Text(item.departureCity, fontSize = 10.sp, color = InkMuted)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(item.departureTime, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TripifyDarkGreen)
                             }
 
-                            // Non affermiamo più "Diretto": nessun campo del backend conferma il numero di scali
+                            // Ora un dato reale: "Diretto" solo se stops == 0, altrimenti mostra il numero di scali
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Filled.Flight, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(16.dp))
                                 Divider(color = Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 6.dp).fillMaxWidth(0.6f))
+                                Text(
+                                    text = if (item.isDirect) "Diretto" else "${item.stops} ${if (item.stops == 1) "scalo" else "scali"}",
+                                    fontSize = 10.sp,
+                                    color = if (item.isDirect) TripifyGreen else InkMuted,
+                                    fontWeight = if (item.isDirect) FontWeight.Bold else FontWeight.Normal
+                                )
                             }
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                 Text(item.arrivalAirport.take(3).uppercase(), fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
-                                Text("Arrivo", fontSize = 10.sp, color = InkMuted)
+                                Text(item.arrivalCity, fontSize = 10.sp, color = InkMuted)
                             }
                         }
 
@@ -373,24 +373,61 @@ fun DetailScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = item.address)
+                        DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = "${item.address}, ${item.city}")
+
+                        // Amenities reali, non più inventate — mostrate solo se ce ne sono
+                        if (item.amenities.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            SectionLabel("Servizi inclusi")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                item.amenities.take(3).forEach { amenity ->
+                                    Surface(
+                                        color = TripifyGreen.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            amenity,
+                                            color = TripifyDarkGreen,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                                if (item.amenities.size > 3) {
+                                    Surface(
+                                        color = Hairline,
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            "+${item.amenities.size - 3}",
+                                            color = InkMuted,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
 
                         if (item.locationLat != null && item.locationLng != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
                             OutlinedButton(
                                 onClick = {
                                     val geoUri = Uri.parse("geo:${item.locationLat},${item.locationLng}?q=${item.locationLat},${item.locationLng}(${item.title})")
                                     try {
-                                        // 1° tentativo: apri direttamente Google Maps
                                         val mapsIntent = Intent(Intent.ACTION_VIEW, geoUri).apply { setPackage("com.google.android.apps.maps") }
                                         context.startActivity(mapsIntent)
                                     } catch (e: ActivityNotFoundException) {
                                         try {
-                                            // 2° tentativo: fallback generico, lascia scegliere all'utente un'app maps qualsiasi
                                             val genericIntent = Intent(Intent.ACTION_VIEW, geoUri)
                                             context.startActivity(genericIntent)
                                         } catch (e: ActivityNotFoundException) {
-                                            // 3° tentativo: nessuna app maps disponibile, avvisa senza crashare
                                             scope.launch {
                                                 snackbarHostState.showSnackbar("Nessuna app per le mappe trovata sul dispositivo")
                                             }
@@ -410,11 +447,15 @@ fun DetailScreen(
 
                     is CatalogItem.Excursion -> {
                         DetailRow(icon = Icons.Filled.Schedule, title = "Durata prevista", subtitle = item.duration)
+                        DetailRow(icon = Icons.Filled.LocationOn, title = "Punto di ritrovo", subtitle = item.meetingPoint)
                         DetailRow(
                             icon = Icons.Filled.Tour,
                             title = "Guida e assistenza",
                             subtitle = if (item.guideIncluded) "Guida esperta locale inclusa" else "Esplorazione libera"
                         )
+                        item.maxParticipants?.let { max ->
+                            DetailRow(icon = Icons.Filled.Groups, title = "Partecipanti", subtitle = "Massimo $max persone")
+                        }
                     }
                 }
 
@@ -461,7 +502,6 @@ private fun SectionLabel(text: String) {
     )
 }
 
-// Componente di utilità per le righe di dettaglio
 @Composable
 fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, iconColor: Color = TripifyGreen) {
     Row(
@@ -482,7 +522,6 @@ fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Stri
     }
 }
 
-// Griglia degli highlight per gli Hotel
 @Composable
 fun HotelHighlight(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
     Column(

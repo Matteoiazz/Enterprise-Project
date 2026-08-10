@@ -21,6 +21,12 @@ public class Flight extends CatalogItem {
     @Column(name = "arrival_airport", nullable = false, length = 3)
     private String arrivalAirport;
 
+    @Column(name = "departure_city", nullable = false)
+    private String departureCity;
+
+    @Column(name = "arrival_city", nullable = false)
+    private String arrivalCity;
+
     @Column(name = "departure_time", nullable = false)
     private LocalDateTime departureTime;
 
@@ -31,5 +37,5 @@ public class Flight extends CatalogItem {
     private Integer availableSeats;
 
     @Column(name = "stops", nullable = false)
-    private Integer stops = 0; // 0 = diretto.
+    private Integer stops = 0;
 }

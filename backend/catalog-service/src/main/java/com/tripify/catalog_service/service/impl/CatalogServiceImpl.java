@@ -2,7 +2,7 @@ package com.tripify.catalog_service.service.impl;
 
 import com.tripify.catalog_service.dto.CatalogItemDTO;
 import com.tripify.catalog_service.entity.CatalogItem;
-import com.tripify.catalog_service.mapper.CatalogMapper; // <-- Importa il mapper
+import com.tripify.catalog_service.mapper.CatalogMapper;
 import com.tripify.catalog_service.repository.CatalogItemRepository;
 import com.tripify.catalog_service.repository.spec.CatalogItemSpecification;
 import com.tripify.catalog_service.service.CatalogService;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 public class CatalogServiceImpl implements CatalogService {
 
     private final CatalogItemRepository catalogItemRepository;
-    private final CatalogMapper catalogMapper; // <-- Inietta il componente
+    private final CatalogMapper catalogMapper;
 
     @Override
     public List<CatalogItem> getAllItems() {
@@ -28,11 +28,22 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
-    public List<CatalogItemDTO> search(String category, String query, BigDecimal maxPrice, Integer minRating) {
-        Specification<CatalogItem> spec = CatalogItemSpecification.withDynamicFilters(category, query, maxPrice, minRating);
+    public List<CatalogItemDTO> search(
+            String category,
+            String query,
+            BigDecimal maxPrice,
+            Integer minRating,
+            String destination,
+            String departure,
+            Boolean guideIncluded,
+            List<String> amenities,
+            Boolean directOnly
+    ) {
+        Specification<CatalogItem> spec = CatalogItemSpecification.withDynamicFilters(
+                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly
+        );
         List<CatalogItem> items = catalogItemRepository.findAll(spec);
 
-        // Usiamo il mapper separato!
         return items.stream()
                 .map(catalogMapper::toDto)
                 .collect(Collectors.toList());

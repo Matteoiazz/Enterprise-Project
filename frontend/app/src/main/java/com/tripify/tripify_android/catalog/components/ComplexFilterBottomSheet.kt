@@ -36,7 +36,7 @@ private fun SectionLabel(text: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComplexFilterBottomSheet(
-    currentCategory: String, // "Tutti", "Voli", "Hotel", "Escursioni"
+    currentCategory: String,
     onDismiss: () -> Unit,
     onApplyFilters: (price: Float, rating: Int, amenities: List<String>, direct: Boolean, guide: Boolean, destination: String, departure: String) -> Unit
 ) {
@@ -47,7 +47,11 @@ fun ComplexFilterBottomSheet(
     var directFlightOnly by remember { mutableStateOf(false) }
 
     var minRating by remember { mutableIntStateOf(0) }
-    val availableAmenities = listOf("Wi-Fi", "Piscina", "Spa", "Colazione", "Parcheggio")
+
+    val availableAmenities = listOf(
+        "Wi-Fi", "Palestra", "Room Service", "Aria Condizionata",
+        "Area Studio", "Parcheggio", "Spa", "Piscina", "Bar", "Fibra Dedicata"
+    )
     var selectedAmenities by remember { mutableStateOf(setOf<String>()) }
 
     var guideIncludedOnly by remember { mutableStateOf(false) }
@@ -71,16 +75,25 @@ fun ComplexFilterBottomSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 28.dp)
         ) {
-            // HEADER
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Cerca $currentCategory", fontSize = 19.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
-                TextButton(onClick = { /* TODO: Resetta tutto */ }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                TextButton(
+                    onClick = {
+                        destination = ""
+                        maxPrice = 1000f
+                        departure = ""
+                        directFlightOnly = false
+                        minRating = 0
+                        selectedAmenities = setOf()
+                        guideIncludedOnly = false
+                    },
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
                     Text("Resetta", color = InkMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(modifier = Modifier.height(14.dp))
 
-            // --- DESTINAZIONE E PARTENZA ---
             OutlinedTextField(
                 value = destination,
                 onValueChange = { destination = it },
@@ -110,7 +123,6 @@ fun ComplexFilterBottomSheet(
 
             Divider(modifier = Modifier.padding(vertical = 20.dp), color = Hairline)
 
-            // --- BUDGET ---
             SectionLabel("Budget massimo")
             Spacer(modifier = Modifier.height(6.dp))
             Text(
@@ -127,7 +139,6 @@ fun ComplexFilterBottomSheet(
                 colors = SliderDefaults.colors(thumbColor = TripifyDarkGreen, activeTrackColor = TripifyDarkGreen, inactiveTrackColor = Hairline)
             )
 
-            // --- CARATTERISTICHE HOTEL ---
             if (currentCategory == "Tutti" || currentCategory == "Hotel") {
                 Divider(modifier = Modifier.padding(vertical = 20.dp), color = Hairline)
                 SectionLabel("Caratteristiche hotel")
@@ -167,7 +178,6 @@ fun ComplexFilterBottomSheet(
                 }
             }
 
-            // --- OPZIONI VOLO ---
             if (currentCategory == "Tutti" || currentCategory == "Voli") {
                 Divider(modifier = Modifier.padding(vertical = 20.dp), color = Hairline)
                 SectionLabel("Opzioni volo")
@@ -183,7 +193,6 @@ fun ComplexFilterBottomSheet(
                 }
             }
 
-            // --- DETTAGLI ESCURSIONI ---
             if (currentCategory == "Tutti" || currentCategory == "Escursioni") {
                 Divider(modifier = Modifier.padding(vertical = 20.dp), color = Hairline)
                 SectionLabel("Dettagli esperienza")

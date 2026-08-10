@@ -62,6 +62,7 @@ class CatalogViewModel(
             fetchCatalogData()
         }
     }
+
     fun searchFlightRoute(departure: String, destination: String) {
         _departure.value = departure
         _destination.value = destination
@@ -103,10 +104,11 @@ class CatalogViewModel(
                     destination = _destination.value.trim().ifBlank { null },
                     departure = _departure.value.trim().ifBlank { null },
                     guideIncluded = if (_guideOnly.value) true else null,
-                    amenities = _selectedAmenities.value.takeIf { it.isNotEmpty() }?.joinToString(",")
+                    amenities = _selectedAmenities.value.takeIf { it.isNotEmpty() },
+                    directOnly = if (_directOnly.value) true else null
                 )
 
-                var mappedItems = dtos.map { dto ->
+                val mappedItems = dtos.map { dto ->
                     val priceString = "€ ${dto.price.toInt()}"
                     val immaginiReali = if (!dto.imageUrls.isNullOrEmpty()) dto.imageUrls else listOf(
                         "https://picsum.photos/seed/${dto.id}A/600/800",
@@ -116,25 +118,47 @@ class CatalogViewModel(
                     when (dto.itemType.uppercase()) {
                         "FLIGHT" -> CatalogItem.Flight(
                             id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
-                            imageUrls = immaginiReali, departureAirport = dto.departureAirport ?: "N/D",
-                            arrivalAirport = dto.arrivalAirport ?: "N/D", departureTime = dto.departureTime?.take(10) ?: "Data da def.",
-                            availableSeats = dto.availableSeats ?: 0
+                            imageUrls = immaginiReali,
+                            departureAirport = dto.departureAirport ?: "N/D",
+                            arrivalAirport = dto.arrivalAirport ?: "N/D",
+                            departureCity = dto.departureCity ?: "N/D",
+                            arrivalCity = dto.arrivalCity ?: "N/D",
+                            departureTime = dto.departureTime?.take(10) ?: "Data da def.",
+                            availableSeats = dto.availableSeats ?: 0,
+                            stops = dto.stops ?: 0
                         )
                         "HOTEL" -> CatalogItem.Hotel(
                             id = dto.id, title = dto.title, price = "$priceString/notte", priceValue = dto.price.toInt(),
-                            imageUrls = immaginiReali, address = dto.description ?: "Indirizzo non disponibile",
-                            rating = (dto.rating ?: 0).toDouble(), roomType = dto.roomType ?: "Camera Standard",
+                            imageUrls = immaginiReali,
+                            address = dto.address ?: "Indirizzo non disponibile",
+                            city = dto.city ?: "N/D",
+                            rating = (dto.rating ?: 0).toDouble(),
+                            roomType = dto.roomType ?: "Camera Standard",
+                            amenities = dto.amenities ?: emptyList(),
                             locationLat = dto.locationLat,
                             locationLng = dto.locationLng
                         )
+                        "ACTIVITY" -> CatalogItem.Excursion(
+                            id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
+                            imageUrls = immaginiReali,
+                            duration = dto.duration ?: "Da definire",
+                            guideIncluded = dto.guideIncluded ?: false,
+                            activityType = dto.activityType ?: "Esperienza",
+                            meetingPoint = dto.meetingPoint ?: "Da definire",
+                            maxParticipants = dto.maxParticipants
+                        )
                         else -> CatalogItem.Excursion(
                             id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
-                            imageUrls = immaginiReali, duration = dto.description ?: "Da definire", guideIncluded = true
+                            imageUrls = immaginiReali,
+                            duration = dto.duration ?: "Da definire",
+                            guideIncluded = dto.guideIncluded ?: false,
+                            activityType = dto.activityType ?: "Esperienza",
+                            meetingPoint = dto.meetingPoint ?: "Da definire",
+                            maxParticipants = dto.maxParticipants
                         )
                     }
                 }
 
-                if (_directOnly.value) mappedItems = mappedItems.filter { it !is CatalogItem.Flight || it.availableSeats > 5 }
                 _catalogList.value = mappedItems
 
             } catch (e: Exception) {

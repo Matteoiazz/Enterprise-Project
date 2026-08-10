@@ -14,6 +14,7 @@ interface CatalogApi {
         @Query("destination") destination: String? = null,
         @Query("departure") departure: String? = null,
         @Query("guideIncluded") guideIncluded: Boolean? = null,
-        @Query("amenities") amenities: String? = null // CSV: "Wi-Fi,Piscina"
+        @Query("amenities") amenities: List<String>? = null,
+        @Query("directOnly") directOnly: Boolean? = null
     ): List<CatalogItemDto>
 }
