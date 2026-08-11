@@ -1,5 +1,6 @@
 package com.tripify.user_auth_service.security;
 
+import io.jsonwebtoken.ExpiredJwtException; // AGGIUNGI QUESTO IMPORT!
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,35 +40,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 3. Estrai il token (togliendo i primi 7 caratteri "Bearer ")
         jwt = authHeader.substring(7);
-        // 4. Estrai l'email dal token tramite il tuo JwtService
-        userEmail = jwtService.extractUsername(jwt);
 
-        // 5. Se l'email c'è e l'utente non è ancora autenticato nel contesto attuale
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        try {
+            // Se il token è scaduto, questa riga lancerà un'eccezione
+            userEmail = jwtService.extractUsername(jwt);
 
-            // Carica l'utente dal database
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // Verifica se il token è valido per quell'utente
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-
-                // Crea il "pass" per Spring Security
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // Salva l'autenticazione. Da questo momento la rotta /api/v1/profile è accessibile!
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (ExpiredJwtException e) {
+            // IL TOKEN E' SCADUTO: Blocca tutto e rispondi con 401
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Token JWT scaduto. Effettua nuovamente il login.\"}");
+            return; // Termina l'esecuzione del filtro, non passare la palla!
+
+        } catch (Exception e) {
+            // IL TOKEN E' MALFORMATO O NON VALIDO: Rispondi con 403
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Token JWT non valido.\"}");
+            return;
         }
 
-        // Passa la palla al prossimo filtro
+        // Passa la palla al prossimo filtro solo se tutto è andato bene
         filterChain.doFilter(request, response);
     }
 }
