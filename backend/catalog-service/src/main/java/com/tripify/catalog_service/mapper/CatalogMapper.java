@@ -8,19 +8,17 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Component // Lo rende iniettabile in tutta l'app
+@Component
 public class CatalogMapper {
 
     public CatalogItemDTO toDto(CatalogItem item) {
 
-        // 1. IL FIX: Estraiamo solo gli URL dalla lista di oggetti CatalogImage
         List<String> extractedUrls = item.getImages() != null ?
                 item.getImages().stream()
                         .map(CatalogImage::getImageUrl)
                         .collect(Collectors.toList())
                 : List.of();
 
-        // 2. Costruiamo la base
         var builder = CatalogItemDTO.builder()
                 .id(item.getId())
                 .title(item.getTitle())
@@ -29,21 +27,33 @@ public class CatalogMapper {
                 .currency(item.getCurrency())
                 .category(item.getCategory())
                 .rating(item.getRating())
-                .imageUrls(extractedUrls) // <-- ECCO I TUOI DATI!
+                .imageUrls(extractedUrls)
                 .itemType(item.getClass().getSimpleName());
 
-        // 3. Polimorfismo
         if (item instanceof com.tripify.catalog_service.entity.Flight flight) {
             builder.departureAirport(flight.getDepartureAirport())
                     .arrivalAirport(flight.getArrivalAirport())
+                    .departureCity(flight.getDepartureCity())
+                    .arrivalCity(flight.getArrivalCity())
                     .departureTime(flight.getDepartureTime())
                     .arrivalTime(flight.getArrivalTime())
-                    .availableSeats(flight.getAvailableSeats());
+                    .availableSeats(flight.getAvailableSeats())
+                    .stops(flight.getStops());
         } else if (item instanceof com.tripify.catalog_service.entity.Hotel hotel) {
             builder.roomType(hotel.getRoomType())
                     .availableRooms(hotel.getAvailableRooms())
                     .locationLat(hotel.getLocationLat())
-                    .locationLng(hotel.getLocationLng());
+                    .locationLng(hotel.getLocationLng())
+                    .address(hotel.getAddress())
+                    .city(hotel.getCity())
+                    .amenities(hotel.getAmenities());
+        } else if (item instanceof com.tripify.catalog_service.entity.Activity activity) {
+            builder.activityType(activity.getActivityType())
+                    .duration(activity.getDuration())
+                    .meetingPoint(activity.getMeetingPoint())
+                    .city(activity.getCity())
+                    .maxParticipants(activity.getMaxParticipants())
+                    .guideIncluded(activity.isGuideIncluded());
         }
 
         return builder.build();

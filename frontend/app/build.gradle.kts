@@ -40,6 +40,9 @@ android {
         }
 
         buildConfigField("String", "BASE_URL", "\"$finalUrl\"")
+
+        buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY") ?: ""}\"")
+
     }
 
     buildTypes {

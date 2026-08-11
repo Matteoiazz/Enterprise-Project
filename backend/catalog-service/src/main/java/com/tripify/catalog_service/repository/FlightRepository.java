@@ -16,3 +16,5 @@ public interface FlightRepository extends JpaRepository<Flight, Long> {
     // Trova voli che partono in un determinato range di date
     List<Flight> findByDepartureTimeBetween(LocalDateTime start, LocalDateTime end);
 }
+
+/* ESISTE FLIGHT REPOSITORY IN QUANTO HA DUE QUERY SPECIFICHE*/
