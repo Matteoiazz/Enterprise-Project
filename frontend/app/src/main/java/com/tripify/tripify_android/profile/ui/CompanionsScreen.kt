@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -79,10 +80,20 @@ fun CompanionsScreen(
                         CompanionCard(
                             firstName = companion.firstName,
                             lastName = companion.lastName,
-                            dob = companion.dateOfBirth
+                            dob = companion.dateOfBirth,
+                            onDeleteClick = {
+                                companion.id?.let { id -> viewModel.deleteCompanion(id) }
+                            }
                         )
                     }
                 }
+            }
+
+            if (isLoading && companions.isNotEmpty()) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                    color = TripifyGreen
+                )
             }
         }
 
@@ -99,7 +110,7 @@ fun CompanionsScreen(
 }
 
 @Composable
-fun CompanionCard(firstName: String, lastName: String, dob: String) {
+fun CompanionCard(firstName: String, lastName: String, dob: String, onDeleteClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -107,7 +118,7 @@ fun CompanionCard(firstName: String, lastName: String, dob: String) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -117,9 +128,17 @@ fun CompanionCard(firstName: String, lastName: String, dob: String) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = TripifyGreen)
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) { // <-- AGGIUNTO weight(1f) PER SPINGERE IL CESTINO A DESTRA
                 Text(text = "$firstName $lastName", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TripifyDarkGreen)
                 Text(text = "Nato il: $dob", fontSize = 14.sp, color = Color.Gray)
+            }
+
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    imageVector = Icons.Filled.DeleteOutline,
+                    contentDescription = "Elimina",
+                    tint = Color.Red.copy(alpha = 0.7f)
+                )
             }
         }
     }

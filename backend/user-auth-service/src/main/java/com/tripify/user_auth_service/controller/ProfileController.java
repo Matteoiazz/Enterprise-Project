@@ -3,13 +3,16 @@ package com.tripify.user_auth_service.controller;
 import com.tripify.user_auth_service.dto.request.CompanionDto;
 import com.tripify.user_auth_service.dto.request.PaymentMethodDto;
 import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
+import com.tripify.user_auth_service.entity.User;
 import com.tripify.user_auth_service.service.ProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/profile")
@@ -29,15 +32,31 @@ public class ProfileController {
         return ResponseEntity.ok(profileService.addCompanion(principal.getName(), companionDto));
     }
 
+    @DeleteMapping("/companions/{id}")
+    public ResponseEntity<Void> deleteCompanion(@PathVariable UUID id, Principal principal) {
+        profileService.deleteCompanion(principal.getName(), id);
+        return ResponseEntity.ok().build();
+    }
+
     // --- TRAVEL DOCUMENTS ---
     @GetMapping("/documents")
-    public ResponseEntity<List<TravelDocumentDto>> getDocuments(Principal principal) {
-        return ResponseEntity.ok(profileService.getTravelDocuments(principal.getName()));
+    public ResponseEntity<List<TravelDocumentDto>> getTravelDocuments(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(profileService.getTravelDocuments(user));
     }
 
     @PostMapping("/documents")
-    public ResponseEntity<TravelDocumentDto> addDocument(@RequestBody TravelDocumentDto documentDto, Principal principal) {
-        return ResponseEntity.ok(profileService.addTravelDocument(principal.getName(), documentDto));
+    public ResponseEntity<TravelDocumentDto> addTravelDocument(
+            @AuthenticationPrincipal User user,
+            @RequestBody TravelDocumentDto dto) {
+        return ResponseEntity.ok(profileService.addTravelDocument(user, dto));
+    }
+
+    @DeleteMapping("/documents/{id}")
+    public ResponseEntity<Void> deleteTravelDocument(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID id) {
+        profileService.deleteTravelDocument(user, id);
+        return ResponseEntity.ok().build();
     }
 
     // --- PAYMENT METHODS ---

@@ -1,10 +1,7 @@
 package com.tripify.user_auth_service.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import java.time.LocalDate;
 import java.util.UUID;
 

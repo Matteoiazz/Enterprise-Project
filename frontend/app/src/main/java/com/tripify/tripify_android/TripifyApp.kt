@@ -25,13 +25,17 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 
+import com.tripify.tripify_android.profile.ui.TravelDocumentsScreen
+import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
+
 @Composable
 fun TripifyApp(
     loginViewModel: LoginViewModel,
     registerViewModel: RegisterViewModel,
     catalogViewModel: CatalogViewModel,
     profileViewModel: ProfileViewModel,
-    companionsViewModel: CompanionsViewModel
+    companionsViewModel: CompanionsViewModel,
+    travelDocumentsViewModel: TravelDocumentsViewModel
 ) {
     val navController = rememberNavController()
 
@@ -118,8 +122,11 @@ fun TripifyApp(
                 onNavigateToLogin = {
                     navController.navigate(Route.Auth.path)
                 },
-                onNavigateToCompanions = { // <-- AZIONE DEL CLICK SUI COMPAGNI
+                onNavigateToCompanions = {
                     navController.navigate(Route.Companions.path)
+                },
+                onNavigateToTravelDocuments = {
+                    navController.navigate(Route.TravelDocuments.path)
                 }
             )
         }
@@ -135,6 +142,13 @@ fun TripifyApp(
         // ROTTA 7: Le mie Prenotazioni
         composable(Route.Bookings.path) {
             BookingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Route.TravelDocuments.path) {
+            TravelDocumentsScreen(
+                viewModel = travelDocumentsViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

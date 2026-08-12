@@ -31,6 +31,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        if (request.getServletPath().contains("/api/v1/auth")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
@@ -43,7 +48,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
 
         try {
-            // Se il token è scaduto, questa riga lancerà un'eccezione
             userEmail = jwtService.extractUsername(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -60,21 +64,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (ExpiredJwtException e) {
-            // IL TOKEN E' SCADUTO: Blocca tutto e rispondi con 401
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("{\"error\": \"Token JWT scaduto. Effettua nuovamente il login.\"}");
-            return; // Termina l'esecuzione del filtro, non passare la palla!
+            return;
 
         } catch (Exception e) {
-            // IL TOKEN E' MALFORMATO O NON VALIDO: Rispondi con 403
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json");
             response.getWriter().write("{\"error\": \"Token JWT non valido.\"}");
             return;
         }
 
-        // Passa la palla al prossimo filtro solo se tutto è andato bene
         filterChain.doFilter(request, response);
     }
 }

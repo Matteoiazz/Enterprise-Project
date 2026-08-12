@@ -63,4 +63,6 @@ object RetrofitClient {
             .build()
             .create(com.tripify.tripify_android.profile.api.ProfileApiService::class.java)
     }
+
+
 }

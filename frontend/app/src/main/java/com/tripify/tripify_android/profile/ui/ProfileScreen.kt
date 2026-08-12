@@ -38,7 +38,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel,
     onLogoutSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    onNavigateToCompanions: () -> Unit
+    onNavigateToCompanions: () -> Unit,
+    onNavigateToTravelDocuments: () -> Unit
 ) {
     LaunchedEffect(viewModel) {
         viewModel.loadUserProfile()
@@ -79,7 +80,7 @@ fun ProfileScreen(
                 GuestProfileView(onNavigateToLogin)
             } else {
                 // Passiamo l'azione giù al contenuto
-                LoggedProfileContent(viewModel, onNavigateToCompanions)
+                LoggedProfileContent(viewModel, onNavigateToCompanions, onNavigateToTravelDocuments)
             }
         }
     }
@@ -124,7 +125,8 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
 @Composable
 fun LoggedProfileContent(
     viewModel: ProfileViewModel,
-    onNavigateToCompanions: () -> Unit
+    onNavigateToCompanions: () -> Unit,
+    onNavigateToTravelDocuments: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -158,7 +160,7 @@ fun LoggedProfileContent(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
                 ) {
                     Column {
-                        ProfileMenuRow(Icons.Outlined.Badge, "Documenti di Viaggio", hasDivider = true)
+                        ProfileMenuRow(Icons.Outlined.Badge, "Documenti di Viaggio", hasDivider = true, onClick = onNavigateToTravelDocuments)
 
                         // COLLEGATO AL CLICK!
                         ProfileMenuRow(Icons.Outlined.Group, "Compagni di Viaggio", hasDivider = true, onClick = onNavigateToCompanions)

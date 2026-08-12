@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,15 +24,14 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final CompanionRepository companionRepository;
-    private final TravelDocumentRepository travelDocumentRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final TravelDocumentRepository documentRepository;
 
     private User getUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utente non trovato"));
     }
 
-    // --- COMPANIONS ---
     public List<CompanionDto> getCompanions(String userEmail) {
         return companionRepository.findByUser(getUser(userEmail)).stream()
                 .map(c -> CompanionDto.builder().id(c.getId()).firstName(c.getFirstName())
@@ -47,26 +47,53 @@ public class ProfileService {
                 .lastName(saved.getLastName()).dateOfBirth(saved.getDateOfBirth()).build();
     }
 
-    // --- TRAVEL DOCUMENTS ---
-    public List<TravelDocumentDto> getTravelDocuments(String userEmail) {
-        return travelDocumentRepository.findByUser(getUser(userEmail)).stream()
-                .map(d -> TravelDocumentDto.builder().id(d.getId()).documentType(d.getDocumentType())
-                        .documentNumber(d.getDocumentNumber()).expirationDate(d.getExpirationDate())
-                        .issuingCountry(d.getIssuingCountry()).build())
+    public void deleteCompanion(String userEmail, UUID companionId) {
+        Companion companion = companionRepository.findById(companionId)
+                .orElseThrow(() -> new RuntimeException("Compagno non trovato"));
+
+        if (!companion.getUser().getId().equals(getUser(userEmail).getId())) {
+            throw new RuntimeException("Non autorizzato");
+        }
+        companionRepository.delete(companion);
+    }
+
+
+    public List<TravelDocumentDto> getTravelDocuments(User user) {
+        return documentRepository.findByUser_Id(user.getId()).stream()
+                .map(doc -> TravelDocumentDto.builder()
+                        .id(doc.getId())
+                        .documentType(doc.getDocumentType())
+                        .documentNumber(doc.getDocumentNumber())
+                        .expirationDate(doc.getExpirationDate())
+                        .issuingCountry(doc.getIssuingCountry())
+                        .build())
                 .collect(Collectors.toList());
     }
 
-    public TravelDocumentDto addTravelDocument(String userEmail, TravelDocumentDto dto) {
-        TravelDocument saved = travelDocumentRepository.save(TravelDocument.builder()
-                .documentType(dto.getDocumentType()).documentNumber(dto.getDocumentNumber())
-                .expirationDate(dto.getExpirationDate()).issuingCountry(dto.getIssuingCountry())
-                .user(getUser(userEmail)).build());
-        return TravelDocumentDto.builder().id(saved.getId()).documentType(saved.getDocumentType())
-                .documentNumber(saved.getDocumentNumber()).expirationDate(saved.getExpirationDate())
-                .issuingCountry(saved.getIssuingCountry()).build();
+    public TravelDocumentDto addTravelDocument(User user, TravelDocumentDto dto) {
+        TravelDocument doc = TravelDocument.builder()
+                .user(user)
+                .documentType(dto.getDocumentType())
+                .documentNumber(dto.getDocumentNumber())
+                .expirationDate(dto.getExpirationDate())
+                .issuingCountry(dto.getIssuingCountry())
+                .build();
+
+        doc = documentRepository.save(doc);
+        dto.setId(doc.getId());
+        return dto;
     }
 
-    // --- PAYMENT METHODS ---
+    public void deleteTravelDocument(User user, UUID id) {
+        TravelDocument doc = documentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Documento non trovato"));
+
+        if (!doc.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Non autorizzato");
+        }
+        documentRepository.delete(doc);
+    }
+
     public List<PaymentMethodDto> getPaymentMethods(String userEmail) {
         return paymentMethodRepository.findByUser(getUser(userEmail)).stream()
                 .map(p -> PaymentMethodDto.builder().id(p.getId()).cardProvider(p.getCardProvider())
@@ -75,7 +102,6 @@ public class ProfileService {
     }
 
     public PaymentMethodDto addPaymentMethod(String userEmail, PaymentMethodDto dto) {
-        // Estraggo solo le ultime 4 cifre per sicurezza
         String lastFour = (dto.getCardNumber() != null && dto.getCardNumber().length() >= 4)
                 ? dto.getCardNumber().substring(dto.getCardNumber().length() - 4)
                 : "0000";
