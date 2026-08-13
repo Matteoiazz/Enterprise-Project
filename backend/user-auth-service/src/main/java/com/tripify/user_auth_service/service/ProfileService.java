@@ -29,7 +29,15 @@ public class ProfileService {
 
     private User getUser(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utente non trovato"));
+                .orElseGet(() -> {
+                    User newUser = User.builder()
+                            .email(email)
+                            .password("MANAGED_BY_KEYCLOAK")
+                            .role(com.tripify.user_auth_service.entity.Role.ROLE_TRAVELER)
+                            .build();
+
+                    return userRepository.save(newUser);
+                });
     }
 
     public List<CompanionDto> getCompanions(String userEmail) {
@@ -58,7 +66,8 @@ public class ProfileService {
     }
 
 
-    public List<TravelDocumentDto> getTravelDocuments(User user) {
+    public List<TravelDocumentDto> getTravelDocuments(String userEmail) {
+        User user = getUser(userEmail);
         return documentRepository.findByUser_Id(user.getId()).stream()
                 .map(doc -> TravelDocumentDto.builder()
                         .id(doc.getId())
@@ -70,7 +79,8 @@ public class ProfileService {
                 .collect(Collectors.toList());
     }
 
-    public TravelDocumentDto addTravelDocument(User user, TravelDocumentDto dto) {
+    public TravelDocumentDto addTravelDocument(String userEmail, TravelDocumentDto dto) {
+        User user = getUser(userEmail);
         TravelDocument doc = TravelDocument.builder()
                 .user(user)
                 .documentType(dto.getDocumentType())
@@ -84,7 +94,8 @@ public class ProfileService {
         return dto;
     }
 
-    public void deleteTravelDocument(User user, UUID id) {
+    public void deleteTravelDocument(String userEmail, UUID id) {
+        User user = getUser(userEmail);
         TravelDocument doc = documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Documento non trovato"));
 
@@ -112,5 +123,16 @@ public class ProfileService {
 
         return PaymentMethodDto.builder().id(saved.getId()).cardProvider(saved.getCardProvider())
                 .lastFourDigits(saved.getLastFourDigits()).expirationMonthYear(saved.getExpirationMonthYear()).build();
+    }
+
+    public void deletePaymentMethod(String userEmail, UUID id) {
+        User user = getUser(userEmail);
+        PaymentMethod method = paymentMethodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Metodo di pagamento non trovato"));
+
+        if (!method.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Non autorizzato");
+        }
+        paymentMethodRepository.delete(method);
     }
 }

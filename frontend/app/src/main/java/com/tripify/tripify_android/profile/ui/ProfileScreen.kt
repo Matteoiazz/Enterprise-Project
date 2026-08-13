@@ -39,7 +39,8 @@ fun ProfileScreen(
     onLogoutSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit,
     onNavigateToCompanions: () -> Unit,
-    onNavigateToTravelDocuments: () -> Unit
+    onNavigateToTravelDocuments: () -> Unit,
+    onNavigateToPaymentMethods: () -> Unit
 ) {
     LaunchedEffect(viewModel) {
         viewModel.loadUserProfile()
@@ -80,7 +81,7 @@ fun ProfileScreen(
                 GuestProfileView(onNavigateToLogin)
             } else {
                 // Passiamo l'azione giù al contenuto
-                LoggedProfileContent(viewModel, onNavigateToCompanions, onNavigateToTravelDocuments)
+                LoggedProfileContent(viewModel, onNavigateToCompanions, onNavigateToTravelDocuments, onNavigateToPaymentMethods)
             }
         }
     }
@@ -126,7 +127,8 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
 fun LoggedProfileContent(
     viewModel: ProfileViewModel,
     onNavigateToCompanions: () -> Unit,
-    onNavigateToTravelDocuments: () -> Unit
+    onNavigateToTravelDocuments: () -> Unit,
+    onNavigateToPaymentMethods: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -165,7 +167,7 @@ fun LoggedProfileContent(
                         // COLLEGATO AL CLICK!
                         ProfileMenuRow(Icons.Outlined.Group, "Compagni di Viaggio", hasDivider = true, onClick = onNavigateToCompanions)
 
-                        ProfileMenuRow(Icons.Outlined.AccountBalanceWallet, "Portafoglio e Pagamenti", hasDivider = true)
+                        ProfileMenuRow(Icons.Outlined.AccountBalanceWallet, "Portafoglio e Pagamenti", hasDivider = true, onClick = onNavigateToPaymentMethods)
                         ProfileMenuRow(Icons.Outlined.Settings, "Impostazioni App", hasDivider = false)
                     }
                 }

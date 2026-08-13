@@ -10,9 +10,7 @@ import com.tripify.tripify_android.core.navigation.Route
 
 // Importiamo il lavoro
 import com.tripify.tripify_android.auth.ui.LoginScreen
-import com.tripify.tripify_android.auth.ui.RegisterScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
-import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 import com.tripify.tripify_android.booking.ui.BookingsScreen
 import com.tripify.tripify_android.catalog.ui.DetailScreen
 
@@ -23,19 +21,21 @@ import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 // Import Catalogo
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
+import com.tripify.tripify_android.profile.ui.PaymentMethodsScreen
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 
 import com.tripify.tripify_android.profile.ui.TravelDocumentsScreen
+import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
 import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
 
 @Composable
 fun TripifyApp(
     loginViewModel: LoginViewModel,
-    registerViewModel: RegisterViewModel,
     catalogViewModel: CatalogViewModel,
     profileViewModel: ProfileViewModel,
     companionsViewModel: CompanionsViewModel,
-    travelDocumentsViewModel: TravelDocumentsViewModel
+    travelDocumentsViewModel: TravelDocumentsViewModel,
+    paymentMethodsViewModel: PaymentMethodsViewModel
 ) {
     val navController = rememberNavController()
 
@@ -73,22 +73,7 @@ fun TripifyApp(
                     }
                 },
                 onNavigateToRegister = {
-                    navController.navigate(Route.Register.path)
-                }
-            )
-        }
-
-        // ROTTA 3: La schermata di Registrazione
-        composable(Route.Register.path) {
-            RegisterScreen(
-                viewModel = registerViewModel,
-                onNavigateToCatalog = {
-                    navController.navigate(Route.Home.path) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                onNavigateBackToLogin = {
-                    navController.popBackStack()
+                    // Questa funzione ora è vuota perché la registrazione si fa su Keycloak
                 }
             )
         }
@@ -127,6 +112,9 @@ fun TripifyApp(
                 },
                 onNavigateToTravelDocuments = {
                     navController.navigate(Route.TravelDocuments.path)
+                },
+                onNavigateToPaymentMethods = {
+                    navController.navigate(Route.PaymentMethods.path)
                 }
             )
         }
@@ -149,6 +137,13 @@ fun TripifyApp(
         composable(Route.TravelDocuments.path) {
             TravelDocumentsScreen(
                 viewModel = travelDocumentsViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Route.PaymentMethods.path) {
+            PaymentMethodsScreen(
+                viewModel = paymentMethodsViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

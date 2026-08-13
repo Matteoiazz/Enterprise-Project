@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.profile.api
 
+import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.profile.model.CompanionDto
 import retrofit2.http.Body
@@ -26,4 +27,10 @@ interface ProfileApiService {
 
     @DELETE("/api/v1/profile/documents/{id}")
     suspend fun deleteTravelDocument(@Path("id") id: String)
+
+    @GET("api/v1/profile/payments")
+    suspend fun getPaymentMethods(): List<PaymentMethodDto>
+
+    @POST("api/v1/profile/payments")
+    suspend fun addPaymentMethod(@Body dto: PaymentMethodDto): PaymentMethodDto
 }

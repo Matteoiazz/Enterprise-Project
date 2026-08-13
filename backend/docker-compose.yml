@@ -50,6 +50,21 @@ services:
     networks:
       - travel-network
 
+  # Il tuo guardiano Keycloak con il Tema Custom!
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    command: start-dev
+    ports:
+      - "8180:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    networks:
+      - travel-network
+    volumes:
+      - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
+
 networks:
   travel-network:
     driver: bridge

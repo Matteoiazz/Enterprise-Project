@@ -46,6 +46,10 @@ fun TravelDocumentsScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.loadDocuments()
+    }
+
     Scaffold(
         containerColor = SfondoPremium,
         snackbarHost = { SnackbarHost(snackbarHostState) },

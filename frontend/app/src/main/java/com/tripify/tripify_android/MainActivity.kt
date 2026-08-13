@@ -12,9 +12,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel // <-- IMPORT AGGIUNTO PER
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
-import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
+import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
+import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModelFactory
 
 // Import per il Profilo e Documenti
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
@@ -31,7 +32,8 @@ class MainActivity : ComponentActivity() {
                 val tokenManager = remember { TokenManager(context) }
 
                 val loginViewModel = remember { LoginViewModel(tokenManager) }
-                val registerViewModel = remember { RegisterViewModel(tokenManager) }
+
+                // IL REGISTER VIEWMODEL È STATO NUCLEARIZZATO
 
                 val profileViewModel = remember { ProfileViewModel(tokenManager) }
 
@@ -46,14 +48,17 @@ class MainActivity : ComponentActivity() {
                 val travelDocumentsViewModel: TravelDocumentsViewModel = viewModel(
                     factory = TravelDocumentsViewModelFactory(profileApi)
                 )
+                val paymentMethodsViewModel: PaymentMethodsViewModel = viewModel(
+                    factory = PaymentMethodsViewModelFactory(profileApi)
+                )
 
                 TripifyApp(
                     loginViewModel = loginViewModel,
-                    registerViewModel = registerViewModel,
                     catalogViewModel = catalogViewModel,
                     profileViewModel = profileViewModel,
                     companionsViewModel = companionsViewModel,
-                    travelDocumentsViewModel = travelDocumentsViewModel
+                    travelDocumentsViewModel = travelDocumentsViewModel,
+                    paymentMethodsViewModel = paymentMethodsViewModel
                 )
             }
         }
