@@ -8,6 +8,7 @@ import com.tripify.tripify_android.data.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.data.parseErrorMessage
 
 class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
@@ -29,6 +30,25 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     _uiState.value = CartState.Success(response.body()!!)
                 } else {
                     _uiState.value = CartState.Error("Errore nel caricamento del carrello: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _uiState.value = CartState.Error("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
+
+    // NUOVA FUNZIONE: Da agganciare al bottone "Aggiungi" nella UI
+    fun addItemToCart(userId: String, catalogItemId: Long, quantity: Int) {
+        viewModelScope.launch {
+            try {
+                val response = api.addToCart(userId, catalogItemId, quantity)
+
+                if (response.isSuccessful) {
+                    fetchCart(userId)
+                } else {
+                    // ALTRA MAGIA! Mostrerà es. "Articolo non trovato nel catalogo!"
+                    val cleanError = response.parseErrorMessage()
+                    _uiState.value = CartState.Error(cleanError)
                 }
             } catch (e: Exception) {
                 _uiState.value = CartState.Error("Nessuna connessione: ${e.message}")
