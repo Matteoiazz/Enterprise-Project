@@ -13,6 +13,7 @@ import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
 
 // 1. NUOVO IMPORT per il Profilo
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
@@ -33,12 +34,14 @@ class MainActivity : ComponentActivity() {
 
                 val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
                 val catalogViewModel = remember { CatalogViewModel(catalogApi) }
+                val chatViewModel = remember { ChatViewModel() }
 
                 TripifyApp(
                     loginViewModel = loginViewModel,
                     registerViewModel = registerViewModel,
                     catalogViewModel = catalogViewModel,
-                    profileViewModel = profileViewModel
+                    profileViewModel = profileViewModel,
+                    chatViewModel = chatViewModel
                 )
             }
         }

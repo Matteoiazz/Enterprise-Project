@@ -48,7 +48,8 @@ fun HomeScreen(
     viewModel: CatalogViewModel = viewModel(),
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onNavigateToProfile: () -> Unit = {}
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToChat: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -138,6 +139,23 @@ fun HomeScreen(
                     selected = voceSelezionata == "Prenotazioni",
                     onClick = { voceSelezionata = "Prenotazioni"; scope.launch { drawerState.close() } },
                     icon = { Icon(Icons.Filled.ConfirmationNumber, contentDescription = "Prenotazioni") },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Chat di Gruppo", fontWeight = FontWeight.Bold) },
+                    selected = voceSelezionata == "Chat",
+                    onClick = {
+                        voceSelezionata = "Chat"
+                        scope.launch { drawerState.close() }
+                        onNavigateToChat() // <-- Chiama la navigazione verso la chat
+                    },
+                    icon = { Icon(Icons.Filled.Chat, contentDescription = "Chat") },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = TripifyGreen.copy(alpha = 0.1f),
+                        selectedIconColor = TripifyGreen,
+                        selectedTextColor = TripifyDarkGreen
+                    ),
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
             }

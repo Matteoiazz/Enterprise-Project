@@ -21,13 +21,16 @@ import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 
 // Import Catalogo
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.chat.ui.ChatScreen
+import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
 
 @Composable
 fun TripifyApp(
     loginViewModel: LoginViewModel,
     registerViewModel: RegisterViewModel,
     catalogViewModel: CatalogViewModel,
-    profileViewModel: ProfileViewModel // <-- 1. Aggiunto qui!
+    profileViewModel: ProfileViewModel,
+    chatViewModel: ChatViewModel
 ) {
     val navController = rememberNavController()
 
@@ -48,6 +51,9 @@ fun TripifyApp(
                 },
                 onNavigateToProfile = { // <-- Assicurati di aggiungere questo parametro in HomeScreen!
                     navController.navigate(Route.Profile.path)
+                },
+                onNavigateToChat = {
+                    navController.navigate("chat") // <-- AGGIUNGI QUESTO
                 }
             )
         }
@@ -114,6 +120,10 @@ fun TripifyApp(
                     }
                 }
             )
+        }
+        // ROTTA 6: La schermata Chat
+        composable("chat") {
+            ChatScreen(viewModel = chatViewModel, onBackClick = { navController.popBackStack() })
         }
     }
 }
