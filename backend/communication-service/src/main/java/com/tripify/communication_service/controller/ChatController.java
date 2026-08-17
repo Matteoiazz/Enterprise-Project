@@ -26,6 +26,9 @@ public class ChatController {
     // Android invierà i messaggi a: /app/chat.sendMessage
     @MessageMapping("/chat.sendMessage")
     public void processMessage(@Payload ChatMessage chatMessage) {
+        System.out.println("DEBUG: Ricevuto messaggio da " + chatMessage.getSenderId() +
+                " a " + chatMessage.getReceiverId() +
+                ". Testo: " + chatMessage.getContent());
 
         // Salviamo il messaggio nel database (il timestamp si autogenera)
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);

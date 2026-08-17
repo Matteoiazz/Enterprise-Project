@@ -14,8 +14,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Questo è l'URL a cui Android si connetterà all'inizio (es. ws://localhost:8084/ws-chat)
         registry.addEndpoint("/ws-chat")
-                .setAllowedOriginPatterns("*") // Permette ad Android (o Angular) di connettersi senza blocchi
-                .withSockJS(); // Un fallback nel caso in cui i WebSockets non siano supportati
+                .setAllowedOriginPatterns("*"); // Un fallback nel caso in cui i WebSockets non siano supportati
     }
 
     @Override
