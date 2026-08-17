@@ -23,6 +23,7 @@ fun UniversalSearchForm(
     searchQuery: String,
     onQueryChange: (String) -> Unit,
     onOpenFilters: () -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -54,7 +55,7 @@ fun UniversalSearchForm(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
-                    onClick = { /* In futuro: apri data picker */ },
+                    onClick = onSearch,
                     colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(vertical = 0.dp),

@@ -26,4 +26,5 @@ public interface CatalogService {
     List<CatalogItem> getItemsByHost(UUID hostId);
 
     CatalogItem saveItem(CatalogItem item);
+    List<String> getCitySuggestions(String query);
 }

@@ -24,6 +24,7 @@ import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.booking.ui.BookingsScreen
 import com.tripify.tripify_android.catalog.ui.DetailScreen
 import com.tripify.tripify_android.catalog.ui.HomeScreen
+import com.tripify.tripify_android.catalog.ui.SearchResultsScreen
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.navigation.Route
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
@@ -118,7 +119,9 @@ fun TripifyApp(
                     onNavigateToAuth = { navController.navigate(Route.Auth.path) },
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") },
                     onNavigateToProfile = { navController.navigate(Route.Profile.path) },
-                    onNavigateToBookings = { navController.navigate("bookings") }
+                    onNavigateToBookings = { navController.navigate("bookings") },
+                    onNavigateToSearchResults = { navController.navigate(Route.SearchResults.path) }
+
                 )
             }
 
@@ -196,6 +199,14 @@ fun TripifyApp(
                 PaymentMethodsScreen(
                     viewModel = paymentMethodsViewModel,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            // ROTTA 8: Pagina di Ricerca
+            composable(Route.SearchResults.path) {
+                SearchResultsScreen(
+                    viewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") }
                 )
             }
         }

@@ -25,6 +25,7 @@ fun FlightSearchForm(
     destination: String,
     onDestinationChange: (String) -> Unit,
     onSearch: () -> Unit,
+    fetchSuggestions: suspend (String) -> List<String>,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -34,22 +35,20 @@ fun FlightSearchForm(
         modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            OutlinedTextField(
-                value = departure, onValueChange = onDepartureChange,
-                label = { Text("Partenza", fontSize = 12.sp) },
-                leadingIcon = { Icon(Icons.Filled.FlightTakeoff, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp)) },
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = TripifyGreen, unfocusedBorderColor = Hairline, focusedLabelColor = TripifyDarkGreen),
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
-                modifier = Modifier.fillMaxWidth().height(52.dp), singleLine = true, shape = RoundedCornerShape(10.dp)
+            CityAutocompleteField(
+                value = departure,
+                onValueChange = onDepartureChange,
+                label = "Partenza",
+                icon = Icons.Filled.FlightTakeoff,
+                fetchSuggestions = fetchSuggestions
             )
             Spacer(modifier = Modifier.height(10.dp))
-            OutlinedTextField(
-                value = destination, onValueChange = onDestinationChange,
-                label = { Text("Destinazione", fontSize = 12.sp) },
-                leadingIcon = { Icon(Icons.Filled.FlightLand, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp)) },
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = TripifyGreen, unfocusedBorderColor = Hairline, focusedLabelColor = TripifyDarkGreen),
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
-                modifier = Modifier.fillMaxWidth().height(52.dp), singleLine = true, shape = RoundedCornerShape(10.dp)
+            CityAutocompleteField(
+                value = destination,
+                onValueChange = onDestinationChange,
+                label = "Destinazione",
+                icon = Icons.Filled.FlightLand,
+                fetchSuggestions = fetchSuggestions
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

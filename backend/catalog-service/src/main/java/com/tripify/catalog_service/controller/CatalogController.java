@@ -87,4 +87,11 @@ public class CatalogController {
         Activity savedActivity = (Activity) catalogService.saveItem(activity);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedActivity);
     }
+    @GetMapping("/cities")
+    public ResponseEntity<List<String>> getCitySuggestions(@RequestParam String query) {
+        if (query == null || query.trim().length() < 2) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(catalogService.getCitySuggestions(query.trim()));
+    }
 }

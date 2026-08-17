@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
@@ -29,6 +30,7 @@ import com.tripify.tripify_android.catalog.ui.components.HotelCard
 import com.tripify.tripify_android.catalog.ui.components.ExcursionCard
 import com.tripify.tripify_android.catalog.ui.components.FlightCard
 import com.tripify.tripify_android.catalog.ui.components.ComplexFilterBottomSheet
+import com.tripify.tripify_android.catalog.ui.components.RecommendationCard
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
@@ -45,7 +47,8 @@ fun HomeScreen(
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
-    onNavigateToBookings: () -> Unit = {}
+    onNavigateToBookings: () -> Unit = {},
+    onNavigateToSearchResults: () -> Unit = {}
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val catalogItems by viewModel.catalogList.collectAsState()
@@ -61,6 +64,9 @@ fun HomeScreen(
 
     val errorMessage by viewModel.errorMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val hasSearched by viewModel.hasSearched.collectAsState()
+    val recommendedItems by viewModel.recommendedItems.collectAsState()
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -127,6 +133,7 @@ fun HomeScreen(
                             destination = flightDestination,
                             onDestinationChange = { flightDestination = it },
                             onSearch = { viewModel.searchFlightRoute(flightDeparture, flightDestination) },
+                            fetchSuggestions = { query -> viewModel.fetchCitySuggestions(query) },
                             modifier = Modifier.align(Alignment.BottomCenter).offset(y = 28.dp)
                         )
                     } else {
@@ -134,11 +141,50 @@ fun HomeScreen(
                             searchQuery = searchQuery,
                             onQueryChange = { viewModel.updateSearchQuery(it) },
                             onOpenFilters = { showFilterSheet = true },
+                            onSearch = {
+                                viewModel.searchNow()
+                                onNavigateToSearchResults()
+                            },
                             modifier = Modifier.align(Alignment.BottomCenter).offset(y = 28.dp)
                         )
                     }
                 }
+
                 Spacer(modifier = Modifier.height(40.dp))
+            }
+
+            // RACCOMANDAZIONI — subito sotto la ricerca, basate sulle ultime ricerche/click della sessione
+            if (hasSearched && recommendedItems.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "In base alle tue ultime ricerche",
+                        fontSize = 14.sp,
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp)
+                    ) {
+                        items(recommendedItems) { item ->
+                            RecommendationCard(
+                                item = item,
+                                onClick = {
+                                    viewModel.onItemViewed(item)
+                                    onNavigateToDetail(item.id.toString())
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Hairline, thickness = 1.dp, modifier = Modifier.padding(horizontal = 20.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
             }
 
             // BARRA DELLE CATEGORIE
@@ -214,9 +260,18 @@ fun HomeScreen(
                 items(catalogItems) { item ->
                     Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                         when (item) {
-                            is CatalogItem.Flight -> FlightCard(flight = item, onClick = { onNavigateToDetail(item.id.toString()) })
-                            is CatalogItem.Hotel -> HotelCard(hotel = item, onClick = { onNavigateToDetail(item.id.toString()) })
-                            is CatalogItem.Excursion -> ExcursionCard(excursion = item, onClick = { onNavigateToDetail(item.id.toString()) })
+                            is CatalogItem.Flight -> FlightCard(flight = item, onClick = {
+                                viewModel.onItemViewed(item)
+                                onNavigateToDetail(item.id.toString())
+                            })
+                            is CatalogItem.Hotel -> HotelCard(hotel = item, onClick = {
+                                viewModel.onItemViewed(item)
+                                onNavigateToDetail(item.id.toString())
+                            })
+                            is CatalogItem.Excursion -> ExcursionCard(excursion = item, onClick = {
+                                viewModel.onItemViewed(item)
+                                onNavigateToDetail(item.id.toString())
+                            })
                         }
                     }
                 }

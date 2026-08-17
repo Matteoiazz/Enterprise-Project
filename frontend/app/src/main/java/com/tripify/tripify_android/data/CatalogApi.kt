@@ -17,4 +17,6 @@ interface CatalogApi {
         @Query("amenities") amenities: List<String>? = null,
         @Query("directOnly") directOnly: Boolean? = null
     ): List<CatalogItemDto>
+    @GET("/api/v1/catalog/cities")
+    suspend fun getCitySuggestions(@Query("query") query: String): List<String>
 }

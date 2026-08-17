@@ -58,4 +58,8 @@ public class CatalogServiceImpl implements CatalogService {
     public CatalogItem saveItem(CatalogItem item) {
         return catalogItemRepository.save(item);
     }
+    @Override
+    public List<String> getCitySuggestions(String query) {
+        return catalogItemRepository.findCitySuggestions(query);
+    }
 }
