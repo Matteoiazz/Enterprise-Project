@@ -29,8 +29,13 @@ class CatalogViewModel(
     val minRating: StateFlow<Int> = _minRating.asStateFlow()
 
     private val _directOnly = MutableStateFlow(false)
+    val directOnly: StateFlow<Boolean> = _directOnly.asStateFlow()
+
     private val _guideOnly = MutableStateFlow(false)
+    val guideOnly: StateFlow<Boolean> = _guideOnly.asStateFlow()
+
     private val _selectedAmenities = MutableStateFlow<List<String>>(emptyList())
+    val selectedAmenities: StateFlow<List<String>> = _selectedAmenities.asStateFlow()
 
     private val _destination = MutableStateFlow("")
     val destination: StateFlow<String> = _destination.asStateFlow()

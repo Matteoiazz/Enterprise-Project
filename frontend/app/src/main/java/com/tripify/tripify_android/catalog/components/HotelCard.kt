@@ -1,93 +1,51 @@
 package com.tripify.tripify_android.catalog.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import java.util.Locale
 
 @Composable
 fun HotelCard(
     hotel: CatalogItem.Hotel,
     onClick: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp)
-            .clickable { onClick() }
+    PhotoCard(
+        imageUrl = hotel.imageUrl,
+        eyebrow = "Hotel",
+        price = hotel.price,
+        title = hotel.title,
+        onClick = onClick
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = hotel.imageUrl, contentDescription = null,
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-            )
-            Box(
-                modifier = Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, TripifyDarkGreen.copy(alpha = 0.88f)),
-                        startY = 140f
-                    )
-                )
-            )
+        PhotoMeta(icon = Icons.Filled.LocationOn, text = hotel.address)
 
-            Surface(
-                color = Color.White.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)
-            ) {
-                Text(
-                    text = hotel.price,
-                    color = TripifyDarkGreen,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                )
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            if (hotel.rating > 0) {
+                Icon(imageVector = Icons.Filled.Star, contentDescription = null, tint = CatalogColors.Gold, modifier = Modifier.size(14.dp))
+                Text(text = String.format(Locale.ITALY, "%.1f", hotel.rating), style = CatalogType.Meta, color = Color.White)
+                Text(text = "·", style = CatalogType.Meta, color = Color.White.copy(alpha = 0.55f))
             }
-
-            Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-                Text(
-                    text = hotel.title,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(hotel.address, color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFE8C468), modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("${hotel.rating} · Eccellente", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+            Text(text = ratingLabel(hotel.rating), style = CatalogType.Meta, color = Color.White.copy(alpha = 0.92f))
         }
     }
 }
