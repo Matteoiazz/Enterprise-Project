@@ -4,9 +4,7 @@ import com.tripify.catalog_service.entity.Activity;
 import com.tripify.catalog_service.entity.CatalogItem;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
-import com.tripify.catalog_service.entity.Itinerary;
 import com.tripify.catalog_service.service.CatalogService;
-import com.tripify.catalog_service.service.ItineraryService;
 import com.tripify.catalog_service.dto.CatalogItemDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,7 +21,6 @@ import java.util.UUID;
 public class CatalogController {
 
     private final CatalogService catalogService;
-    private final ItineraryService itineraryService;
 
     @GetMapping("/items")
     public ResponseEntity<List<CatalogItem>> getAllItems() {
@@ -46,19 +43,6 @@ public class CatalogController {
                 category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly
         );
         return ResponseEntity.ok(results);
-    }
-
-    @GetMapping("/packages")
-    public ResponseEntity<List<Itinerary>> getCommercialPackages() {
-        return ResponseEntity.ok(itineraryService.getAllCommercialPackages());
-    }
-
-    @PostMapping("/lists")
-    public ResponseEntity<Itinerary> createList(
-            @RequestParam String title,
-            @RequestParam Long travelerId,
-            @RequestParam boolean isPrivate) {
-        return ResponseEntity.ok(itineraryService.createFavoriteList(title, travelerId, isPrivate));
     }
 
     @PostMapping("/items/flights")
@@ -87,6 +71,7 @@ public class CatalogController {
         Activity savedActivity = (Activity) catalogService.saveItem(activity);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedActivity);
     }
+
     @GetMapping("/cities")
     public ResponseEntity<List<String>> getCitySuggestions(@RequestParam String query) {
         if (query == null || query.trim().length() < 2) {

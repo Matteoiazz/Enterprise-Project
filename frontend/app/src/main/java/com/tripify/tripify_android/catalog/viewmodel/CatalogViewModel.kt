@@ -139,6 +139,15 @@ class CatalogViewModel(
                 locationLat = dto.locationLat,
                 locationLng = dto.locationLng
             )
+            "ACTIVITY" -> CatalogItem.Excursion(
+                id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
+                imageUrls = immaginiReali,
+                duration = dto.duration ?: "Da definire",
+                guideIncluded = dto.guideIncluded ?: false,
+                activityType = dto.activityType ?: "Esperienza",
+                meetingPoint = dto.meetingPoint ?: "Da definire",
+                maxParticipants = dto.maxParticipants
+            )
             else -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
