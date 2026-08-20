@@ -25,8 +25,8 @@ fun RecommendationCard(
         price = item.price,
         title = item.title,
         onClick = onClick,
-        modifier = Modifier.width(220.dp),
-        height = 160.dp
+        modifier = Modifier.width(140.dp),
+        height = 105.dp
     ) {
         when (item) {
             is CatalogItem.Hotel -> PhotoMeta(icon = Icons.Filled.Star, text = "${item.rating} · ${item.city}")

@@ -1,20 +1,24 @@
 package com.tripify.tripify_android.catalog.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 import kotlinx.coroutines.delay
-
-private val Ink = Color(0xFF1A1A1A)
-private val Hairline = Color(0xFFE6E2D8)
 
 @Composable
 fun CityAutocompleteField(
@@ -27,15 +31,20 @@ fun CityAutocompleteField(
 ) {
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(value) {
         if (value.trim().length < 2) {
             suggestions = emptyList()
             expanded = false
+            isLoading = false
         } else {
+            isLoading = true
             delay(300)
             suggestions = fetchSuggestions(value)
-            expanded = suggestions.isNotEmpty()
+            isLoading = false
+            expanded = true
         }
     }
 
@@ -46,36 +55,59 @@ fun CityAutocompleteField(
                 onValueChange(it)
                 expanded = true
             },
-            label = { Text(label, fontSize = 12.sp) },
+            label = { Text(label, style = CatalogType.Label) },
             leadingIcon = { Icon(icon, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp)) },
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = TripifyGreen, unfocusedBorderColor = Hairline),
-            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            trailingIcon = {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = TripifyGreen)
+                }
+            },
+            textStyle = CatalogType.Label,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = TripifyGreen,
+                unfocusedBorderColor = CatalogColors.Hairline,
+                focusedContainerColor = CatalogColors.Surface,
+                unfocusedContainerColor = CatalogColors.Surface
+            ),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
             singleLine = true,
-            shape = RoundedCornerShape(10.dp)
+            shape = CatalogShapes.Field
         )
 
         if (expanded && suggestions.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                shadowElevation = 4.dp,
-                color = Color.White,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                shape = CatalogShapes.Field,
+                shadowElevation = 8.dp,
+                color = CatalogColors.Surface,
+                border = BorderStroke(1.dp, CatalogColors.Hairline),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column {
-                    suggestions.forEach { city ->
-                        Text(
-                            text = city,
-                            fontSize = 13.sp,
-                            color = Ink,
+                    suggestions.forEachIndexed { index, city ->
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
                                     onValueChange(city)
                                     expanded = false
+                                    focusManager.clearFocus()
                                 }
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        )
+                                .padding(horizontal = 14.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = CatalogColors.InkSubtle,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = city, style = CatalogType.Label, color = CatalogColors.Ink)
+                        }
+                        if (index != suggestions.lastIndex) {
+                            HorizontalDivider(color = CatalogColors.Hairline, thickness = 1.dp)
+                        }
                     }
                 }
             }

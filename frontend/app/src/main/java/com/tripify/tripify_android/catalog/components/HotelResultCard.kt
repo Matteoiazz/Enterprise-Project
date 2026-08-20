@@ -2,7 +2,6 @@ package com.tripify.tripify_android.catalog.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bed
 import androidx.compose.material.icons.filled.LocationOn
@@ -12,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -21,12 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
-
-private val Ink = Color(0xFF1A1A1A)
-private val InkMuted = Color(0xFF7A7A73)
-private val Hairline = Color(0xFFE6E2D8)
 
 @Composable
 fun HotelResultCard(
@@ -34,12 +30,10 @@ fun HotelResultCard(
     onClick: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
+        colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 
@@ -48,9 +42,7 @@ fun HotelResultCard(
                     model = hotel.imageUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                    modifier = Modifier.size(88.dp).clip(CatalogShapes.Field)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -61,27 +53,27 @@ fun HotelResultCard(
                         fontSize = 15.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
-                        color = Ink,
+                        color = CatalogColors.Ink,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = InkMuted, modifier = Modifier.size(12.dp))
+                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(3.dp))
-                        Text(hotel.city, fontSize = 12.sp, color = InkMuted, maxLines = 1)
+                        Text(hotel.city, fontSize = 12.sp, color = CatalogColors.InkMuted, maxLines = 1)
                     }
 
                     Spacer(modifier = Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFE8C468), modifier = Modifier.size(13.dp))
+                        Icon(Icons.Filled.Star, contentDescription = null, tint = CatalogColors.Gold, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(3.dp))
-                        Text("${hotel.rating}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                        Text("${hotel.rating}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CatalogColors.Ink)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Filled.Bed, contentDescription = null, tint = InkMuted, modifier = Modifier.size(12.dp))
+                        Icon(Icons.Filled.Bed, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(3.dp))
-                        Text(hotel.roomType, fontSize = 11.sp, color = InkMuted, maxLines = 1)
+                        Text(hotel.roomType, fontSize = 11.sp, color = CatalogColors.InkMuted, maxLines = 1)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -97,14 +89,14 @@ fun HotelResultCard(
 
             if (hotel.amenities.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = Hairline, thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline, thickness = 1.dp)
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     hotel.amenities.take(3).forEach { amenity ->
                         Surface(
                             color = TripifyGreen.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(6.dp)
+                            shape = CatalogShapes.Chip
                         ) {
                             Text(
                                 amenity,
@@ -116,10 +108,10 @@ fun HotelResultCard(
                         }
                     }
                     if (hotel.amenities.size > 3) {
-                        Surface(color = Hairline, shape = RoundedCornerShape(6.dp)) {
+                        Surface(color = CatalogColors.Hairline, shape = CatalogShapes.Chip) {
                             Text(
                                 "+${hotel.amenities.size - 3}",
-                                color = InkMuted,
+                                color = CatalogColors.InkMuted,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

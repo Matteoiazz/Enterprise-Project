@@ -14,7 +14,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -27,8 +26,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
@@ -37,17 +34,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 import kotlinx.coroutines.launch
 import com.tripify.tripify_android.BuildConfig
-
-private val Ink = Color(0xFF1A1A1A)
-private val InkMuted = Color(0xFF7A7A73)
-private val Hairline = Color(0xFFE6E2D8)
-private val CardSurface = Color(0xFFFFFFFF)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -56,14 +51,14 @@ fun DetailScreen(
     viewModel: CatalogViewModel,
     onNavigateBack: () -> Unit,
     onBookNow: (String) -> Unit,
-    onChatWithOrganizer: (String) -> Unit = {} // <-- NUOVO GANCIO PER MATTIA/WEBSOCKET
+    onChatWithOrganizer: (String) -> Unit = {}
 ) {
     val catalogItems by viewModel.catalogList.collectAsState()
     val item = catalogItems.find { it.id.toString() == itemId }
 
     if (item == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Elemento non trovato", fontSize = 14.sp, color = InkMuted)
+            Text("Elemento non trovato", style = CatalogType.Body, color = CatalogColors.InkMuted)
         }
         return
     }
@@ -101,7 +96,7 @@ fun DetailScreen(
         bottomBar = {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Surface(
-                    color = CardSurface,
+                    color = CatalogColors.Surface,
                     shadowElevation = 10.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -113,12 +108,12 @@ fun DetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("TOTALE", color = InkMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp)
-                            Text(item.price, color = Ink, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                            Text("TOTALE", style = CatalogType.Overline, color = CatalogColors.InkMuted)
+                            Text(item.price, style = CatalogType.PriceLarge, color = CatalogColors.Ink)
                         }
 
                         Canvas(modifier = Modifier.width(1.dp).height(36.dp)) {
-                            drawLine(color = Hairline, start = Offset(0f, 0f), end = Offset(0f, size.height), strokeWidth = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f), 0f))
+                            drawLine(color = CatalogColors.Hairline, start = Offset(0f, 0f), end = Offset(0f, size.height), strokeWidth = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f), 0f))
                         }
 
                         Spacer(modifier = Modifier.width(18.dp))
@@ -126,12 +121,12 @@ fun DetailScreen(
                         Button(
                             onClick = { onBookNow(item.id.toString()) },
                             colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = CatalogShapes.Field,
                             contentPadding = PaddingValues(horizontal = 24.dp),
                             modifier = Modifier.height(46.dp),
                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                         ) {
-                            Text("PRENOTA ORA", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                            Text("PRENOTA ORA", style = CatalogType.Button, color = Color.White)
                         }
                     }
                 }
@@ -173,7 +168,7 @@ fun DetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CardSurface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(CatalogColors.Surface, shape = CatalogShapes.Sheet)
                     .offset(y = (-18).dp)
                     .padding(horizontal = 20.dp, vertical = 22.dp)
                     .padding(bottom = innerPadding.calculateBottomPadding())
@@ -188,13 +183,14 @@ fun DetailScreen(
                             is CatalogItem.Excursion -> item.activityType.uppercase()
                             else -> ""
                         },
-                        color = InkMuted, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 1.5.sp
+                        style = CatalogType.Overline,
+                        color = CatalogColors.InkMuted
                     )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                Text(item.title, fontSize = 24.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink, lineHeight = 28.sp)
+                Text(item.title, style = CatalogType.DetailTitle, color = CatalogColors.Ink)
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -202,28 +198,29 @@ fun DetailScreen(
                     is CatalogItem.Flight -> {
                         SectionLabel("Itinerario")
                         Spacer(modifier = Modifier.height(10.dp))
-                        Row(modifier = Modifier.fillMaxWidth().border(1.dp, Hairline, RoundedCornerShape(12.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.fillMaxWidth().border(1.dp, CatalogColors.Hairline, CatalogShapes.Field).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                                Text(item.departureAirport.take(3).uppercase(), fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
-                                Text(item.departureCity, fontSize = 10.sp, color = InkMuted)
+                                Text(item.departureAirport.take(3).uppercase(), style = CatalogType.AirportCode, color = CatalogColors.Ink)
+                                Text(item.departureCity, style = CatalogType.Caption, color = CatalogColors.InkMuted)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(item.departureTime, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TripifyDarkGreen)
+                                Text(item.departureTime, style = CatalogType.Meta.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = TripifyDarkGreen)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Filled.Flight, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(16.dp))
-                                Divider(color = Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 6.dp).fillMaxWidth(0.6f))
+                                HorizontalDivider(color = CatalogColors.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 6.dp).fillMaxWidth(0.6f))
                                 Text(
                                     text = if (item.isDirect) "Diretto" else "${item.stops} ${if (item.stops == 1) "scalo" else "scali"}",
-                                    fontSize = 10.sp, color = if (item.isDirect) TripifyGreen else InkMuted, fontWeight = if (item.isDirect) FontWeight.Bold else FontWeight.Normal
+                                    style = CatalogType.Caption,
+                                    color = if (item.isDirect) TripifyGreen else CatalogColors.InkMuted
                                 )
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                                Text(item.arrivalAirport.take(3).uppercase(), fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = Ink)
-                                Text(item.arrivalCity, fontSize = 10.sp, color = InkMuted)
+                                Text(item.arrivalAirport.take(3).uppercase(), style = CatalogType.AirportCode, color = CatalogColors.Ink)
+                                Text(item.arrivalCity, style = CatalogType.Caption, color = CatalogColors.InkMuted)
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        DetailRow(icon = Icons.Filled.AirlineSeatReclineNormal, title = "Disponibilità", subtitle = "Rimangono ${item.availableSeats} posti a questo prezzo", iconColor = if (item.availableSeats < 5) Color(0xFFB3261E) else TripifyGreen)
+                        DetailRow(icon = Icons.Filled.AirlineSeatReclineNormal, title = "Disponibilità", subtitle = "Rimangono ${item.availableSeats} posti a questo prezzo", iconColor = if (item.availableSeats < 5) CatalogColors.Alert else TripifyGreen)
                     }
 
                     is CatalogItem.Hotel -> {
@@ -241,13 +238,13 @@ fun DetailScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 item.amenities.take(3).forEach { amenity ->
-                                    Surface(color = TripifyGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
-                                        Text(amenity, color = TripifyDarkGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                                    Surface(color = TripifyGreen.copy(alpha = 0.1f), shape = CatalogShapes.Badge) {
+                                        Text(amenity, color = TripifyDarkGreen, style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                                     }
                                 }
                                 if (item.amenities.size > 3) {
-                                    Surface(color = Hairline, shape = RoundedCornerShape(8.dp)) {
-                                        Text("+${item.amenities.size - 3}", color = InkMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                                    Surface(color = CatalogColors.Hairline, shape = CatalogShapes.Badge) {
+                                        Text("+${item.amenities.size - 3}", color = CatalogColors.InkMuted, style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                                     }
                                 }
                             }
@@ -269,14 +266,14 @@ fun DetailScreen(
                             }
 
                             Box(
-                                modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Hairline, RoundedCornerShape(12.dp)).clickable { openMaps() }
+                                modifier = Modifier.fillMaxWidth().height(160.dp).clip(CatalogShapes.Field).border(1.dp, CatalogColors.Hairline, CatalogShapes.Field).clickable { openMaps() }
                             ) {
                                 AsyncImage(model = staticMapUrl, contentDescription = "Mappa della posizione", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                Surface(color = Color.White.copy(alpha = 0.95f), shape = RoundedCornerShape(8.dp), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp)) {
+                                Surface(color = CatalogColors.Surface.copy(alpha = 0.95f), shape = CatalogShapes.Badge, modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                                         Icon(Icons.Filled.Map, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Apri in Maps", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                                        Text("Apri in Maps", style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = CatalogColors.Ink)
                                     }
                                 }
                             }
@@ -292,7 +289,7 @@ fun DetailScreen(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
-                Divider(color = Hairline)
+                HorizontalDivider(color = CatalogColors.Hairline)
                 Spacer(modifier = Modifier.height(20.dp))
 
                 SectionLabel("Panoramica")
@@ -300,29 +297,29 @@ fun DetailScreen(
 
                 Column(modifier = Modifier.animateContentSize(animationSpec = tween(250))) {
                     Text(
-                        text = overviewText, color = InkMuted, fontSize = 13.sp, lineHeight = 19.sp,
+                        text = overviewText, style = CatalogType.Body, color = CatalogColors.InkMuted,
                         maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = if (isDescriptionExpanded) "Mostra meno" else "Leggi tutto",
-                        color = TripifyDarkGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                        style = CatalogType.LabelStrong,
+                        color = TripifyDarkGreen,
                         modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // IL NUOVO PULSANTE CHAT E' QUI
                 OutlinedButton(
                     onClick = { onChatWithOrganizer(item.id.toString()) },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Hairline)
+                    shape = CatalogShapes.Field,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
                 ) {
                     Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = TripifyDarkGreen, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Chatta con l'organizzatore", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("Chatta con l'organizzatore", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -333,7 +330,7 @@ fun DetailScreen(
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(text = text.uppercase(), fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 1.2.sp, color = InkMuted)
+    Text(text = text.uppercase(), style = CatalogType.Overline, color = CatalogColors.InkMuted)
 }
 
 @Composable
@@ -344,18 +341,18 @@ fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Stri
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text(title, color = InkMuted, fontSize = 11.sp)
-            Text(subtitle, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(title, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            Text(subtitle, style = CatalogType.BodyStrong, color = CatalogColors.Ink)
         }
     }
 }
 
 @Composable
 fun HotelHighlight(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.border(1.dp, Hairline, RoundedCornerShape(12.dp)).padding(vertical = 12.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = modifier.border(1.dp, CatalogColors.Hairline, CatalogShapes.Field).padding(vertical = 12.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(icon, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.height(6.dp))
-        Text(title, fontWeight = FontWeight.Bold, color = Ink, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(subtitle, color = InkMuted, fontSize = 10.sp)
+        Text(title, style = CatalogType.LabelStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted)
     }
 }

@@ -140,6 +140,7 @@ fun HomeScreen(
                     onFlightDestinationChange = { flightDestination = it },
                     onSearchFlights = {
                         viewModel.searchFlightRoute(flightDeparture, flightDestination)
+                        onNavigateToSearchResults()
                     },
                     fetchSuggestions = { query -> viewModel.fetchCitySuggestions(query) }
                 )
@@ -218,7 +219,10 @@ fun HomeScreen(
                             vertical = CatalogSpacing.ListGap / 2
                         )
                     ) {
-                        val openDetail = { onNavigateToDetail(item.id.toString()) }
+                        val openDetail = {
+                            viewModel.onItemViewed(item)
+                            onNavigateToDetail(item.id.toString())
+                        }
                         when (item) {
                             is CatalogItem.Flight -> FlightCard(flight = item, onClick = openDetail)
                             is CatalogItem.Hotel -> HotelCard(hotel = item, onClick = openDetail)
