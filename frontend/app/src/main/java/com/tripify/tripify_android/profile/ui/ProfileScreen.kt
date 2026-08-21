@@ -43,7 +43,8 @@ fun ProfileScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
-    onNavigateToPaymentMethods: () -> Unit
+    onNavigateToPaymentMethods: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -98,6 +99,8 @@ fun ProfileScreen(
                     onNavigateToCompanions = onNavigateToCompanions,
                     onNavigateToTravelDocuments = onNavigateToTravelDocuments,
                     onNavigateToPaymentMethods = onNavigateToPaymentMethods,
+                    onNavigateToSettings = onNavigateToSettings,
+
                     onLogoutClick = {
                         coroutineScope.launch {
                             val idToken = viewModel.getIdToken()
@@ -158,6 +161,7 @@ fun LoggedProfileContent(
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     LazyColumn(
@@ -195,7 +199,12 @@ fun LoggedProfileContent(
                         ProfileMenuRow(Icons.Outlined.Badge, "Documenti di Viaggio", hasDivider = true, onClick = onNavigateToTravelDocuments)
                         ProfileMenuRow(Icons.Outlined.Group, "Compagni di Viaggio", hasDivider = true, onClick = onNavigateToCompanions)
                         ProfileMenuRow(Icons.Outlined.AccountBalanceWallet, "Portafoglio e Pagamenti", hasDivider = true, onClick = onNavigateToPaymentMethods)
-                        ProfileMenuRow(Icons.Outlined.Settings, "Impostazioni App", hasDivider = false)
+                        ProfileMenuRow(
+                            icon = Icons.Outlined.Settings,
+                            text = "Impostazioni App",
+                            hasDivider = false,
+                            onClick = onNavigateToSettings
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(40.dp))

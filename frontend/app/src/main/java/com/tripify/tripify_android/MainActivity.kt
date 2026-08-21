@@ -33,18 +33,14 @@ class MainActivity : ComponentActivity() {
 
                 val loginViewModel = remember { LoginViewModel(tokenManager) }
 
-                // IL REGISTER VIEWMODEL È STATO NUCLEARIZZATO
-
                 val profileViewModel = remember { ProfileViewModel(tokenManager) }
 
                 val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
                 val catalogViewModel = remember { CatalogViewModel(catalogApi) }
 
-                // DICHIARIAMO L'API DEL PROFILO UNA SOLA VOLTA
                 val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
                 val companionsViewModel = remember { CompanionsViewModel(profileApi) }
 
-                // INIZIALIZZAZIONE CORRETTA DEL VIEWMODEL PER COMPOSE
                 val travelDocumentsViewModel: TravelDocumentsViewModel = viewModel(
                     factory = TravelDocumentsViewModelFactory(profileApi)
                 )
@@ -52,13 +48,16 @@ class MainActivity : ComponentActivity() {
                     factory = PaymentMethodsViewModelFactory(profileApi)
                 )
 
+                val settingsViewModel = remember { com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager) }
+
                 TripifyApp(
                     loginViewModel = loginViewModel,
                     catalogViewModel = catalogViewModel,
                     profileViewModel = profileViewModel,
                     companionsViewModel = companionsViewModel,
                     travelDocumentsViewModel = travelDocumentsViewModel,
-                    paymentMethodsViewModel = paymentMethodsViewModel
+                    paymentMethodsViewModel = paymentMethodsViewModel,
+                    settingsViewModel = settingsViewModel
                 )
             }
         }
