@@ -1,5 +1,23 @@
 package com.tripify.tripify_android.catalog.model
 
+data class RoomTypeUi(
+    val id: Int,
+    val name: String,
+    val description: String?,
+    val price: Double,
+    val totalRooms: Int,
+    val maxOccupancy: Int?,
+    val benefits: List<String>,
+    val imageUrls: List<String>
+)
+
+data class FareClassUi(
+    val id: Int,
+    val name: String,
+    val price: Double,
+    val totalSeats: Int
+)
+
 sealed class CatalogItem {
     abstract val id: Int
     abstract val title: String
@@ -18,9 +36,11 @@ sealed class CatalogItem {
         val departureCity: String,
         val arrivalCity: String,
         val departureTime: String,
+
         val availableSeats: Int,
         val stops: Int,
-        val rating: Double? = null
+        val rating: Double? = null,
+        val fareClasses: List<FareClassUi> = emptyList()
     ) : CatalogItem() {
         val isDirect: Boolean get() = stops == 0
     }
@@ -31,10 +51,10 @@ sealed class CatalogItem {
         val address: String,
         val city: String,
         val rating: Double,
-        val roomType: String,
         val amenities: List<String>,
         val locationLat: Double? = null,
-        val locationLng: Double? = null
+        val locationLng: Double? = null,
+        val roomTypes: List<RoomTypeUi> = emptyList()
     ) : CatalogItem()
 
     data class Excursion(

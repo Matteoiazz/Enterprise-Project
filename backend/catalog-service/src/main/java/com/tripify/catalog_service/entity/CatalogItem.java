@@ -22,10 +22,8 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-// --- IMPLEMENTAZIONE SOFT DELETE ---
-// Sovrascrive il comando "DELETE" con un "UPDATE"
+
 @SQLDelete(sql = "UPDATE catalog_items SET is_active = false WHERE id = ?")
-// Hibernate 6 (Spring Boot 3): Applica in automatico questo filtro a TUTTE le query SELECT!
 @SQLRestriction("is_active = true")
 public abstract class CatalogItem {
 
@@ -33,8 +31,7 @@ public abstract class CatalogItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // VINCOLO MICROSERVIZI: Nessuna Foreign Key verso la tabella Users di Dario!
-    // È solo un ID che l'API Gateway o il Frontend si occuperanno di risolvere.
+
     @Column(name = "host_id", nullable = false)
     private UUID hostId;
 
@@ -70,7 +67,6 @@ public abstract class CatalogItem {
     @OneToMany(mappedBy = "catalogItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CatalogImage> images = new ArrayList<>();
 
-    // Metodo di utilità per mantenere la coerenza bidirezionale
     public void addImage(CatalogImage image) {
         images.add(image);
         image.setCatalogItem(this);

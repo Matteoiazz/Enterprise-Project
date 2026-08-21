@@ -1,10 +1,16 @@
 package com.tripify.catalog_service.mapper;
 
 import com.tripify.catalog_service.dto.CatalogItemDTO;
+import com.tripify.catalog_service.dto.FareClassDTO;
+import com.tripify.catalog_service.dto.RoomTypeDTO;
 import com.tripify.catalog_service.entity.CatalogImage;
 import com.tripify.catalog_service.entity.CatalogItem;
+import com.tripify.catalog_service.entity.FareClass;
+import com.tripify.catalog_service.entity.RoomType;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,22 +37,30 @@ public class CatalogMapper {
                 .itemType(item.getClass().getSimpleName());
 
         if (item instanceof com.tripify.catalog_service.entity.Flight flight) {
+            List<FareClassDTO> fareClasses = flight.getFareClasses().stream()
+                    .map(this::toDto)
+                    .toList();
             builder.departureAirport(flight.getDepartureAirport())
                     .arrivalAirport(flight.getArrivalAirport())
                     .departureCity(flight.getDepartureCity())
                     .arrivalCity(flight.getArrivalCity())
                     .departureTime(flight.getDepartureTime())
                     .arrivalTime(flight.getArrivalTime())
-                    .availableSeats(flight.getAvailableSeats())
-                    .stops(flight.getStops());
+                    .totalSeats(flight.getTotalSeats())
+                    .stops(flight.getStops())
+                    .fareClasses(fareClasses)
+                    .price(cheapestPrice(fareClasses.stream().map(FareClassDTO::getPrice), flight.getPrice()));
         } else if (item instanceof com.tripify.catalog_service.entity.Hotel hotel) {
-            builder.roomType(hotel.getRoomType())
-                    .availableRooms(hotel.getAvailableRooms())
-                    .locationLat(hotel.getLocationLat())
+            List<RoomTypeDTO> roomTypes = hotel.getRoomTypes().stream()
+                    .map(this::toDto)
+                    .toList();
+            builder.locationLat(hotel.getLocationLat())
                     .locationLng(hotel.getLocationLng())
                     .address(hotel.getAddress())
                     .city(hotel.getCity())
-                    .amenities(hotel.getAmenities());
+                    .amenities(hotel.getAmenities())
+                    .roomTypes(roomTypes)
+                    .price(cheapestPrice(roomTypes.stream().map(RoomTypeDTO::getPrice), hotel.getPrice()));
         } else if (item instanceof com.tripify.catalog_service.entity.Activity activity) {
             builder.activityType(activity.getActivityType())
                     .duration(activity.getDuration())
@@ -57,5 +71,31 @@ public class CatalogMapper {
         }
 
         return builder.build();
+    }
+
+    private RoomTypeDTO toDto(RoomType roomType) {
+        return RoomTypeDTO.builder()
+                .id(roomType.getId())
+                .name(roomType.getName())
+                .description(roomType.getDescription())
+                .price(roomType.getPrice())
+                .totalRooms(roomType.getTotalRooms())
+                .maxOccupancy(roomType.getMaxOccupancy())
+                .benefits(roomType.getBenefits())
+                .imageUrls(roomType.getImageUrls())
+                .build();
+    }
+
+    private FareClassDTO toDto(FareClass fareClass) {
+        return FareClassDTO.builder()
+                .id(fareClass.getId())
+                .name(fareClass.getName())
+                .price(fareClass.getPrice())
+                .totalSeats(fareClass.getTotalSeats())
+                .build();
+    }
+
+    private BigDecimal cheapestPrice(java.util.stream.Stream<BigDecimal> prices, BigDecimal fallback) {
+        return prices.filter(java.util.Objects::nonNull).min(Comparator.naturalOrder()).orElse(fallback);
     }
 }

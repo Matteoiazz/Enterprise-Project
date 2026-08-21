@@ -139,7 +139,7 @@ fun FlightSearchForm(
                 onClick = onSearch,
                 colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                 shape = CatalogShapes.Field,
-                modifier = Modifier.fillMaxWidth().height(48.dp).pressScale(onSearch)
+                modifier = Modifier.fillMaxWidth().height(48.dp).pressScale(onClick = onSearch)
             ) {
                 Text("CERCA VOLI", style = CatalogType.Button, color = Color.White)
             }
@@ -158,6 +158,7 @@ fun FlightSearchForm(
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
+            colors = catalogDatePickerColors(),
             confirmButton = {
                 TextButton(onClick = {
                     onDateChange(datePickerState.selectedDateMillis)
@@ -177,7 +178,7 @@ fun FlightSearchForm(
                 }
             }
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(state = datePickerState, colors = catalogDatePickerColors())
         }
     }
 }

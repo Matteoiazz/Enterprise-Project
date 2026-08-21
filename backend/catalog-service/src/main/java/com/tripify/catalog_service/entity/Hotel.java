@@ -3,7 +3,6 @@ package com.tripify.catalog_service.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -14,7 +13,8 @@ import java.util.List;
 @Entity
 @Table(name = "hotel_details")
 @Data
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = "roomTypes")
+@ToString(exclude = "roomTypes")
 @NoArgsConstructor
 @AllArgsConstructor
 public class Hotel extends CatalogItem {
@@ -31,15 +31,6 @@ public class Hotel extends CatalogItem {
     @Column(name = "location_lng", nullable = false)
     private Double locationLng;
 
-    @NotBlank(message = "il tipo di camera è obbligatorio")
-    @Column(name = "room_type", nullable = false)
-    private String roomType;
-
-    @NotNull(message = "il numero di camere disponibili è obbligatorio")
-    @Min(value = 0, message = "le camere disponibili non possono essere negative")
-    @Column(name = "available_rooms", nullable = false)
-    private Integer availableRooms;
-
     @NotBlank(message = "l'indirizzo è obbligatorio")
     @Column(name = "address", nullable = false)
     private String address;
@@ -52,4 +43,7 @@ public class Hotel extends CatalogItem {
     @CollectionTable(name = "hotel_amenities", joinColumns = @JoinColumn(name = "hotel_id"))
     @Column(name = "amenity")
     private List<String> amenities = new ArrayList<>();
+
+    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RoomType> roomTypes = new ArrayList<>();
 }

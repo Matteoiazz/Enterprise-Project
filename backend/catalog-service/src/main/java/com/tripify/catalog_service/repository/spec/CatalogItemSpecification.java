@@ -118,7 +118,7 @@ public class CatalogItemSpecification {
             if (minSeats != null && minSeats > 0) {
                 Root<Flight> flightRoot = cb.treat(root, Flight.class);
                 Predicate isFlight = cb.equal(root.type(), Flight.class);
-                Predicate hasEnoughSeats = cb.greaterThanOrEqualTo(flightRoot.get("availableSeats"), minSeats);
+                Predicate hasEnoughSeats = cb.greaterThanOrEqualTo(flightRoot.get("totalSeats"), minSeats);
                 predicates.add(cb.or(cb.not(isFlight), hasEnoughSeats));
             }
 

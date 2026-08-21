@@ -12,18 +12,20 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.List;
 
-/**
- * Centralizza la gestione degli errori del catalog-service: senza questo handler, un input
- * malformato (es. X-User-Id non valido) o un vincolo di validazione produce un 500 generico
- * con stack trace invece di una risposta 400/404 leggibile dal client.
- */
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(CatalogItemNotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(CatalogItemNotFoundException ex) {
+    @ExceptionHandler({ CatalogItemNotFoundException.class, HoldNotFoundException.class })
+    public ResponseEntity<ApiError> handleNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ApiError(HttpStatus.NOT_FOUND.value(), "Not Found", ex.getMessage()));
+    }
+
+    @ExceptionHandler({ InsufficientAvailabilityException.class, InvalidHoldStateException.class })
+    public ResponseEntity<ApiError> handleConflict(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(HttpStatus.CONFLICT.value(), "Conflict", ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

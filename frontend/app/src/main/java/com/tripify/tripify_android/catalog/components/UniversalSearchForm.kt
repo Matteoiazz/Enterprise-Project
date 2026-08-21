@@ -55,7 +55,7 @@ fun UniversalSearchForm(
                     colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                     shape = CatalogShapes.Field,
                     contentPadding = PaddingValues(vertical = 0.dp),
-                    modifier = Modifier.weight(1f).height(44.dp).pressScale(onSearch)
+                    modifier = Modifier.weight(1f).height(44.dp).pressScale(onClick = onSearch)
                 ) {
                     Text("CERCA", style = CatalogType.Button, color = Color.White)
                 }

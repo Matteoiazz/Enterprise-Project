@@ -29,6 +29,9 @@ public interface CatalogService {
             Boolean directOnly,
             LocalDate departureDate,
             Integer minSeats,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Integer rooms,
             Pageable pageable
     );
 

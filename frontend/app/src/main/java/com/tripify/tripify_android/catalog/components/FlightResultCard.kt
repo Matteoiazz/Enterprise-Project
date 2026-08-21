@@ -29,7 +29,7 @@ fun FlightResultCard(
         shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
-        modifier = Modifier.fillMaxWidth().pressScale(onClick)
+        modifier = Modifier.fillMaxWidth().pressScale(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 

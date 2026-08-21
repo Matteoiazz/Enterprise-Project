@@ -44,7 +44,7 @@ class CatalogItemSpecificationTest {
         flightDiretto.setArrivalCity("Milano");
         flightDiretto.setDepartureTime(LocalDateTime.now());
         flightDiretto.setArrivalTime(LocalDateTime.now().plusHours(1));
-        flightDiretto.setAvailableSeats(50);
+        flightDiretto.setTotalSeats(50);
         flightDiretto.setStops(0);
 
         // 2. Volo con scalo Roma -> Londra
@@ -62,7 +62,7 @@ class CatalogItemSpecificationTest {
         flightConScalo.setArrivalCity("Londra");
         flightConScalo.setDepartureTime(LocalDateTime.now());
         flightConScalo.setArrivalTime(LocalDateTime.now().plusHours(3));
-        flightConScalo.setAvailableSeats(20);
+        flightConScalo.setTotalSeats(20);
         flightConScalo.setStops(1);
 
         // 3. Hotel con Wi-Fi e Piscina, rating alto
@@ -76,8 +76,6 @@ class CatalogItemSpecificationTest {
         hotelLusso.setRating(5);
         hotelLusso.setLocationLat(41.9);
         hotelLusso.setLocationLng(12.5);
-        hotelLusso.setRoomType("Suite");
-        hotelLusso.setAvailableRooms(5);
         hotelLusso.setAddress("Via Roma 1");
         hotelLusso.setCity("Roma");
         hotelLusso.setAmenities(List.of("Wi-Fi", "Piscina"));
@@ -93,8 +91,6 @@ class CatalogItemSpecificationTest {
         hotelEconomico.setRating(2);
         hotelEconomico.setLocationLat(45.4);
         hotelEconomico.setLocationLng(9.1);
-        hotelEconomico.setRoomType("Singola");
-        hotelEconomico.setAvailableRooms(10);
         hotelEconomico.setAddress("Via Milano 1");
         hotelEconomico.setCity("Milano");
         hotelEconomico.setAmenities(List.of());
@@ -266,6 +262,6 @@ class CatalogItemSpecificationTest {
 
         // flightConScalo ha 20 posti, sotto soglia: deve sparire. flightDiretto(50) resta.
         assertThat(risultati).hasSize(5);
-        assertThat(risultati).noneMatch(item -> item instanceof Flight f && f.getAvailableSeats() < 30);
+        assertThat(risultati).noneMatch(item -> item instanceof Flight f && f.getTotalSeats() < 30);
     }
 }

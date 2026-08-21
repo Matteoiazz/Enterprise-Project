@@ -50,10 +50,14 @@ public class CatalogController {
             @RequestParam(required = false) Boolean directOnly,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
             @RequestParam(required = false) Integer minSeats,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
+            @RequestParam(required = false) Integer rooms,
             @PageableDefault(size = 20) Pageable pageable
     ) {
         Page<CatalogItemDTO> results = catalogService.search(
-                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly, departureDate, minSeats, pageable
+                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly,
+                departureDate, minSeats, checkIn, checkOut, rooms, pageable
         );
         return ResponseEntity.ok(results);
     }

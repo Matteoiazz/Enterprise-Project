@@ -70,6 +70,9 @@ fun HomeScreen(
     var flightDestination by rememberSaveable { mutableStateOf("") }
     var flightDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var flightPassengers by rememberSaveable { mutableStateOf(1) }
+    var hotelCity by rememberSaveable { mutableStateOf("") }
+    var hotelCheckInMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var hotelCheckOutMillis by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
@@ -166,7 +169,27 @@ fun HomeScreen(
                         viewModel.searchFlightRoute(flightDeparture, flightDestination, date, flightPassengers)
                         onNavigateToSearchResults()
                     },
+                    hotelCity = hotelCity,
+                    onHotelCityChange = { hotelCity = it },
+                    hotelCheckInMillis = hotelCheckInMillis,
+                    onHotelCheckInChange = { hotelCheckInMillis = it },
+                    hotelCheckOutMillis = hotelCheckOutMillis,
+                    onHotelCheckOutChange = { hotelCheckOutMillis = it },
+                    onSearchHotels = {
+                        val checkIn = hotelCheckInMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                        val checkOut = hotelCheckOutMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                        viewModel.searchHotels(hotelCity, checkIn, checkOut)
+                        onNavigateToSearchResults()
+                    },
                     fetchSuggestions = { query -> viewModel.fetchCitySuggestions(query) }
+                )
+            }
+
+
+            item(key = "categories") {
+                CategoryTabs(
+                    selected = selectedCategory,
+                    onSelect = viewModel::setCategory
                 )
             }
 
@@ -199,13 +222,6 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(14.dp))
                     }
                 }
-            }
-
-            item(key = "categories") {
-                CategoryTabs(
-                    selected = selectedCategory,
-                    onSelect = viewModel::setCategory
-                )
             }
 
             item(key = "quick_filters") {
@@ -285,6 +301,13 @@ private fun HeroHeader(
     flightPassengers: Int,
     onFlightPassengersChange: (Int) -> Unit,
     onSearchFlights: () -> Unit,
+    hotelCity: String,
+    onHotelCityChange: (String) -> Unit,
+    hotelCheckInMillis: Long?,
+    onHotelCheckInChange: (Long?) -> Unit,
+    hotelCheckOutMillis: Long?,
+    onHotelCheckOutChange: (Long?) -> Unit,
+    onSearchHotels: () -> Unit,
     fetchSuggestions: suspend (String) -> List<String>
 ) {
     val cardOverlap = 28.dp
@@ -336,6 +359,17 @@ private fun HeroHeader(
                     passengers = flightPassengers,
                     onPassengersChange = onFlightPassengersChange,
                     onSearch = onSearchFlights,
+                    fetchSuggestions = fetchSuggestions
+                )
+            } else if (selectedCategory == "Hotel") {
+                HotelSearchForm(
+                    city = hotelCity,
+                    onCityChange = onHotelCityChange,
+                    checkInMillis = hotelCheckInMillis,
+                    onCheckInChange = onHotelCheckInChange,
+                    checkOutMillis = hotelCheckOutMillis,
+                    onCheckOutChange = onHotelCheckOutChange,
+                    onSearch = onSearchHotels,
                     fetchSuggestions = fetchSuggestions
                 )
             } else {

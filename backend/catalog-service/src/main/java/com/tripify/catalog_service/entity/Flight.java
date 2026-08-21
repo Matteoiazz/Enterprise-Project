@@ -1,8 +1,6 @@
 package com.tripify.catalog_service.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,11 +8,14 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "flight_details")
 @Data
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = "fareClasses")
+@ToString(exclude = "fareClasses")
 @NoArgsConstructor
 @AllArgsConstructor
 public class Flight extends CatalogItem {
@@ -45,13 +46,17 @@ public class Flight extends CatalogItem {
     @Column(name = "arrival_time", nullable = false)
     private LocalDateTime arrivalTime;
 
-    @NotNull(message = "il numero di posti disponibili è obbligatorio")
-    @Min(value = 0, message = "i posti disponibili non possono essere negativi")
-    @Column(name = "available_seats", nullable = false)
-    private Integer availableSeats;
+
+    @NotNull(message = "il numero di posti totali è obbligatorio")
+    @Min(value = 0, message = "i posti totali non possono essere negativi")
+    @Column(name = "total_seats", nullable = false)
+    private Integer totalSeats;
 
     @NotNull
     @Min(value = 0, message = "il numero di scali non può essere negativo")
     @Column(name = "stops", nullable = false)
     private Integer stops = 0;
+
+    @OneToMany(mappedBy = "flight", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FareClass> fareClasses = new ArrayList<>();
 }

@@ -28,7 +28,7 @@ fun HotelResultCard(
         shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
-        modifier = Modifier.fillMaxWidth().pressScale(onClick)
+        modifier = Modifier.fillMaxWidth().pressScale(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 
@@ -66,7 +66,9 @@ fun HotelResultCard(
                         }
                         Icon(Icons.Filled.Bed, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(3.dp))
-                        Text(hotel.roomType, style = CatalogType.Caption, color = CatalogColors.InkMuted, maxLines = 1)
+                        val roomTypeLabel = hotel.roomTypes.minByOrNull { it.price }?.name
+                            ?: if (hotel.roomTypes.size > 1) "${hotel.roomTypes.size} tipologie" else "Camera Standard"
+                        Text(roomTypeLabel, style = CatalogType.Caption, color = CatalogColors.InkMuted, maxLines = 1)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))

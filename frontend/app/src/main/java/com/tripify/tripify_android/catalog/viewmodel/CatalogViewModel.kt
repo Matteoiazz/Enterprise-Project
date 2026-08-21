@@ -3,10 +3,14 @@ package com.tripify.tripify_android.catalog.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.model.FareClassUi
+import com.tripify.tripify_android.catalog.model.RoomTypeUi
 import com.tripify.tripify_android.catalog.ui.components.NO_PRICE_LIMIT
 import com.tripify.tripify_android.data.CatalogApi
 import com.tripify.tripify_android.data.model.CatalogItemDto
 import com.tripify.tripify_android.data.model.PagedResponse
+import com.tripify.tripify_android.data.model.RoomHoldRequest
+import com.tripify.tripify_android.data.model.SeatHoldRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -14,8 +18,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.UUID
+
+sealed class HoldOutcome {
+    data class Success(val holdId: String, val expiresAt: String) : HoldOutcome()
+    data class Unavailable(val message: String) : HoldOutcome()
+    data class Error(val message: String) : HoldOutcome()
+}
 
 class CatalogViewModel(
     private val api: CatalogApi
@@ -54,6 +66,18 @@ class CatalogViewModel(
     private val _passengers = MutableStateFlow(1)
     val passengers: StateFlow<Int> = _passengers.asStateFlow()
 
+    // Date/camere scelte nella ricerca hotel: servono sia a filtrare (solo hotel con
+    // disponibilità vera per quelle notti) sia a pre-compilare il dettaglio quando l'utente
+    // apre un risultato, invece di fargli riscegliere tutto da capo.
+    private val _hotelCheckIn = MutableStateFlow<LocalDate?>(null)
+    val hotelCheckIn: StateFlow<LocalDate?> = _hotelCheckIn.asStateFlow()
+
+    private val _hotelCheckOut = MutableStateFlow<LocalDate?>(null)
+    val hotelCheckOut: StateFlow<LocalDate?> = _hotelCheckOut.asStateFlow()
+
+    private val _hotelRooms = MutableStateFlow(1)
+    val hotelRooms: StateFlow<Int> = _hotelRooms.asStateFlow()
+
     private val _catalogList = MutableStateFlow<List<CatalogItem>>(emptyList())
     val catalogList: StateFlow<List<CatalogItem>> = _catalogList.asStateFlow()
 
@@ -86,6 +110,10 @@ class CatalogViewModel(
     private var fetchJob: Job? = null
     private var searchDebounceJob: Job? = null
 
+    // Placeholder finché non esiste un vero login collegato a Catalog: identifica comunque
+    // in modo stabile questa sessione verso gli endpoint di hold, che richiedono uno userId.
+    private val guestUserId = "guest-${UUID.randomUUID()}"
+
     init {
         fetchCatalogData(isUserSearch = false)
     }
@@ -114,6 +142,16 @@ class CatalogViewModel(
         _destination.value = destination
         _departureDate.value = date
         _passengers.value = passengers.coerceIn(1, 9)
+        fetchCatalogData(isUserSearch = true)
+    }
+
+    fun searchHotels(city: String, checkIn: LocalDate?, checkOut: LocalDate?) {
+        _destination.value = city
+        _hotelCheckIn.value = checkIn
+        _hotelCheckOut.value = checkOut
+        // Il numero di camere non è più un filtro di ricerca: si sceglie nel dettaglio al
+        // momento di prenotare. In ricerca basta sapere se l'hotel ha almeno 1 camera libera.
+        _hotelRooms.value = 1
         fetchCatalogData(isUserSearch = true)
     }
 
@@ -148,27 +186,36 @@ class CatalogViewModel(
 
         return when (dto.itemType.uppercase()) {
             "FLIGHT" -> CatalogItem.Flight(
-                id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
+                id = dto.id, title = dto.title, price = "Da $priceString", priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
                 departureAirport = dto.departureAirport ?: "N/D",
                 arrivalAirport = dto.arrivalAirport ?: "N/D",
                 departureCity = dto.departureCity ?: "N/D",
                 arrivalCity = dto.arrivalCity ?: "N/D",
                 departureTime = dto.departureTime?.take(10) ?: "Data da def.",
-                availableSeats = dto.availableSeats ?: 0,
+                availableSeats = dto.totalSeats ?: 0,
                 stops = dto.stops ?: 0,
-                rating = rating
+                rating = rating,
+                fareClasses = dto.fareClasses?.map {
+                    FareClassUi(id = it.id, name = it.name, price = it.price, totalSeats = it.totalSeats)
+                } ?: emptyList()
             )
             "HOTEL" -> CatalogItem.Hotel(
-                id = dto.id, title = dto.title, price = "$priceString/notte", priceValue = dto.price.toInt(),
+                id = dto.id, title = dto.title, price = "Da $priceString/notte", priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
                 address = dto.address ?: "Indirizzo non disponibile",
                 city = dto.city ?: "N/D",
                 rating = rating ?: 0.0,
-                roomType = dto.roomType ?: "Camera Standard",
                 amenities = dto.amenities ?: emptyList(),
                 locationLat = dto.locationLat,
-                locationLng = dto.locationLng
+                locationLng = dto.locationLng,
+                roomTypes = dto.roomTypes?.map {
+                    RoomTypeUi(
+                        id = it.id, name = it.name, description = it.description, price = it.price,
+                        totalRooms = it.totalRooms, maxOccupancy = it.maxOccupancy,
+                        benefits = it.benefits ?: emptyList(), imageUrls = it.imageUrls ?: emptyList()
+                    )
+                } ?: emptyList()
             )
             "ACTIVITY" -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
@@ -199,8 +246,7 @@ class CatalogViewModel(
     }
 
     private suspend fun performSearch(page: Int): PagedResponse<CatalogItemDto> {
-        // Slider al massimo = "nessun limite": va inviato null, non il valore del tetto,
-        // altrimenti qualunque item sopra quel prezzo sparisce per sempre da ogni ricerca.
+
         val maxPriceParam = _maxPrice.value.toInt().takeIf { _maxPrice.value < NO_PRICE_LIMIT }
         return api.searchCatalog(
             category = _selectedCategory.value,
@@ -213,9 +259,13 @@ class CatalogViewModel(
             amenities = _selectedAmenities.value.takeIf { it.isNotEmpty() },
             directOnly = if (_directOnly.value) true else null,
             departureDate = _departureDate.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
-            // 1 passeggero è il default "non toccato": lo mandiamo solo se l'utente lo ha davvero alzato,
-            // altrimenti un volo con un solo posto libero verrebbe escluso senza che nessuno l'abbia chiesto.
+
             minSeats = _passengers.value.takeIf { it > 1 },
+            // Filtra solo gli Hotel (il backend ignora questi parametri per voli/attività):
+            // mostra soltanto chi ha davvero una tipologia libera per quelle notti.
+            checkIn = _hotelCheckIn.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            checkOut = _hotelCheckOut.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            rooms = _hotelRooms.value.takeIf { it > 1 },
             page = page,
             size = 20
         )
@@ -270,8 +320,7 @@ class CatalogViewModel(
                 throw e
             } catch (e: Exception) {
                 e.printStackTrace()
-                // Una pagina successiva fallita non deve svuotare i risultati già mostrati:
-                // segnaliamo solo che per ora non si può continuare a scorrere.
+
                 _isLastPage.value = true
             } finally {
                 _isLoadingMore.value = false
@@ -330,11 +379,7 @@ class CatalogViewModel(
         }
     }
 
-    /**
-     * Risolve un item per id: prima dalla cache in memoria (istantaneo, copre il caso comune
-     * di un tap su una card già caricata), poi con una chiamata di rete dedicata (copre deep
-     * link e casi limite in cui l'item non è mai passato per catalogList/recommendedItems).
-     */
+
     suspend fun getOrFetchItem(id: Int): CatalogItem? {
         _itemCache.value[id]?.let { return it }
         return try {
@@ -356,6 +401,59 @@ class CatalogViewModel(
             throw e
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    /** Disponibilità vera per una tipologia di camera nelle date scelte (per notte, non un numero statico). */
+    suspend fun fetchRoomAvailability(roomTypeId: Int, checkIn: LocalDate, checkOut: LocalDate): Int? {
+        return try {
+            api.getRoomAvailability(roomTypeId, checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE), checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE)).available
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun fetchSeatAvailability(fareClassId: Int): Int? {
+        return try {
+            api.getSeatAvailability(fareClassId).available
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Blocca temporaneamente N camere di una tipologia per il range di notti scelto. */
+    suspend fun holdRoomType(roomTypeId: Int, checkIn: LocalDate, checkOut: LocalDate, rooms: Int): HoldOutcome =
+        runHold {
+            api.holdRoom(
+                roomTypeId,
+                RoomHoldRequest(
+                    checkIn = checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                    checkOut = checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                    rooms = rooms,
+                    userId = guestUserId
+                )
+            )
+        }
+
+    /** Blocca temporaneamente N posti di una classe tariffaria. */
+    suspend fun holdFareClass(fareClassId: Int, seats: Int): HoldOutcome =
+        runHold { api.holdSeats(fareClassId, SeatHoldRequest(seats = seats, userId = guestUserId)) }
+
+    private suspend fun runHold(block: suspend () -> com.tripify.tripify_android.data.model.HoldResultDto): HoldOutcome {
+        return try {
+            val result = block()
+            HoldOutcome.Success(result.holdId, result.expiresAt)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: HttpException) {
+            if (e.code() == 409) HoldOutcome.Unavailable("Non è più disponibile per queste date/quantità: qualcun altro potrebbe averlo appena prenotato.")
+            else HoldOutcome.Error("Errore durante la richiesta. Riprova.")
+        } catch (e: Exception) {
+            HoldOutcome.Error("Impossibile completare la richiesta. Controlla la connessione.")
         }
     }
 }

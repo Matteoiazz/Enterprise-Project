@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -36,11 +38,43 @@ import coil.request.ImageRequest
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun catalogDatePickerColors(): DatePickerColors = DatePickerDefaults.colors(
+    containerColor = CatalogColors.Surface,
+    titleContentColor = CatalogColors.InkMuted,
+    headlineContentColor = CatalogColors.Ink,
+    weekdayContentColor = CatalogColors.InkMuted,
+    subheadContentColor = CatalogColors.Ink,
+    navigationContentColor = CatalogColors.AccentDark,
+    yearContentColor = CatalogColors.InkMuted,
+    currentYearContentColor = CatalogColors.AccentDark,
+    selectedYearContentColor = Color.White,
+    selectedYearContainerColor = CatalogColors.AccentDark,
+    dayContentColor = CatalogColors.Ink,
+    disabledDayContentColor = CatalogColors.InkSubtle,
+    selectedDayContentColor = Color.White,
+    disabledSelectedDayContentColor = Color.White,
+    selectedDayContainerColor = CatalogColors.AccentDark,
+    disabledSelectedDayContainerColor = CatalogColors.AccentDark.copy(alpha = 0.4f),
+    todayContentColor = CatalogColors.AccentDark,
+    todayDateBorderColor = CatalogColors.AccentDark,
+    dayInSelectionRangeContainerColor = CatalogColors.AccentSoft,
+    dayInSelectionRangeContentColor = CatalogColors.AccentDark,
+    dividerColor = CatalogColors.Hairline
+)
 
 /**
  * Bottone/card premuto: leggero scale-down al tocco, coerente su tutte le card cliccabili.
  */
-fun Modifier.pressScale(onClick: () -> Unit): Modifier = composed {
+fun Modifier.pressScale(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -50,7 +84,7 @@ fun Modifier.pressScale(onClick: () -> Unit): Modifier = composed {
     )
     this
         .graphicsLayer { scaleX = scale; scaleY = scale }
-        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
 }
 
 @Composable
@@ -145,7 +179,7 @@ fun PhotoCard(
         shape = CatalogShapes.Card,
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        modifier = modifier.fillMaxWidth().height(height).pressScale(onClick)
+        modifier = modifier.fillMaxWidth().height(height).pressScale(onClick = onClick)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             CatalogImage(model = imageUrl, contentDescription = null, modifier = Modifier.fillMaxSize())
@@ -229,10 +263,7 @@ fun ratingLabel(rating: Double): String = when {
     else -> "Nessuna recensione"
 }
 
-/**
- * Fila di 5 stelle con supporto alla mezza stella. Se rating <= 0 non renderizza nulla:
- * i chiamanti devono comunque guardare rating > 0 se vogliono nascondere l'intero blocco rating.
- */
+
 @Composable
 fun RatingStars(
     rating: Double,
@@ -285,6 +316,80 @@ fun CatalogCardSkeleton(modifier: Modifier = Modifier) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Box(modifier = Modifier.fillMaxWidth(0.62f).height(15.dp).clip(RoundedCornerShape(4.dp)).background(brush))
             Box(modifier = Modifier.fillMaxWidth(0.38f).height(11.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+        }
+    }
+}
+
+/**
+ * Coppia di campi check-in/check-out con DatePicker a tema, condivisa tra il form di
+ * ricerca hotel e il dettaglio hotel — così le date scelte in un posto si possono
+ * ripassare pari pari all'altro invece di farle riscegliere da capo.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateRangeRow(
+    checkInMillis: Long?,
+    checkOutMillis: Long?,
+    onCheckInChange: (Long?) -> Unit,
+    onCheckOutChange: (Long?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showCheckInPicker by remember { mutableStateOf(false) }
+    var showCheckOutPicker by remember { mutableStateOf(false) }
+    val formatter = remember { DateTimeFormatter.ofPattern("d MMM", Locale.ITALIAN) }
+    val todayMillis = remember { LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+
+    fun label(millis: Long?, placeholder: String): String =
+        millis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().format(formatter) } ?: placeholder
+
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        DateField(label = "Check-in", value = label(checkInMillis, "Scegli data"), isSet = checkInMillis != null, onClick = { showCheckInPicker = true }, modifier = Modifier.weight(1f))
+        DateField(label = "Check-out", value = label(checkOutMillis, "Scegli data"), isSet = checkOutMillis != null, onClick = { showCheckOutPicker = true }, modifier = Modifier.weight(1f))
+    }
+
+    if (showCheckInPicker) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = checkInMillis ?: todayMillis,
+            selectableDates = remember { object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= todayMillis } }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showCheckInPicker = false },
+            colors = catalogDatePickerColors(),
+            confirmButton = { TextButton(onClick = { onCheckInChange(state.selectedDateMillis); showCheckInPicker = false }) { Text("Conferma", color = CatalogColors.AccentDark) } },
+            dismissButton = { TextButton(onClick = { showCheckInPicker = false }) { Text("Annulla", color = CatalogColors.InkMuted) } }
+        ) { DatePicker(state = state, colors = catalogDatePickerColors()) }
+    }
+
+    if (showCheckOutPicker) {
+        val minMillis = checkInMillis?.let { it + 24L * 60 * 60 * 1000 } ?: todayMillis
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = checkOutMillis?.takeIf { it >= minMillis } ?: minMillis,
+            selectableDates = remember(minMillis) { object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= minMillis } }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showCheckOutPicker = false },
+            colors = catalogDatePickerColors(),
+            confirmButton = { TextButton(onClick = { onCheckOutChange(state.selectedDateMillis); showCheckOutPicker = false }) { Text("Conferma", color = CatalogColors.AccentDark) } },
+            dismissButton = { TextButton(onClick = { showCheckOutPicker = false }) { Text("Annulla", color = CatalogColors.InkMuted) } }
+        ) { DatePicker(state = state, colors = catalogDatePickerColors()) }
+    }
+}
+
+@Composable
+private fun DateField(label: String, value: String, isSet: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = CatalogColors.Surface,
+        border = BorderStroke(1.dp, if (isSet) CatalogColors.AccentDark else CatalogColors.Hairline),
+        modifier = modifier.pressScale(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Text(label, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = if (isSet) CatalogColors.AccentDark else CatalogColors.InkSubtle, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(value, style = CatalogType.BodyStrong, color = if (isSet) CatalogColors.Ink else CatalogColors.InkSubtle)
+            }
         }
     }
 }
