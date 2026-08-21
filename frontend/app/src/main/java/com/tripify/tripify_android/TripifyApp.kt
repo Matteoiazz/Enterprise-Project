@@ -49,7 +49,8 @@ fun TripifyApp(
     profileViewModel: ProfileViewModel,
     companionsViewModel: CompanionsViewModel,
     travelDocumentsViewModel: TravelDocumentsViewModel,
-    paymentMethodsViewModel: PaymentMethodsViewModel
+    paymentMethodsViewModel: PaymentMethodsViewModel,
+    settingsViewModel: com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -174,7 +175,24 @@ fun TripifyApp(
                     onNavigateToLogin = { navController.navigate(Route.Auth.path) },
                     onNavigateToCompanions = { navController.navigate(Route.Companions.path) },
                     onNavigateToTravelDocuments = { navController.navigate(Route.TravelDocuments.path) },
-                    onNavigateToPaymentMethods = { navController.navigate(Route.PaymentMethods.path) }
+                    onNavigateToPaymentMethods = { navController.navigate(Route.PaymentMethods.path) },
+                    onNavigateToSettings = { navController.navigate(Route.Settings.path) }
+                )
+            }
+
+            composable(Route.Settings.path) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val tokenManager = androidx.compose.runtime.remember { com.tripify.tripify_android.data.TokenManager(context) }
+                val settingsViewModel = androidx.compose.runtime.remember {
+                    com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager)
+                }
+
+                com.tripify.tripify_android.profile.ui.SettingsScreen(
+                    viewModel = settingsViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToKeycloakAccount = {
+                        // Qui poi metteremo il link per il cambio password
+                    }
                 )
             }
 

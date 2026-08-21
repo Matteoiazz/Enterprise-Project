@@ -12,4 +12,6 @@ sealed class Route(val path: String) {
     object PaymentMethods : Route("payment_methods")
     object SearchResults : Route("search_results")
 
+    object Settings : Route("settings")
+
 }
