@@ -1,6 +1,4 @@
-<#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password'); section>
-    <#if section = "form">
+
         <!DOCTYPE html>
         <html lang="it">
         <head>
@@ -332,5 +330,4 @@
         </div>
         </body>
         </html>
-    </#if>
-</@layout.registrationLayout>
+

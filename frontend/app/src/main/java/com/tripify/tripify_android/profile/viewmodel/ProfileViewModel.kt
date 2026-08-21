@@ -1,13 +1,20 @@
 package com.tripify.tripify_android.profile.viewmodel
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tripify.tripify_android.BuildConfig
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import kotlinx.coroutines.launch
+import net.openid.appauth.AuthorizationService
+import net.openid.appauth.AuthorizationServiceConfiguration
+import net.openid.appauth.EndSessionRequest
 
 class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
@@ -45,9 +52,37 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    suspend fun getIdToken(): String? {
+        return tokenManager.getIdToken()
+    }
+
+    fun getEndSessionIntent(context: Context, idToken: String): Intent {
+        val serviceConfig = AuthorizationServiceConfiguration(
+            Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/auth"),
+            Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
+        )
+
+        val endSessionEndpoint = Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/logout")
+
+        val endSessionConfig = AuthorizationServiceConfiguration(
+            serviceConfig.authorizationEndpoint,
+            serviceConfig.tokenEndpoint,
+            null,
+            endSessionEndpoint
+        )
+
+        val endSessionRequest = EndSessionRequest.Builder(endSessionConfig)
+            .setIdTokenHint(idToken)
+            .setPostLogoutRedirectUri(Uri.parse("com.tripify.app://oauth"))
+            .build()
+
+        val authService = AuthorizationService(context)
+        return authService.getEndSessionRequestIntent(endSessionRequest)
+    }
+
     fun logout() {
         viewModelScope.launch {
-            tokenManager.clearToken()
+            tokenManager.clearTokens()
             isLoggedOut = true
         }
     }

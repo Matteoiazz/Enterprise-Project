@@ -57,9 +57,8 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
             clientId,
             ResponseTypeValues.CODE,
             redirectUri
-        ).setScopes("openid", "profile", "email").setPrompt("login").build()
+        ).setScopes("openid", "profile", "email").setPrompt("select_account").build()
 
-        // Passiamo la nostra configurazione all'AuthorizationService
         val authService = AuthorizationService(context, appAuthConfig)
         return authService.getAuthorizationRequestIntent(authRequest)
     }
@@ -80,7 +79,6 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
         if (response != null) {
             isLoading = true
-            // Passiamo la nostra configurazione anche qui per lo scambio del token!
             val authService = AuthorizationService(context, appAuthConfig)
             authService.performTokenRequest(
                 response.createTokenExchangeRequest()
@@ -90,8 +88,8 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     isLoading = false
                 } else if (tokenResponse != null) {
                     viewModelScope.launch {
-                        // Abbiamo il token! Lo salviamo nella cassaforte di Android
                         tokenManager.saveToken(tokenResponse.accessToken ?: "")
+                        tokenManager.saveIdToken(tokenResponse.idToken ?: "")
                         isLoginSuccessful = true
                         isLoading = false
                     }

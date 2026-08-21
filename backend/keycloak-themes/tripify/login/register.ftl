@@ -1,6 +1,4 @@
-<#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=messagesPerField.exists('global'); section>
-    <#if section = "form">
+
         <!DOCTYPE html>
         <html lang="it">
         <head>
@@ -411,5 +409,4 @@
         </script>
         </body>
         </html>
-    </#if>
-</@layout.registrationLayout>
+
