@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -40,11 +41,16 @@ public class ShoppingCartService {
         ShoppingCart cart = getCartForUser(userId);
 
         // LA CHIAMATA DI SICUREZZA: Chiediamo il prezzo reale al microservizio Catalogo
+        // NOTA: CatalogClient.getItemPrice() restituisce ancora Double - se possibile
+        // fai in modo che anche il Catalog Service esponga il prezzo come BigDecimal,
+        // così eviti la conversione qui e resti coerente end-to-end.
         Double realPrice = catalogClient.getItemPrice(catalogItemId);
 
         if (realPrice == null) {
             throw new RuntimeException("Errore di sicurezza: Articolo non trovato nel catalogo!");
         }
+
+        BigDecimal price = BigDecimal.valueOf(realPrice);
 
         // Controlla se l'oggetto è già presente nel carrello
         Optional<CartItem> existingItem = cart.getItems().stream()
@@ -62,7 +68,7 @@ public class ShoppingCartService {
                     .cart(cart)
                     .catalogItemId(catalogItemId)
                     .quantity(quantity)
-                    .priceAtAdded(realPrice)
+                    .priceAtAdded(price)
                     .build();
             itemRepository.save(newItem);
         }
