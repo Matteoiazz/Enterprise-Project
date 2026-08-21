@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SearchOff
@@ -29,8 +30,8 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
+import java.time.Instant
+import java.time.ZoneOffset
 
 private val CATEGORIES = listOf("Tutti", "Voli", "Hotel", "Attività")
 private const val HERO_IMAGE = "https://picsum.photos/seed/epic_travel/1200/900"
@@ -48,6 +49,8 @@ fun HomeScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val catalogItems by viewModel.catalogList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val isLastPage by viewModel.isLastPage.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -65,14 +68,30 @@ fun HomeScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var flightDeparture by rememberSaveable { mutableStateOf("") }
     var flightDestination by rememberSaveable { mutableStateOf("") }
+    var flightDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var flightPassengers by rememberSaveable { mutableStateOf(1) }
+    var hotelCity by rememberSaveable { mutableStateOf("") }
+    var hotelCheckInMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var hotelCheckOutMillis by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearErrorMessage()
         }
+    }
+
+    // Infinite scroll: quando l'utente si avvicina in fondo alla lista carica la pagina successiva.
+    LaunchedEffect(listState, isLastPage, isLoading) {
+        snapshotFlow { listState.layoutInfo.let { it.visibleItemsInfo.lastOrNull()?.index to it.totalItemsCount } }
+            .collect { (lastVisibleIndex, totalCount) ->
+                if (!isLoading && !isLastPage && lastVisibleIndex != null && lastVisibleIndex >= totalCount - 4) {
+                    viewModel.loadNextPage()
+                }
+            }
     }
 
     if (showFilterSheet) {
@@ -93,7 +112,7 @@ fun HomeScreen(
     }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
@@ -106,7 +125,7 @@ fun HomeScreen(
                             Text(
                                 text = "ACCEDI",
                                 style = CatalogType.Overline,
-                                color = TripifyDarkGreen
+                                color = CatalogColors.AccentDark
                             )
                         }
                     },
@@ -119,6 +138,7 @@ fun HomeScreen(
         }
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize(),
@@ -138,11 +158,38 @@ fun HomeScreen(
                     onFlightDepartureChange = { flightDeparture = it },
                     flightDestination = flightDestination,
                     onFlightDestinationChange = { flightDestination = it },
+                    flightDateMillis = flightDateMillis,
+                    onFlightDateChange = { flightDateMillis = it },
+                    flightPassengers = flightPassengers,
+                    onFlightPassengersChange = { flightPassengers = it },
                     onSearchFlights = {
-                        viewModel.searchFlightRoute(flightDeparture, flightDestination)
+                        val date = flightDateMillis?.let {
+                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                        }
+                        viewModel.searchFlightRoute(flightDeparture, flightDestination, date, flightPassengers)
+                        onNavigateToSearchResults()
+                    },
+                    hotelCity = hotelCity,
+                    onHotelCityChange = { hotelCity = it },
+                    hotelCheckInMillis = hotelCheckInMillis,
+                    onHotelCheckInChange = { hotelCheckInMillis = it },
+                    hotelCheckOutMillis = hotelCheckOutMillis,
+                    onHotelCheckOutChange = { hotelCheckOutMillis = it },
+                    onSearchHotels = {
+                        val checkIn = hotelCheckInMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                        val checkOut = hotelCheckOutMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                        viewModel.searchHotels(hotelCity, checkIn, checkOut)
                         onNavigateToSearchResults()
                     },
                     fetchSuggestions = { query -> viewModel.fetchCitySuggestions(query) }
+                )
+            }
+
+
+            item(key = "categories") {
+                CategoryTabs(
+                    selected = selectedCategory,
+                    onSelect = viewModel::setCategory
                 )
             }
 
@@ -160,7 +207,7 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(horizontal = CatalogSpacing.Gutter)
                         ) {
-                            items(recommendedItems) { item ->
+                            items(recommendedItems, key = { it.id }) { item ->
                                 RecommendationCard(
                                     item = item,
                                     onClick = {
@@ -175,13 +222,6 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(14.dp))
                     }
                 }
-            }
-
-            item(key = "categories") {
-                CategoryTabs(
-                    selected = selectedCategory,
-                    onSelect = viewModel::setCategory
-                )
             }
 
             item(key = "quick_filters") {
@@ -212,21 +252,30 @@ fun HomeScreen(
 
                 catalogItems.isEmpty() -> item(key = "empty") { EmptyState() }
 
-                else -> items(items = catalogItems, key = { it.id }) { item ->
-                    Box(
-                        modifier = Modifier.padding(
-                            horizontal = CatalogSpacing.Gutter,
-                            vertical = CatalogSpacing.ListGap / 2
-                        )
-                    ) {
-                        val openDetail = {
-                            viewModel.onItemViewed(item)
-                            onNavigateToDetail(item.id.toString())
+                else -> {
+                    items(items = catalogItems, key = { it.id }) { item ->
+                        Box(
+                            modifier = Modifier.padding(
+                                horizontal = CatalogSpacing.Gutter,
+                                vertical = CatalogSpacing.ListGap / 2
+                            )
+                        ) {
+                            val openDetail = {
+                                viewModel.onItemViewed(item)
+                                onNavigateToDetail(item.id.toString())
+                            }
+                            when (item) {
+                                is CatalogItem.Flight -> FlightCard(flight = item, onClick = openDetail)
+                                is CatalogItem.Hotel -> HotelCard(hotel = item, onClick = openDetail)
+                                is CatalogItem.Excursion -> ExcursionCard(excursion = item, onClick = openDetail)
+                            }
                         }
-                        when (item) {
-                            is CatalogItem.Flight -> FlightCard(flight = item, onClick = openDetail)
-                            is CatalogItem.Hotel -> HotelCard(hotel = item, onClick = openDetail)
-                            is CatalogItem.Excursion -> ExcursionCard(excursion = item, onClick = openDetail)
+                    }
+                    if (isLoadingMore) {
+                        item(key = "loading_more") {
+                            Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            }
                         }
                     }
                 }
@@ -247,35 +296,46 @@ private fun HeroHeader(
     onFlightDepartureChange: (String) -> Unit,
     flightDestination: String,
     onFlightDestinationChange: (String) -> Unit,
+    flightDateMillis: Long?,
+    onFlightDateChange: (Long?) -> Unit,
+    flightPassengers: Int,
+    onFlightPassengersChange: (Int) -> Unit,
     onSearchFlights: () -> Unit,
+    hotelCity: String,
+    onHotelCityChange: (String) -> Unit,
+    hotelCheckInMillis: Long?,
+    onHotelCheckInChange: (Long?) -> Unit,
+    hotelCheckOutMillis: Long?,
+    onHotelCheckOutChange: (Long?) -> Unit,
+    onSearchHotels: () -> Unit,
     fetchSuggestions: suspend (String) -> List<String>
 ) {
-    val cardOverlap = 26.dp
+    val cardOverlap = 28.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(230.dp)
+                .height(260.dp)
         ) {
             CatalogImage(
                 model = HERO_IMAGE,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize()
             )
-            PhotoScrim(modifier = Modifier.fillMaxSize(), startY = 0f, maxAlpha = 0.72f)
+            PhotoScrim(modifier = Modifier.fillMaxSize(), startY = 0f, maxAlpha = 0.74f)
 
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(y = (-10).dp)
+                    .offset(y = (-12).dp)
                     .padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "VOLI · HOTEL · ESPERIENZE",
                     style = CatalogType.Overline,
-                    color = Color.White.copy(alpha = 0.82f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -294,7 +354,22 @@ private fun HeroHeader(
                     onDepartureChange = onFlightDepartureChange,
                     destination = flightDestination,
                     onDestinationChange = onFlightDestinationChange,
+                    dateMillis = flightDateMillis,
+                    onDateChange = onFlightDateChange,
+                    passengers = flightPassengers,
+                    onPassengersChange = onFlightPassengersChange,
                     onSearch = onSearchFlights,
+                    fetchSuggestions = fetchSuggestions
+                )
+            } else if (selectedCategory == "Hotel") {
+                HotelSearchForm(
+                    city = hotelCity,
+                    onCityChange = onHotelCityChange,
+                    checkInMillis = hotelCheckInMillis,
+                    onCheckInChange = onHotelCheckInChange,
+                    checkOutMillis = hotelCheckOutMillis,
+                    onCheckOutChange = onHotelCheckOutChange,
+                    onSearch = onSearchHotels,
                     fetchSuggestions = fetchSuggestions
                 )
             } else {
@@ -347,7 +422,7 @@ private fun CategoryTabs(selected: String, onSelect: (String) -> Unit) {
                             .height(2.dp)
                             .width(underline)
                             .clip(CatalogShapes.Badge)
-                            .background(TripifyDarkGreen)
+                            .background(CatalogColors.AccentDark)
                     )
                 }
             }

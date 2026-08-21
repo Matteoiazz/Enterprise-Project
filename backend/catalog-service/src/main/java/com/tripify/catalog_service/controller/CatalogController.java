@@ -1,17 +1,22 @@
 package com.tripify.catalog_service.controller;
 
 import com.tripify.catalog_service.entity.Activity;
-import com.tripify.catalog_service.entity.CatalogItem;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.dto.CatalogItemDTO;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,12 +28,17 @@ public class CatalogController {
     private final CatalogService catalogService;
 
     @GetMapping("/items")
-    public ResponseEntity<List<CatalogItem>> getAllItems() {
+    public ResponseEntity<List<CatalogItemDTO>> getAllItems() {
         return ResponseEntity.ok(catalogService.getAllItems());
     }
 
+    @GetMapping("/items/{id}")
+    public ResponseEntity<CatalogItemDTO> getItemById(@PathVariable Long id) {
+        return ResponseEntity.ok(catalogService.getItemById(id));
+    }
+
     @GetMapping("/items/search")
-    public ResponseEntity<List<CatalogItemDTO>> searchCatalog(
+    public ResponseEntity<Page<CatalogItemDTO>> searchCatalog(
             @RequestParam(required = false, defaultValue = "Tutti") String category,
             @RequestParam(required = false, defaultValue = "") String query,
             @RequestParam(required = false) BigDecimal maxPrice,
@@ -37,17 +47,24 @@ public class CatalogController {
             @RequestParam(required = false) String departure,
             @RequestParam(required = false) Boolean guideIncluded,
             @RequestParam(required = false) List<String> amenities,
-            @RequestParam(required = false) Boolean directOnly
+            @RequestParam(required = false) Boolean directOnly,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
+            @RequestParam(required = false) Integer minSeats,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
+            @RequestParam(required = false) Integer rooms,
+            @PageableDefault(size = 20) Pageable pageable
     ) {
-        List<CatalogItemDTO> results = catalogService.search(
-                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly
+        Page<CatalogItemDTO> results = catalogService.search(
+                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly,
+                departureDate, minSeats, checkIn, checkOut, rooms, pageable
         );
         return ResponseEntity.ok(results);
     }
 
     @PostMapping("/items/flights")
     public ResponseEntity<Flight> createFlight(
-            @RequestBody Flight flight,
+            @Valid @RequestBody Flight flight,
             @RequestHeader("X-User-Id") String userId) {
         flight.setHostId(UUID.fromString(userId));
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
@@ -56,7 +73,7 @@ public class CatalogController {
 
     @PostMapping("/items/hotels")
     public ResponseEntity<Hotel> createHotel(
-            @RequestBody Hotel hotel,
+            @Valid @RequestBody Hotel hotel,
             @RequestHeader("X-User-Id") String userId) {
         hotel.setHostId(UUID.fromString(userId));
         Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
@@ -65,7 +82,7 @@ public class CatalogController {
 
     @PostMapping("/items/activities")
     public ResponseEntity<Activity> createActivity(
-            @RequestBody Activity activity,
+            @Valid @RequestBody Activity activity,
             @RequestHeader("X-User-Id") String userId) {
         activity.setHostId(UUID.fromString(userId));
         Activity savedActivity = (Activity) catalogService.saveItem(activity);

@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
-import com.tripify.tripify_android.core.theme.TripifyGreen
 
 @Composable
 fun FlightCard(
@@ -43,7 +42,7 @@ fun FlightCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = flight.departureAirport, style = CatalogType.Meta, color = Color.White)
             RouteDot()
-            Icon(imageVector = Icons.Filled.Flight, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(13.dp))
+            Icon(imageVector = Icons.Filled.Flight, contentDescription = null, tint = CatalogColors.AccentLight, modifier = Modifier.size(13.dp))
             RouteDot()
             Text(text = flight.arrivalAirport, style = CatalogType.Meta, color = Color.White)
         }

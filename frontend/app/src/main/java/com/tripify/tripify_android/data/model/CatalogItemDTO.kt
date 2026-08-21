@@ -18,17 +18,17 @@ data class CatalogItemDto(
     val arrivalCity: String?,
     val departureTime: String?,
     val arrivalTime: String?,
-    val availableSeats: Int?,
+    val totalSeats: Int?,
     val stops: Int?,
+    val fareClasses: List<FareClassDto>?,
 
     // --- CAMPI SPECIFICI HOTEL ---
-    val roomType: String?,
-    val availableRooms: Int?,
     val locationLat: Double?,
     val locationLng: Double?,
     val address: String?,
     val city: String?,
     val amenities: List<String>?,
+    val roomTypes: List<RoomTypeDto>?,
 
     // --- CAMPI SPECIFICI ATTIVITÀ ---
     val activityType: String?,

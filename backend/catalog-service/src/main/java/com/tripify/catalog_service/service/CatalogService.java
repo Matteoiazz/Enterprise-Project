@@ -2,16 +2,22 @@ package com.tripify.catalog_service.service;
 
 import com.tripify.catalog_service.entity.CatalogItem;
 import com.tripify.catalog_service.dto.CatalogItemDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 public interface CatalogService {
 
-    List<CatalogItem> getAllItems();
+    List<CatalogItemDTO> getAllItems();
 
-    // Firma estesa con i filtri
-    List<CatalogItemDTO> search(
+    CatalogItemDTO getItemById(Long id);
+
+    // Firma estesa con i filtri, paginata
+    Page<CatalogItemDTO> search(
             String category,
             String query,
             BigDecimal maxPrice,
@@ -20,7 +26,13 @@ public interface CatalogService {
             String departure,
             Boolean guideIncluded,
             List<String> amenities,
-            Boolean directOnly
+            Boolean directOnly,
+            LocalDate departureDate,
+            Integer minSeats,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Integer rooms,
+            Pageable pageable
     );
 
     List<CatalogItem> getItemsByHost(UUID hostId);

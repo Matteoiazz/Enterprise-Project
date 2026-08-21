@@ -2,15 +2,22 @@ package com.tripify.catalog_service.service.impl;
 
 import com.tripify.catalog_service.dto.CatalogItemDTO;
 import com.tripify.catalog_service.entity.CatalogItem;
+import com.tripify.catalog_service.entity.Hotel;
+import com.tripify.catalog_service.exception.CatalogItemNotFoundException;
 import com.tripify.catalog_service.mapper.CatalogMapper;
 import com.tripify.catalog_service.repository.CatalogItemRepository;
 import com.tripify.catalog_service.repository.spec.CatalogItemSpecification;
+import com.tripify.catalog_service.service.AvailabilityService;
 import com.tripify.catalog_service.service.CatalogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -21,14 +28,24 @@ public class CatalogServiceImpl implements CatalogService {
 
     private final CatalogItemRepository catalogItemRepository;
     private final CatalogMapper catalogMapper;
+    private final AvailabilityService availabilityService;
 
     @Override
-    public List<CatalogItem> getAllItems() {
-        return catalogItemRepository.findAll();
+    public List<CatalogItemDTO> getAllItems() {
+        return catalogItemRepository.findAll().stream()
+                .map(catalogMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public List<CatalogItemDTO> search(
+    public CatalogItemDTO getItemById(Long id) {
+        CatalogItem item = catalogItemRepository.findById(id)
+                .orElseThrow(() -> new CatalogItemNotFoundException(id));
+        return catalogMapper.toDto(item);
+    }
+
+    @Override
+    public Page<CatalogItemDTO> search(
             String category,
             String query,
             BigDecimal maxPrice,
@@ -37,16 +54,44 @@ public class CatalogServiceImpl implements CatalogService {
             String departure,
             Boolean guideIncluded,
             List<String> amenities,
-            Boolean directOnly
+            Boolean directOnly,
+            LocalDate departureDate,
+            Integer minSeats,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Integer rooms,
+            Pageable pageable
     ) {
         Specification<CatalogItem> spec = CatalogItemSpecification.withDynamicFilters(
-                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly
+                category, query, maxPrice, minRating, destination, departure, guideIncluded, amenities, directOnly, departureDate, minSeats
         );
-        List<CatalogItem> items = catalogItemRepository.findAll(spec);
 
-        return items.stream()
-                .map(catalogMapper::toDto)
-                .collect(Collectors.toList());
+        if (checkIn != null && checkOut != null) {
+
+            int requestedRooms = rooms == null ? 1 : rooms;
+            List<CatalogItemDTO> available = catalogItemRepository.findAll(spec).stream()
+                    .filter(item -> !(item instanceof Hotel hotel) || hasAvailableRoomType(hotel, checkIn, checkOut, requestedRooms))
+                    .map(catalogMapper::toDto)
+                    .toList();
+            return paginate(available, pageable);
+        }
+
+        Page<CatalogItem> items = catalogItemRepository.findAll(spec, pageable);
+        return items.map(catalogMapper::toDto);
+    }
+
+    private boolean hasAvailableRoomType(Hotel hotel, LocalDate checkIn, LocalDate checkOut, int rooms) {
+        return hotel.getRoomTypes().stream()
+                .anyMatch(rt -> availabilityService.computeRoomAvailability(rt.getId(), checkIn, checkOut) >= rooms);
+    }
+
+    private Page<CatalogItemDTO> paginate(List<CatalogItemDTO> all, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        if (start >= all.size()) {
+            return new PageImpl<>(List.of(), pageable, all.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        return new PageImpl<>(all.subList(start, end), pageable, all.size());
     }
 
     @Override

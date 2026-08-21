@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
@@ -13,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.components.*
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
@@ -21,9 +21,6 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +31,8 @@ fun SearchResultsScreen(
 ) {
     val catalogItems by viewModel.catalogList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val isLastPage by viewModel.isLastPage.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val maxPrice by viewModel.maxPrice.collectAsState()
@@ -47,6 +46,16 @@ fun SearchResultsScreen(
     val recommendedItems by viewModel.recommendedItems.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(listState, isLastPage, isLoading) {
+        snapshotFlow { listState.layoutInfo.let { it.visibleItemsInfo.lastOrNull()?.index to it.totalItemsCount } }
+            .collect { (lastVisibleIndex, totalCount) ->
+                if (!isLoading && !isLastPage && lastVisibleIndex != null && lastVisibleIndex >= totalCount - 4) {
+                    viewModel.loadNextPage()
+                }
+            }
+    }
 
     if (showFilterSheet) {
         ComplexFilterBottomSheet(
@@ -66,14 +75,14 @@ fun SearchResultsScreen(
     }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
                             text = if (searchQuery.isNotBlank()) "\"$searchQuery\"" else "Risultati",
-                            style = CatalogType.CardTitle.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified.let { 16.sp }),
+                            style = CatalogType.TitleCompact,
                             color = CatalogColors.Ink
                         )
                     },
@@ -84,7 +93,7 @@ fun SearchResultsScreen(
                     },
                     actions = {
                         IconButton(onClick = { showFilterSheet = true }) {
-                            Icon(Icons.Filled.Tune, contentDescription = "Filtri", tint = TripifyDarkGreen)
+                            Icon(Icons.Filled.Tune, contentDescription = "Filtri", tint = CatalogColors.AccentDark)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
@@ -99,9 +108,10 @@ fun SearchResultsScreen(
                         value = searchQuery,
                         onValueChange = { viewModel.updateSearchQuery(it) },
                         placeholder = { Text("Cerca...", style = CatalogType.Label) },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = { if (searchQuery.isNotEmpty()) ClearFieldButton(onClear = { viewModel.updateSearchQuery("") }) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = TripifyGreen,
+                            focusedBorderColor = CatalogColors.Accent,
                             unfocusedBorderColor = CatalogColors.Hairline,
                             focusedContainerColor = CatalogColors.SurfaceMuted,
                             unfocusedContainerColor = CatalogColors.SurfaceMuted
@@ -152,7 +162,7 @@ fun SearchResultsScreen(
             when {
                 isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = TripifyGreen)
+                        CircularProgressIndicator(color = CatalogColors.AccentDark)
                     }
                 }
                 catalogItems.isEmpty() -> {
@@ -169,8 +179,8 @@ fun SearchResultsScreen(
                     }
                 }
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(catalogItems) { item ->
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                        items(catalogItems, key = { it.id }) { item ->
                             Box(modifier = Modifier.padding(horizontal = CatalogSpacing.Gutter, vertical = 6.dp)) {
                                 val openDetail = {
                                     viewModel.onItemViewed(item)
@@ -184,9 +194,17 @@ fun SearchResultsScreen(
                             }
                         }
 
+                        if (isLoadingMore) {
+                            item(key = "loading_more") {
+                                Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+
                         // --- RACCOMANDAZIONI, ora qui: hanno senso solo dentro un contesto di ricerca già fatta ---
                         if (hasSearched && recommendedItems.isNotEmpty()) {
-                            item {
+                            item(key = "recommendations") {
                                 Spacer(modifier = Modifier.height(24.dp))
                                 HorizontalDivider(color = CatalogColors.Hairline, thickness = 1.dp, modifier = Modifier.padding(horizontal = CatalogSpacing.Gutter))
                                 Spacer(modifier = Modifier.height(16.dp))
@@ -201,7 +219,7 @@ fun SearchResultsScreen(
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     contentPadding = PaddingValues(horizontal = CatalogSpacing.Gutter)
                                 ) {
-                                    items(recommendedItems) { item ->
+                                    items(recommendedItems, key = { it.id }) { item ->
                                         RecommendationCard(
                                             item = item,
                                             onClick = {
@@ -214,7 +232,7 @@ fun SearchResultsScreen(
                             }
                         }
 
-                        item { Spacer(modifier = Modifier.height(20.dp)) }
+                        item(key = "bottom_spacer") { Spacer(modifier = Modifier.height(20.dp)) }
                     }
                 }
             }

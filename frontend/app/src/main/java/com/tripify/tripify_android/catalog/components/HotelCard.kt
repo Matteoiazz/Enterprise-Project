@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -34,14 +32,14 @@ fun HotelCard(
     ) {
         PhotoMeta(icon = Icons.Filled.LocationOn, text = hotel.address)
 
-        Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (hotel.rating > 0) {
-                Icon(imageVector = Icons.Filled.Star, contentDescription = null, tint = CatalogColors.Gold, modifier = Modifier.size(14.dp))
+                RatingStars(rating = hotel.rating, starSize = 12.dp, filledTint = CatalogColors.Gold, emptyTint = Color.White.copy(alpha = 0.3f))
                 Text(text = String.format(Locale.ITALY, "%.1f", hotel.rating), style = CatalogType.Meta, color = Color.White)
                 Text(text = "·", style = CatalogType.Meta, color = Color.White.copy(alpha = 0.55f))
             }

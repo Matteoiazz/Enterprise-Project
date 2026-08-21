@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @Composable
 fun RecommendationCard(
@@ -25,11 +26,13 @@ fun RecommendationCard(
         price = item.price,
         title = item.title,
         onClick = onClick,
-        modifier = Modifier.width(140.dp),
-        height = 105.dp
+        modifier = Modifier.width(158.dp),
+        height = 140.dp,
+        titleStyle = CatalogType.TitleCompact,
+        titleMaxLines = 1
     ) {
         when (item) {
-            is CatalogItem.Hotel -> PhotoMeta(icon = Icons.Filled.Star, text = "${item.rating} · ${item.city}")
+            is CatalogItem.Hotel -> PhotoMeta(icon = Icons.Filled.Star, text = if (item.rating > 0) "${item.rating} · ${item.city}" else item.city)
             is CatalogItem.Flight -> PhotoMeta(icon = Icons.Filled.Flight, text = "${item.departureAirport} → ${item.arrivalAirport}")
             is CatalogItem.Excursion -> PhotoMeta(icon = Icons.Filled.Schedule, text = item.duration)
         }

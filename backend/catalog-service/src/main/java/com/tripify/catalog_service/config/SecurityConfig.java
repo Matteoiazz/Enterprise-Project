@@ -17,7 +17,6 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    // CAMBIATO: Inietto il nuovo filtro del Gateway
     private final GatewayAuthenticationFilter gatewayAuthFilter;
 
     @Bean
@@ -27,19 +26,18 @@ public class SecurityConfig {
                 .cors(withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Permettiamo a tutti di leggere il catalogo
                         .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
 
-                        // SOLO gli ORGANIZER possono fare le POST per inserire voli e hotel
                         .requestMatchers(HttpMethod.POST, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 
-                        // Permettiamo Swagger
+
+                        .requestMatchers(HttpMethod.POST, "/api/v1/catalog/room-types/**", "/api/v1/catalog/fare-classes/**", "/api/v1/catalog/holds/**").permitAll()
+
+
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
 
-                        // Qualsiasi altra richiesta deve essere autenticata
                         .anyRequest().authenticated()
                 )
-                // CAMBIATO: Uso il nuovo filtro
                 .addFilterBefore(gatewayAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable());

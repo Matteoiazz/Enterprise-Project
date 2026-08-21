@@ -3,19 +3,15 @@ package com.tripify.tripify_android.catalog.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-
-private val Ink = Color(0xFF1A1A1A)
-private val Hairline = Color(0xFFE6E2D8)
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @Composable
 fun QuickFilterChips(
@@ -36,24 +32,24 @@ fun QuickFilterChips(
         FilterChip(
             selected = priceActive,
             onClick = onOpenFilters,
-            label = { Text(priceLabel, fontSize = 12.sp) },
+            label = { Text(priceLabel, style = CatalogType.Caption) },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = TripifyDarkGreen, selectedLabelColor = Color.White,
-                containerColor = Color.White, labelColor = Ink
+                selectedContainerColor = CatalogColors.AccentDark, selectedLabelColor = androidx.compose.ui.graphics.Color.White,
+                containerColor = CatalogColors.Surface, labelColor = CatalogColors.Ink
             ),
-            shape = RoundedCornerShape(8.dp),
-            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = priceActive, borderColor = Hairline, selectedBorderColor = TripifyDarkGreen)
+            shape = CatalogShapes.Chip,
+            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = priceActive, borderColor = CatalogColors.Hairline, selectedBorderColor = CatalogColors.AccentDark)
         )
         FilterChip(
             selected = ratingActive,
             onClick = onOpenFilters,
-            label = { Text(ratingLabel, fontSize = 12.sp) },
+            label = { Text(ratingLabel, style = CatalogType.Caption) },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = TripifyDarkGreen, selectedLabelColor = Color.White,
-                containerColor = Color.White, labelColor = Ink
+                selectedContainerColor = CatalogColors.AccentDark, selectedLabelColor = androidx.compose.ui.graphics.Color.White,
+                containerColor = CatalogColors.Surface, labelColor = CatalogColors.Ink
             ),
-            shape = RoundedCornerShape(8.dp),
-            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = ratingActive, borderColor = Hairline, selectedBorderColor = TripifyDarkGreen)
+            shape = CatalogShapes.Chip,
+            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = ratingActive, borderColor = CatalogColors.Hairline, selectedBorderColor = CatalogColors.AccentDark)
         )
     }
 }

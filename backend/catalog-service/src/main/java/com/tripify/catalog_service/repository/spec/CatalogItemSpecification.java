@@ -8,6 +8,7 @@ import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,7 +23,9 @@ public class CatalogItemSpecification {
             String departure,
             Boolean guideIncluded,
             List<String> amenities,
-            Boolean directOnly
+            Boolean directOnly,
+            LocalDate departureDate,
+            Integer minSeats
     ) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -97,6 +100,26 @@ public class CatalogItemSpecification {
                 Predicate isActivity = cb.equal(root.type(), Activity.class);
                 Predicate hasGuide = cb.isTrue(activityRoot.get("guideIncluded"));
                 predicates.add(cb.or(cb.not(isActivity), hasGuide));
+            }
+
+            // 9b. Data di partenza: solo per i voli, confronta l'intera giornata locale
+            if (departureDate != null) {
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate onThatDay = cb.between(
+                        flightRoot.get("departureTime"),
+                        departureDate.atStartOfDay(),
+                        departureDate.plusDays(1).atStartOfDay().minusNanos(1)
+                );
+                predicates.add(cb.or(cb.not(isFlight), onThatDay));
+            }
+
+            // 9c. Posti minimi disponibili: solo per i voli
+            if (minSeats != null && minSeats > 0) {
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate hasEnoughSeats = cb.greaterThanOrEqualTo(flightRoot.get("totalSeats"), minSeats);
+                predicates.add(cb.or(cb.not(isFlight), hasEnoughSeats));
             }
 
             // 9. Amenities (tutte richieste)

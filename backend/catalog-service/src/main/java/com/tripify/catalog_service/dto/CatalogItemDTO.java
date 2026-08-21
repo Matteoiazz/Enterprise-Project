@@ -30,17 +30,17 @@ public class CatalogItemDTO {
     private String arrivalCity;
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;
-    private Integer availableSeats;
+    private Integer totalSeats;
     private Integer stops;
+    private List<FareClassDTO> fareClasses;
 
     // --- HOTEL ---
-    private String roomType;
-    private Integer availableRooms;
     private Double locationLat;
     private Double locationLng;
     private String address;
     private String city;
     private List<String> amenities;
+    private List<RoomTypeDTO> roomTypes;
 
     // --- ATTIVITÀ ---
     private String activityType;

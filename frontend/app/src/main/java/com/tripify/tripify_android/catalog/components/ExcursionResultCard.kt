@@ -1,6 +1,5 @@
 package com.tripify.tripify_android.catalog.ui.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Groups
@@ -12,17 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @Composable
 fun ExcursionResultCard(
@@ -33,7 +29,7 @@ fun ExcursionResultCard(
         shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+        modifier = Modifier.fillMaxWidth().pressScale(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 
@@ -49,24 +45,21 @@ fun ExcursionResultCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Surface(
-                        color = TripifyGreen.copy(alpha = 0.1f),
-                        shape = CatalogShapes.Chip
+                        color = CatalogColors.AccentSoft,
+                        shape = CatalogShapes.Pill
                     ) {
                         Text(
                             excursion.activityType,
-                            color = TripifyDarkGreen,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            color = CatalogColors.AccentDark,
+                            style = CatalogType.Caption.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(5.dp))
 
                     Text(
                         text = excursion.title,
-                        fontSize = 15.sp,
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Bold,
+                        style = CatalogType.TitleCompact,
                         color = CatalogColors.Ink,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -76,16 +69,18 @@ fun ExcursionResultCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Schedule, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(3.dp))
-                        Text(excursion.duration, fontSize = 12.sp, color = CatalogColors.InkMuted)
+                        Text(excursion.duration, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+                        if (excursion.rating != null && excursion.rating > 0) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            RatingStars(rating = excursion.rating, starSize = 11.dp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = excursion.price,
-                        fontSize = 16.sp,
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Bold,
-                        color = TripifyDarkGreen
+                        style = CatalogType.Price,
+                        color = CatalogColors.AccentDark
                     )
                 }
             }
@@ -103,15 +98,14 @@ fun ExcursionResultCard(
                     Icon(
                         Icons.Filled.Tour,
                         contentDescription = null,
-                        tint = if (excursion.guideIncluded) TripifyGreen else CatalogColors.InkMuted,
+                        tint = if (excursion.guideIncluded) CatalogColors.Accent else CatalogColors.InkMuted,
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (excursion.guideIncluded) "Guida inclusa" else "Esplorazione libera",
-                        fontSize = 11.sp,
-                        color = if (excursion.guideIncluded) TripifyDarkGreen else CatalogColors.InkMuted,
-                        fontWeight = if (excursion.guideIncluded) FontWeight.SemiBold else FontWeight.Normal
+                        style = CatalogType.Caption.copy(fontWeight = if (excursion.guideIncluded) FontWeight.SemiBold else FontWeight.Normal),
+                        color = if (excursion.guideIncluded) CatalogColors.AccentDark else CatalogColors.InkMuted
                     )
                 }
 
@@ -119,7 +113,7 @@ fun ExcursionResultCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Groups, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Max $max", fontSize = 11.sp, color = CatalogColors.InkMuted)
+                        Text("Max $max", style = CatalogType.Caption, color = CatalogColors.InkMuted)
                     }
                 }
             }

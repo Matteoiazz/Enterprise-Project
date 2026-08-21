@@ -44,7 +44,7 @@ class CatalogItemSpecificationTest {
         flightDiretto.setArrivalCity("Milano");
         flightDiretto.setDepartureTime(LocalDateTime.now());
         flightDiretto.setArrivalTime(LocalDateTime.now().plusHours(1));
-        flightDiretto.setAvailableSeats(50);
+        flightDiretto.setTotalSeats(50);
         flightDiretto.setStops(0);
 
         // 2. Volo con scalo Roma -> Londra
@@ -62,7 +62,7 @@ class CatalogItemSpecificationTest {
         flightConScalo.setArrivalCity("Londra");
         flightConScalo.setDepartureTime(LocalDateTime.now());
         flightConScalo.setArrivalTime(LocalDateTime.now().plusHours(3));
-        flightConScalo.setAvailableSeats(20);
+        flightConScalo.setTotalSeats(20);
         flightConScalo.setStops(1);
 
         // 3. Hotel con Wi-Fi e Piscina, rating alto
@@ -76,8 +76,6 @@ class CatalogItemSpecificationTest {
         hotelLusso.setRating(5);
         hotelLusso.setLocationLat(41.9);
         hotelLusso.setLocationLng(12.5);
-        hotelLusso.setRoomType("Suite");
-        hotelLusso.setAvailableRooms(5);
         hotelLusso.setAddress("Via Roma 1");
         hotelLusso.setCity("Roma");
         hotelLusso.setAmenities(List.of("Wi-Fi", "Piscina"));
@@ -93,8 +91,6 @@ class CatalogItemSpecificationTest {
         hotelEconomico.setRating(2);
         hotelEconomico.setLocationLat(45.4);
         hotelEconomico.setLocationLng(9.1);
-        hotelEconomico.setRoomType("Singola");
-        hotelEconomico.setAvailableRooms(10);
         hotelEconomico.setAddress("Via Milano 1");
         hotelEconomico.setCity("Milano");
         hotelEconomico.setAmenities(List.of());
@@ -135,7 +131,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroCategoria_restituisceSoloIVoli() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Voli", null, null, null, null, null, null, null, null
+                "Voli", null, null, null, null, null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -146,7 +142,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroCategoriaTutti_nonEsclude() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, null, null, null, null, null
+                "Tutti", null, null, null, null, null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -156,7 +152,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroPrezzoMassimo_escludegliItemPiuCari() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, new BigDecimal("60"), null, null, null, null, null, null
+                "Tutti", null, new BigDecimal("60"), null, null, null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -168,7 +164,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroRatingMinimo_restituisceSoloItemConRatingAlto() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, 4, null, null, null, null, null
+                "Tutti", null, null, 4, null, null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -179,7 +175,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroDestinazione_trovaVoliPerCittaDiArrivo() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, "Londra", null, null, null, null
+                "Tutti", null, null, null, "Londra", null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -190,7 +186,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroDestinazione_trovaHotelEAttivitaPerCitta() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, "Roma", null, null, null, null
+                "Tutti", null, null, null, "Roma", null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -202,7 +198,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroSoloVoliDiretti_nonEscludeGliAltriTipi() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, null, null, null, null, true
+                "Tutti", null, null, null, null, null, null, null, true, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -214,7 +210,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroGuidaInclusa_nonEscludeGliAltriTipi() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, null, null, true, null, null
+                "Tutti", null, null, null, null, null, true, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -225,7 +221,7 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroAmenities_richiedeTutteQuelleSelezionate() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, null, null, null, List.of("Wi-Fi", "Piscina"), null
+                "Tutti", null, null, null, null, null, null, List.of("Wi-Fi", "Piscina"), null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
@@ -236,11 +232,36 @@ class CatalogItemSpecificationTest {
     @Test
     void filtroCombinato_categoriaHotelEBudgetBasso() {
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Hotel", null, new BigDecimal("100"), null, null, null, null, null, null
+                "Hotel", null, new BigDecimal("100"), null, null, null, null, null, null, null, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
         assertThat(risultati).hasSize(1);
         assertThat(risultati.get(0).getTitle()).contains("economico");
+    }
+
+    @Test
+    void filtroDataPartenza_trovaSoloIVoliDiQuelGiorno_nonEscludeGliAltriTipi() {
+        var domani = java.time.LocalDate.now().plusDays(1);
+        var spec = CatalogItemSpecification.withDynamicFilters(
+                "Tutti", null, null, null, null, null, null, null, null, domani, null
+        );
+        List<CatalogItem> risultati = repository.findAll(spec);
+
+        // Nessun volo del dataset parte "domani": devono restituirsi solo gli item non-volo.
+        assertThat(risultati).hasSize(4);
+        assertThat(risultati).noneMatch(item -> item instanceof Flight);
+    }
+
+    @Test
+    void filtroPostiMinimi_escludeIVoliConPochiPosti() {
+        var spec = CatalogItemSpecification.withDynamicFilters(
+                "Tutti", null, null, null, null, null, null, null, null, null, 30
+        );
+        List<CatalogItem> risultati = repository.findAll(spec);
+
+        // flightConScalo ha 20 posti, sotto soglia: deve sparire. flightDiretto(50) resta.
+        assertThat(risultati).hasSize(5);
+        assertThat(risultati).noneMatch(item -> item instanceof Flight f && f.getTotalSeats() < 30);
     }
 }
