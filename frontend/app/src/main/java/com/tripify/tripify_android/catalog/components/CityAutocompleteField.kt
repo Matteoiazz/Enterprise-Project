@@ -9,15 +9,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
 import kotlinx.coroutines.delay
 
 @Composable
@@ -32,9 +29,17 @@ fun CityAutocompleteField(
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    // Selezionare un suggerimento chiama onValueChange(city), che cambia `value` e quindi
+    // rilancerebbe comunque questo effect: senza questo flag, dopo i 300ms di debounce
+    // "expanded" torna a true e il menu si riapre da solo sopra il campo appena compilato.
+    var suppressNextFetch by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     LaunchedEffect(value) {
+        if (suppressNextFetch) {
+            suppressNextFetch = false
+            return@LaunchedEffect
+        }
         if (value.trim().length < 2) {
             suggestions = emptyList()
             expanded = false
@@ -56,15 +61,20 @@ fun CityAutocompleteField(
                 expanded = true
             },
             label = { Text(label, style = CatalogType.Label) },
-            leadingIcon = { Icon(icon, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp)) },
+            leadingIcon = { Icon(icon, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(18.dp)) },
             trailingIcon = {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = TripifyGreen)
+                when {
+                    isLoading -> CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CatalogColors.Accent)
+                    value.isNotEmpty() -> ClearFieldButton(onClear = {
+                        suggestions = emptyList()
+                        expanded = false
+                        onValueChange("")
+                    })
                 }
             },
             textStyle = CatalogType.Label,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = TripifyGreen,
+                focusedBorderColor = CatalogColors.Accent,
                 unfocusedBorderColor = CatalogColors.Hairline,
                 focusedContainerColor = CatalogColors.Surface,
                 unfocusedContainerColor = CatalogColors.Surface
@@ -89,8 +99,10 @@ fun CityAutocompleteField(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    onValueChange(city)
+                                    suppressNextFetch = true
+                                    suggestions = emptyList()
                                     expanded = false
+                                    onValueChange(city)
                                     focusManager.clearFocus()
                                 }
                                 .padding(horizontal = 14.dp, vertical = 13.dp),

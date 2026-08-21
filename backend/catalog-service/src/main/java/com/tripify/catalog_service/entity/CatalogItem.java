@@ -1,6 +1,12 @@
 package com.tripify.catalog_service.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
@@ -32,15 +38,20 @@ public abstract class CatalogItem {
     @Column(name = "host_id", nullable = false)
     private UUID hostId;
 
+    @NotBlank(message = "il titolo è obbligatorio")
     @Column(nullable = false)
     private String title;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @NotNull(message = "il prezzo è obbligatorio")
+    @DecimalMin(value = "0.0", inclusive = false, message = "il prezzo deve essere maggiore di zero")
     @Column(nullable = false)
     private BigDecimal price;
 
+    @NotBlank(message = "la valuta è obbligatoria")
+    @Size(min = 3, max = 3, message = "la valuta deve essere un codice ISO a 3 lettere (es. EUR)")
     @Column(length = 3, nullable = false)
     private String currency; // es. "EUR"
 
@@ -50,6 +61,8 @@ public abstract class CatalogItem {
     @Column(length = 50)
     private String category;
 
+    @Min(value = 1, message = "il rating minimo è 1")
+    @Max(value = 5, message = "il rating massimo è 5")
     @Column
     private Integer rating; // Da 1 a 5
 

@@ -16,9 +16,6 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-
-const val NO_PRICE_LIMIT = 1000f
 
 private val AVAILABLE_AMENITIES = listOf(
     "Wi-Fi", "Palestra", "Room Service", "Aria Condizionata",
@@ -97,10 +94,10 @@ fun ComplexFilterBottomSheet(
                 }
 
                 FilterSection("Budget massimo") {
-                    Text(text = if (maxPrice >= NO_PRICE_LIMIT) "Nessun limite" else "Fino a €${maxPrice.toInt()}", style = CatalogType.Section, color = TripifyDarkGreen)
+                    Text(text = if (maxPrice >= NO_PRICE_LIMIT) "Nessun limite" else "Fino a €${maxPrice.toInt()}", style = CatalogType.Section, color = CatalogColors.AccentDark)
                     Slider(
                         value = maxPrice, onValueChange = { maxPrice = it }, valueRange = 50f..NO_PRICE_LIMIT, steps = 18,
-                        colors = SliderDefaults.colors(thumbColor = TripifyDarkGreen, activeTrackColor = TripifyDarkGreen, inactiveTrackColor = CatalogColors.Hairline)
+                        colors = SliderDefaults.colors(thumbColor = CatalogColors.AccentDark, activeTrackColor = CatalogColors.AccentDark, inactiveTrackColor = CatalogColors.Hairline)
                     )
                 }
 
@@ -138,10 +135,10 @@ fun ComplexFilterBottomSheet(
                         onApplyFilters(maxPrice, minRating, selectedAmenities.toList(), directFlightOnly, guideIncludedOnly, destination, departure)
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
+                    colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                     shape = CatalogShapes.Field, elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
-                    Text("MOSTRA RISULTATI", style = CatalogType.Button)
+                    Text("MOSTRA RISULTATI", style = CatalogType.Button, color = Color.White)
                 }
             }
         }
@@ -162,8 +159,8 @@ private fun SheetChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = selected, onClick = onClick,
         label = { Text(text = label, style = if (selected) CatalogType.LabelStrong else CatalogType.Label) },
-        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TripifyDarkGreen, selectedLabelColor = Color.White, containerColor = CatalogColors.Surface, labelColor = CatalogColors.InkMuted),
-        shape = CatalogShapes.Chip, border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected, borderColor = CatalogColors.Hairline, selectedBorderColor = TripifyDarkGreen)
+        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = CatalogColors.AccentDark, selectedLabelColor = Color.White, containerColor = CatalogColors.Surface, labelColor = CatalogColors.InkMuted),
+        shape = CatalogShapes.Chip, border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected, borderColor = CatalogColors.Hairline, selectedBorderColor = CatalogColors.AccentDark)
     )
 }
 
@@ -173,7 +170,7 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
         Text(text = label, style = CatalogType.BodyStrong, color = CatalogColors.Ink)
         Switch(
             checked = checked, onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = TripifyDarkGreen, checkedBorderColor = TripifyDarkGreen, uncheckedThumbColor = Color.White, uncheckedTrackColor = CatalogColors.Hairline, uncheckedBorderColor = CatalogColors.Hairline)
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = CatalogColors.AccentDark, checkedBorderColor = CatalogColors.AccentDark, uncheckedThumbColor = Color.White, uncheckedTrackColor = CatalogColors.Hairline, uncheckedBorderColor = CatalogColors.Hairline)
         )
     }
 }

@@ -19,7 +19,8 @@ sealed class CatalogItem {
         val arrivalCity: String,
         val departureTime: String,
         val availableSeats: Int,
-        val stops: Int
+        val stops: Int,
+        val rating: Double? = null
     ) : CatalogItem() {
         val isDirect: Boolean get() = stops == 0
     }
@@ -43,6 +44,7 @@ sealed class CatalogItem {
         val guideIncluded: Boolean,
         val activityType: String,
         val meetingPoint: String,
-        val maxParticipants: Int?
+        val maxParticipants: Int?,
+        val rating: Double? = null
     ) : CatalogItem()
 }

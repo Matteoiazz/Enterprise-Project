@@ -31,16 +31,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.ui.components.*
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
 import kotlinx.coroutines.launch
 import com.tripify.tripify_android.BuildConfig
 
@@ -53,24 +50,58 @@ fun DetailScreen(
     onBookNow: (String) -> Unit,
     onChatWithOrganizer: (String) -> Unit = {}
 ) {
-    val catalogItems by viewModel.catalogList.collectAsState()
-    val item = catalogItems.find { it.id.toString() == itemId }
+    // Prima si guarda nella cache in memoria del ViewModel (istantaneo: copre il caso normale
+    // di un tap su una card, inclusa una raccomandazione, che prima falliva sempre qui perché
+    // si cercava solo dentro catalogList). Solo se manca (deep link, back-stack stale) si va
+    // in rete su GET /items/{id}.
+    val id = remember(itemId) { itemId.toIntOrNull() }
+    val cachedAtStart = remember(itemId) { id?.let { viewModel.itemCache.value[it] } }
+    var item by remember(itemId) { mutableStateOf(cachedAtStart) }
+    var isResolving by remember(itemId) { mutableStateOf(cachedAtStart == null && id != null) }
+
+    LaunchedEffect(itemId) {
+        if (item == null && id != null) {
+            item = viewModel.getOrFetchItem(id)
+            isResolving = false
+        }
+    }
 
     if (item == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Elemento non trovato", style = CatalogType.Body, color = CatalogColors.InkMuted)
+        Box(modifier = Modifier.fillMaxSize().background(CatalogColors.Background), contentAlignment = Alignment.Center) {
+            if (isResolving) {
+                CircularProgressIndicator(color = CatalogColors.AccentDark)
+            } else {
+                Text("Elemento non trovato", style = CatalogType.Body, color = CatalogColors.InkMuted)
+            }
         }
         return
     }
 
+    DetailContent(
+        item = item!!,
+        onNavigateBack = onNavigateBack,
+        onBookNow = onBookNow,
+        onChatWithOrganizer = onChatWithOrganizer
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun DetailContent(
+    item: CatalogItem,
+    onNavigateBack: () -> Unit,
+    onBookNow: (String) -> Unit,
+    onChatWithOrganizer: (String) -> Unit
+) {
     val imageList = item.imageUrls.ifEmpty { listOf(item.imageUrl) }
     val pagerState = rememberPagerState(pageCount = { imageList.size })
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var isDescriptionExpanded by remember { mutableStateOf(false) }
+    var isFavorite by remember { mutableStateOf(false) }
 
-    val imageHeight = 300.dp
+    val imageHeight = 320.dp
 
     val overviewText = remember(item) {
         when (item) {
@@ -81,7 +112,7 @@ fun DetailScreen(
             }
             is CatalogItem.Hotel -> buildString {
                 append("Sistemazione in ${item.roomType} a ${item.city}. ")
-                append("Valutazione media degli ospiti: ${item.rating}/5.")
+                append(if (item.rating > 0) "Valutazione media degli ospiti: ${ratingLabel(item.rating)}." else "Nessuna recensione ancora disponibile.")
             }
             is CatalogItem.Excursion -> buildString {
                 append("${item.activityType} della durata di ${item.duration}. ")
@@ -91,13 +122,13 @@ fun DetailScreen(
     }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Surface(
                     color = CatalogColors.Surface,
-                    shadowElevation = 10.dp,
+                    shadowElevation = 14.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -120,18 +151,19 @@ fun DetailScreen(
 
                         Button(
                             onClick = { onBookNow(item.id.toString()) },
-                            colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
+                            colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                             shape = CatalogShapes.Field,
-                            contentPadding = PaddingValues(horizontal = 24.dp),
-                            modifier = Modifier.height(46.dp),
+                            contentPadding = PaddingValues(horizontal = 26.dp),
+                            modifier = Modifier.height(48.dp).pressScale { onBookNow(item.id.toString()) },
                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                         ) {
                             Text("PRENOTA ORA", style = CatalogType.Button, color = Color.White)
                         }
                     }
                 }
-                Box(modifier = Modifier.align(Alignment.CenterStart).offset(x = (-9).dp).size(18.dp).clip(CircleShape).background(SfondoPremium))
-                Box(modifier = Modifier.align(Alignment.CenterEnd).offset(x = 9.dp).size(18.dp).clip(CircleShape).background(SfondoPremium))
+                // Tacche del "biglietto": due semicerchi che ritagliano il bordo della barra.
+                Box(modifier = Modifier.align(Alignment.CenterStart).offset(x = (-9).dp).size(18.dp).clip(CircleShape).background(CatalogColors.Background))
+                Box(modifier = Modifier.align(Alignment.CenterEnd).offset(x = 9.dp).size(18.dp).clip(CircleShape).background(CatalogColors.Background))
             }
         }
     ) { innerPadding ->
@@ -141,23 +173,31 @@ fun DetailScreen(
                     AsyncImage(model = imageList[page], contentDescription = "Galleria", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
 
-                Box(modifier = Modifier.fillMaxWidth().height(84.dp).background(Brush.verticalGradient(colors = listOf(TripifyDarkGreen.copy(alpha = 0.55f), Color.Transparent))))
+                PhotoScrim(modifier = Modifier.fillMaxWidth().height(120.dp), startY = 0f, maxAlpha = 0.55f)
 
                 Row(
                     modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 0.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onNavigateBack, modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.28f))) {
+                    IconButton(onClick = onNavigateBack, modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.3f))) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = Color.White, modifier = Modifier.size(18.dp))
                     }
-                    IconButton(onClick = { /* TODO: Aggiungi ai Preferiti */ }, modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.White)) {
-                        Icon(Icons.Filled.FavoriteBorder, contentDescription = "Preferito", tint = TripifyDarkGreen, modifier = Modifier.size(18.dp))
+                    IconButton(
+                        onClick = { isFavorite = !isFavorite },
+                        modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.White)
+                    ) {
+                        Icon(
+                            if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Preferito",
+                            tint = if (isFavorite) CatalogColors.Alert else CatalogColors.AccentDark,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
 
                 if (imageList.size > 1) {
-                    Row(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         repeat(imageList.size) { index ->
                             Box(modifier = Modifier.size(if (index == pagerState.currentPage) 6.dp else 5.dp).clip(CircleShape).background(if (index == pagerState.currentPage) Color.White else Color.White.copy(alpha = 0.45f)))
                         }
@@ -169,30 +209,29 @@ fun DetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(CatalogColors.Surface, shape = CatalogShapes.Sheet)
-                    .offset(y = (-18).dp)
-                    .padding(horizontal = 20.dp, vertical = 22.dp)
+                    .offset(y = (-20).dp)
+                    .padding(horizontal = 20.dp, vertical = 24.dp)
                     .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(TripifyGreen))
+                    Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(CatalogColors.Accent))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = when (item) {
                             is CatalogItem.Hotel -> "HOTEL"
                             is CatalogItem.Flight -> "VOLO"
                             is CatalogItem.Excursion -> item.activityType.uppercase()
-                            else -> ""
                         },
                         style = CatalogType.Overline,
                         color = CatalogColors.InkMuted
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(item.title, style = CatalogType.DetailTitle, color = CatalogColors.Ink)
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
                 when (item) {
                     is CatalogItem.Flight -> {
@@ -203,15 +242,15 @@ fun DetailScreen(
                                 Text(item.departureAirport.take(3).uppercase(), style = CatalogType.AirportCode, color = CatalogColors.Ink)
                                 Text(item.departureCity, style = CatalogType.Caption, color = CatalogColors.InkMuted)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(item.departureTime, style = CatalogType.Meta.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = TripifyDarkGreen)
+                                Text(item.departureTime, style = CatalogType.Meta.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = CatalogColors.AccentDark)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Filled.Flight, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Flight, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(16.dp))
                                 HorizontalDivider(color = CatalogColors.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 6.dp).fillMaxWidth(0.6f))
                                 Text(
                                     text = if (item.isDirect) "Diretto" else "${item.stops} ${if (item.stops == 1) "scalo" else "scali"}",
                                     style = CatalogType.Caption,
-                                    color = if (item.isDirect) TripifyGreen else CatalogColors.InkMuted
+                                    color = if (item.isDirect) CatalogColors.Accent else CatalogColors.InkMuted
                                 )
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
@@ -220,12 +259,21 @@ fun DetailScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        DetailRow(icon = Icons.Filled.AirlineSeatReclineNormal, title = "Disponibilità", subtitle = "Rimangono ${item.availableSeats} posti a questo prezzo", iconColor = if (item.availableSeats < 5) CatalogColors.Alert else TripifyGreen)
+                        DetailRow(icon = Icons.Filled.AirlineSeatReclineNormal, title = "Disponibilità", subtitle = "Rimangono ${item.availableSeats} posti a questo prezzo", iconColor = if (item.availableSeats < 5) CatalogColors.Alert else CatalogColors.Accent)
+                        if (item.rating != null && item.rating > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            RatingRow(rating = item.rating)
+                        }
                     }
 
                     is CatalogItem.Hotel -> {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            HotelHighlight(icon = Icons.Filled.Star, title = "${item.rating}", subtitle = "Rating", modifier = Modifier.weight(1f))
+                            HotelHighlight(
+                                icon = Icons.Filled.Star,
+                                title = if (item.rating > 0) String.format("%.1f", item.rating) else "—",
+                                subtitle = if (item.rating > 0) ratingLabel(item.rating) else "Nessuna recensione",
+                                modifier = Modifier.weight(1f)
+                            )
                             HotelHighlight(icon = Icons.Filled.Bed, title = item.roomType.take(14), subtitle = "Camera", modifier = Modifier.weight(1f))
                         }
 
@@ -238,12 +286,12 @@ fun DetailScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 item.amenities.take(3).forEach { amenity ->
-                                    Surface(color = TripifyGreen.copy(alpha = 0.1f), shape = CatalogShapes.Badge) {
-                                        Text(amenity, color = TripifyDarkGreen, style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                                    Surface(color = CatalogColors.AccentSoft, shape = CatalogShapes.Pill) {
+                                        Text(amenity, color = CatalogColors.AccentDark, style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                                     }
                                 }
                                 if (item.amenities.size > 3) {
-                                    Surface(color = CatalogColors.Hairline, shape = CatalogShapes.Badge) {
+                                    Surface(color = CatalogColors.SurfaceMuted, shape = CatalogShapes.Pill) {
                                         Text("+${item.amenities.size - 3}", color = CatalogColors.InkMuted, style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                                     }
                                 }
@@ -266,12 +314,12 @@ fun DetailScreen(
                             }
 
                             Box(
-                                modifier = Modifier.fillMaxWidth().height(160.dp).clip(CatalogShapes.Field).border(1.dp, CatalogColors.Hairline, CatalogShapes.Field).clickable { openMaps() }
+                                modifier = Modifier.fillMaxWidth().height(160.dp).clip(CatalogShapes.Field).border(1.dp, CatalogColors.Hairline, CatalogShapes.Field).pressScale { openMaps() }
                             ) {
                                 AsyncImage(model = staticMapUrl, contentDescription = "Mappa della posizione", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                Surface(color = CatalogColors.Surface.copy(alpha = 0.95f), shape = CatalogShapes.Badge, modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp)) {
+                                Surface(color = CatalogColors.Surface.copy(alpha = 0.95f), shape = CatalogShapes.Pill, modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                        Icon(Icons.Filled.Map, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(14.dp))
+                                        Icon(Icons.Filled.Map, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text("Apri in Maps", style = CatalogType.Caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = CatalogColors.Ink)
                                     }
@@ -285,6 +333,9 @@ fun DetailScreen(
                         DetailRow(icon = Icons.Filled.LocationOn, title = "Punto di ritrovo", subtitle = item.meetingPoint)
                         DetailRow(icon = Icons.Filled.Tour, title = "Guida e assistenza", subtitle = if (item.guideIncluded) "Guida esperta locale inclusa" else "Esplorazione libera")
                         item.maxParticipants?.let { max -> DetailRow(icon = Icons.Filled.Groups, title = "Partecipanti", subtitle = "Massimo $max persone") }
+                        if (item.rating != null && item.rating > 0) {
+                            RatingRow(rating = item.rating)
+                        }
                     }
                 }
 
@@ -304,7 +355,7 @@ fun DetailScreen(
                     Text(
                         text = if (isDescriptionExpanded) "Mostra meno" else "Leggi tutto",
                         style = CatalogType.LabelStrong,
-                        color = TripifyDarkGreen,
+                        color = CatalogColors.AccentDark,
                         modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded }
                     )
                 }
@@ -313,11 +364,11 @@ fun DetailScreen(
 
                 OutlinedButton(
                     onClick = { onChatWithOrganizer(item.id.toString()) },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = CatalogShapes.Field,
                     border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
                 ) {
-                    Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = TripifyDarkGreen, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Chatta con l'organizzatore", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
                 }
@@ -334,9 +385,18 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, iconColor: Color = TripifyGreen) {
+private fun RatingRow(rating: Double) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
+        RatingStars(rating = rating, starSize = 14.dp)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(ratingLabel(rating), style = CatalogType.Caption, color = CatalogColors.InkMuted)
+    }
+}
+
+@Composable
+fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, iconColor: Color = CatalogColors.Accent) {
     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(38.dp).background(iconColor.copy(alpha = 0.1f), shape = CircleShape), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(38.dp).background(iconColor.copy(alpha = 0.12f), shape = CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
         }
         Spacer(modifier = Modifier.width(12.dp))
@@ -350,7 +410,7 @@ fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Stri
 @Composable
 fun HotelHighlight(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier.border(1.dp, CatalogColors.Hairline, CatalogShapes.Field).padding(vertical = 12.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.height(6.dp))
         Text(title, style = CatalogType.LabelStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted)
