@@ -27,6 +27,7 @@ public class ProfileService {
     private final PaymentMethodRepository paymentMethodRepository;
     private final TravelDocumentRepository documentRepository;
 
+
     private User getUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseGet(() -> {
@@ -134,5 +135,26 @@ public class ProfileService {
             throw new RuntimeException("Non autorizzato");
         }
         paymentMethodRepository.delete(method);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteUserAccount(String email, String keycloakUserId) {
+        User user = getUser(email);
+
+        companionRepository.deleteAll(companionRepository.findByUser(user));
+        paymentMethodRepository.deleteAll(paymentMethodRepository.findByUser(user));
+        documentRepository.deleteAll(documentRepository.findByUser_Id(user.getId()));
+        userRepository.delete(user);
+
+        org.keycloak.admin.client.Keycloak keycloak = org.keycloak.admin.client.KeycloakBuilder.builder()
+                .serverUrl("http://localhost:8180")
+                .realm("master")
+                .clientId("admin-cli")
+                .username("admin")
+                .password("admin")
+                .build();
+
+        keycloak.realm("tripify").users().delete(keycloakUserId);
+
     }
 }

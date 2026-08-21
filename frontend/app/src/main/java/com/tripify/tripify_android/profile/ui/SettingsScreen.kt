@@ -25,13 +25,15 @@ import com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToKeycloakAccount: () -> Unit
+    onNavigateToKeycloakAccount: () -> Unit,
+    onAccountDeleted: () -> Unit
 ) {
-    // Osserviamo i dati dal ViewModel
     val useMetricSystem by viewModel.useMetricSystem.collectAsState()
     val selectedCurrency by viewModel.selectedCurrency.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val chatAlertsEnabled by viewModel.chatAlertsEnabled.collectAsState()
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = SfondoPremium,
@@ -82,7 +84,7 @@ fun SettingsScreen(
             item {
                 Spacer(modifier = Modifier.height(40.dp))
                 Button(
-                    onClick = { /* TODO: Aggiungere logica di avviso prima dell'eliminazione */ },
+                    onClick = { showDeleteDialog = true }, // 👉 Apre il popup!
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -93,8 +95,38 @@ fun SettingsScreen(
                 }
             }
         }
+
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                containerColor = Color.White,
+                title = {
+                    Text(text = "Elimina Account", fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+                },
+                text = {
+                    Text("Sei sicuro di voler eliminare definitivamente il tuo account? Questa azione è irreversibile. Perderai tutte le tue prenotazioni e lo storico dei viaggi.", color = Color.DarkGray)
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            viewModel.deleteAccount(onSuccess = { onAccountDeleted() })
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Elimina", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Annulla", color = TripifyGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
     }
 }
+
 
 @Composable
 fun SettingsSectionTitle(title: String) {

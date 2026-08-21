@@ -91,4 +91,15 @@ public class ProfileController {
                 displayNome, displayCognome, displayEmail
         ));
     }
+
+    // --- ELIMINAZIONE ACCOUNT (DANGER ZONE) ---
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMyAccount(@AuthenticationPrincipal Jwt jwt) {
+        String email = jwt.getClaimAsString("email");
+        String keycloakUserId = jwt.getSubject();
+
+        profileService.deleteUserAccount(email, keycloakUserId);
+
+        return ResponseEntity.noContent().build();
+    }
 }

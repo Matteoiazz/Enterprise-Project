@@ -33,4 +33,7 @@ interface ProfileApiService {
 
     @POST("api/v1/profile/payments")
     suspend fun addPaymentMethod(@Body dto: PaymentMethodDto): PaymentMethodDto
+
+    @DELETE("/api/v1/profile/me")
+    suspend fun deleteMyAccount(): retrofit2.Response<Unit>
 }

@@ -55,7 +55,6 @@ class TokenManager(private val context: Context) {
         return preferences[ID_TOKEN_KEY]
     }
 
-    // Svuota l'intera cassaforte
     suspend fun clearTokens() {
         context.dataStore.edit { preferences ->
             preferences.remove(JWT_TOKEN_KEY)
