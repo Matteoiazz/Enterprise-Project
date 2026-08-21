@@ -5,7 +5,7 @@ import lombok.*;
 import java.util.List;
 
 @Entity
-@Table(name = "shopping-carts")
+@Table(name = "shopping_carts")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -27,6 +27,7 @@ public class ShoppingCart {
      * in automatico si cancellano tutti i suoi elementi.
      * orphanRemoval = true serve a cancellare dal DB un CartItem se lo rimuovi dalla lista Java.
      */
+    @Builder.Default
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CartItem> items;
+    private List<CartItem> items = new java.util.ArrayList<>();
 }

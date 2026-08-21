@@ -6,16 +6,21 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel // <-- IMPORT AGGIUNTO PER IL VIEWMODEL IN COMPOSE
 
 // Import fondamentali
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
-import com.tripify.tripify_android.auth.viewmodel.RegisterViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
+import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
+import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModelFactory
 
-// 1. NUOVO IMPORT per il Profilo
+// Import per il Profilo e Documenti
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
+import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
+import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,18 +32,32 @@ class MainActivity : ComponentActivity() {
                 val tokenManager = remember { TokenManager(context) }
 
                 val loginViewModel = remember { LoginViewModel(tokenManager) }
-                val registerViewModel = remember { RegisterViewModel(tokenManager) }
 
                 val profileViewModel = remember { ProfileViewModel(tokenManager) }
 
                 val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
                 val catalogViewModel = remember { CatalogViewModel(catalogApi) }
 
+                val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
+                val companionsViewModel = remember { CompanionsViewModel(profileApi) }
+
+                val travelDocumentsViewModel: TravelDocumentsViewModel = viewModel(
+                    factory = TravelDocumentsViewModelFactory(profileApi)
+                )
+                val paymentMethodsViewModel: PaymentMethodsViewModel = viewModel(
+                    factory = PaymentMethodsViewModelFactory(profileApi)
+                )
+
+                val settingsViewModel = remember { com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager) }
+
                 TripifyApp(
                     loginViewModel = loginViewModel,
-                    registerViewModel = registerViewModel,
                     catalogViewModel = catalogViewModel,
-                    profileViewModel = profileViewModel
+                    profileViewModel = profileViewModel,
+                    companionsViewModel = companionsViewModel,
+                    travelDocumentsViewModel = travelDocumentsViewModel,
+                    paymentMethodsViewModel = paymentMethodsViewModel,
+                    settingsViewModel = settingsViewModel
                 )
             }
         }

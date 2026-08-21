@@ -1,5 +1,6 @@
 package com.tripify.booking_service.service;
 
+import com.tripify.booking_service.client.CatalogClient;
 import com.tripify.booking_service.entity.CartItem;
 import com.tripify.booking_service.entity.ShoppingCart;
 import com.tripify.booking_service.repository.CartItemRepository;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -18,7 +20,10 @@ public class ShoppingCartService {
     private final ShoppingCartRepository cartRepository;
     private final CartItemRepository itemRepository;
 
-    // 1. Recupera il carrello di un utente (se non esiste, lo crea vuoto all'istante)
+    // INIETTIAMO IL CLIENT FEIGN PER PARLARE COL CATALOGO
+    private final CatalogClient catalogClient;
+
+    // 1. Recupera il carrello di un utente
     public ShoppingCart getCartForUser(String userId) {
         return cartRepository.findByUserId(userId)
                 .orElseGet(() -> {
@@ -30,12 +35,24 @@ public class ShoppingCartService {
                 });
     }
 
-    // 2. Aggiunge un elemento al carrello (o aggiorna la quantità se c'era già)
+    // 2. Aggiunge un elemento (NON CHIEDIAMO PIÙ IL PREZZO AD ANDROID!)
     @Transactional
-    public void addItem(String userId, Long catalogItemId, Integer quantity, Double price) {
+    public void addItem(String userId, Long catalogItemId, Integer quantity) {
         ShoppingCart cart = getCartForUser(userId);
 
-        // Controlla se l'oggetto (volo/hotel) è già presente nel carrello
+        // LA CHIAMATA DI SICUREZZA: Chiediamo il prezzo reale al microservizio Catalogo
+        // NOTA: CatalogClient.getItemPrice() restituisce ancora Double - se possibile
+        // fai in modo che anche il Catalog Service esponga il prezzo come BigDecimal,
+        // così eviti la conversione qui e resti coerente end-to-end.
+        Double realPrice = catalogClient.getItemPrice(catalogItemId);
+
+        if (realPrice == null) {
+            throw new RuntimeException("Errore di sicurezza: Articolo non trovato nel catalogo!");
+        }
+
+        BigDecimal price = BigDecimal.valueOf(realPrice);
+
+        // Controlla se l'oggetto è già presente nel carrello
         Optional<CartItem> existingItem = cart.getItems().stream()
                 .filter(item -> item.getCatalogItemId().equals(catalogItemId))
                 .findFirst();
@@ -46,7 +63,7 @@ public class ShoppingCartService {
             item.setQuantity(item.getQuantity() + quantity);
             itemRepository.save(item);
         } else {
-            // Se è nuovo, crea una riga nel carrello
+            // Se è nuovo, crea una riga nel carrello usando il PREZZO REALE SICURO
             CartItem newItem = CartItem.builder()
                     .cart(cart)
                     .catalogItemId(catalogItemId)
@@ -57,7 +74,7 @@ public class ShoppingCartService {
         }
     }
 
-    // 3. Svuota completamente il carrello (utilissimo dopo il checkout)
+    // 3. Svuota completamente il carrello
     @Transactional
     public void clearCart(String userId) {
         ShoppingCart cart = getCartForUser(userId);

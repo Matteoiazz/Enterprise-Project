@@ -2,183 +2,175 @@ package com.tripify.tripify_android.catalog.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.FlightTakeoff
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val AVAILABLE_AMENITIES = listOf(
+    "Wi-Fi", "Palestra", "Room Service", "Aria Condizionata",
+    "Area Studio", "Parcheggio", "Spa", "Piscina", "Bar", "Fibra Dedicata"
+)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ComplexFilterBottomSheet(
-    currentCategory: String, // "Tutti", "Voli", "Hotel", "Escursioni"
+    currentCategory: String,
+    initialMaxPrice: Float,
+    initialMinRating: Int,
+    initialDestination: String,
+    initialDeparture: String,
+    initialAmenities: List<String>,
+    initialDirectOnly: Boolean,
+    initialGuideOnly: Boolean,
     onDismiss: () -> Unit,
     onApplyFilters: (price: Float, rating: Int, amenities: List<String>, direct: Boolean, guide: Boolean, destination: String, departure: String) -> Unit
 ) {
-    // Stati Generali
-    var destination by remember { mutableStateOf("") }
-    var maxPrice by remember { mutableFloatStateOf(1000f) }
+    var destination by remember { mutableStateOf(initialDestination) }
+    var departure by remember { mutableStateOf(initialDeparture) }
+    var maxPrice by remember { mutableFloatStateOf(initialMaxPrice) }
+    var minRating by remember { mutableIntStateOf(initialMinRating) }
+    var selectedAmenities by remember { mutableStateOf(initialAmenities.toSet()) }
+    var directFlightOnly by remember { mutableStateOf(initialDirectOnly) }
+    var guideIncludedOnly by remember { mutableStateOf(initialGuideOnly) }
 
-    // Stati Specifici
-    var departure by remember { mutableStateOf("") } // Solo Voli
-    var directFlightOnly by remember { mutableStateOf(false) } // Solo Voli
-
-    var minRating by remember { mutableIntStateOf(0) } // Solo Hotel
-    val availableAmenities = listOf("Wi-Fi", "Piscina", "Spa", "Colazione", "Parcheggio")
-    var selectedAmenities by remember { mutableStateOf(setOf<String>()) } // Solo Hotel
-
-    var guideIncludedOnly by remember { mutableStateOf(false) } // Solo Escursioni
+    val showHotelSection = currentCategory == "Tutti" || currentCategory == "Hotel"
+    val showFlightSection = currentCategory == "Tutti" || currentCategory == "Voli"
+    val showActivitySection = currentCategory == "Tutti" || currentCategory == "Attività"
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = CatalogColors.Surface,
+        shape = CatalogShapes.Sheet,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = CatalogColors.Hairline) }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 32.dp)
-        ) {
-            // HEADER
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Cerca $currentCategory", fontSize = 24.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
-                TextButton(onClick = { /* TODO: Resetta tutto */ }) {
-                    Text("Resetta", color = Color.Gray, fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- SEZIONE: DESTINAZIONE E PARTENZA ---
-            OutlinedTextField(
-                value = destination,
-                onValueChange = { destination = it },
-                label = { Text(if (currentCategory == "Voli") "Dove vuoi volare?" else "Dove vuoi andare?") },
-                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = TripifyGreen) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
-            )
-
-            if (currentCategory == "Voli") {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = departure,
-                    onValueChange = { departure = it },
-                    label = { Text("Da dove parti?") },
-                    leadingIcon = { Icon(Icons.Filled.FlightTakeoff, contentDescription = null, tint = TripifyGreen) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = CatalogSpacing.Gutter).padding(bottom = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (currentCategory == "Tutti") "Filtra la ricerca" else "Cerca $currentCategory",
+                    style = CatalogType.Section, color = CatalogColors.Ink
                 )
+                TextButton(
+                    onClick = {
+                        destination = ""
+                        departure = ""
+                        maxPrice = NO_PRICE_LIMIT
+                        minRating = 0
+                        selectedAmenities = emptySet()
+                        directFlightOnly = false
+                        guideIncludedOnly = false
+                    },
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) {
+                    Text("Azzera", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
+                }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
+            HorizontalDivider(color = CatalogColors.Hairline)
 
-            // --- SEZIONE: BUDGET ---
-            Text("Budget Massimo", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(if (maxPrice >= 1000f) "Nessun limite" else "Fino a €${maxPrice.toInt()}", fontWeight = FontWeight.Bold, color = TripifyGreen)
-            Slider(
-                value = maxPrice,
-                onValueChange = { maxPrice = it },
-                valueRange = 50f..1000f,
-                steps = 19,
-                colors = SliderDefaults.colors(thumbColor = TripifyGreen, activeTrackColor = TripifyGreen)
-            )
+            Column(
+                modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()).padding(horizontal = CatalogSpacing.Gutter).padding(top = 20.dp, bottom = 20.dp)
+            ) {
+                CatalogTextField(value = destination, onValueChange = { destination = it }, placeholder = if (currentCategory == "Voli") "Dove vuoi volare?" else "Dove vuoi andare?", leadingIcon = Icons.Filled.LocationOn)
 
-            // --- SEZIONE DINAMICA: CARATTERISTICHE HOTEL ---
-            if (currentCategory == "Tutti" || currentCategory == "Hotel") {
-                Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
-                Text("Caratteristiche Hotel", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text("Categoria minima", fontSize = 14.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                    listOf(0, 3, 4, 5).forEach { stars ->
-                        FilterChip(
-                            selected = minRating == stars,
-                            onClick = { minRating = stars },
-                            label = { Text(if (stars == 0) "Tutte" else "$stars+ ⭐") },
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TripifyGreen.copy(alpha = 0.2f), selectedLabelColor = TripifyDarkGreen)
-                        )
-                    }
+                if (currentCategory == "Voli") {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    CatalogTextField(value = departure, onValueChange = { departure = it }, placeholder = "Da dove parti?", leadingIcon = Icons.Filled.FlightTakeoff)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
 
-                Text("Servizi desiderati", fontSize = 14.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(8.dp))
-                availableAmenities.chunked(3).forEach { rowItems ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowItems.forEach { amenity ->
-                            val isSelected = selectedAmenities.contains(amenity)
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedAmenities = if (isSelected) selectedAmenities - amenity else selectedAmenities + amenity },
-                                label = { Text(amenity) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TripifyGreen.copy(alpha = 0.2f), selectedLabelColor = TripifyDarkGreen)
-                            )
+                FilterSection("Budget massimo") {
+                    Text(text = if (maxPrice >= NO_PRICE_LIMIT) "Nessun limite" else "Fino a €${maxPrice.toInt()}", style = CatalogType.Section, color = CatalogColors.AccentDark)
+                    Slider(
+                        value = maxPrice, onValueChange = { maxPrice = it }, valueRange = 50f..NO_PRICE_LIMIT, steps = 18,
+                        colors = SliderDefaults.colors(thumbColor = CatalogColors.AccentDark, activeTrackColor = CatalogColors.AccentDark, inactiveTrackColor = CatalogColors.Hairline)
+                    )
+                }
+
+                if (showHotelSection) {
+                    FilterSection("Categoria minima") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(0, 3, 4, 5).forEach { stars ->
+                                SheetChip(label = if (stars == 0) "Tutte" else "$stars+ ★", selected = minRating == stars, onClick = { minRating = stars })
+                            }
+                        }
+                    }
+                    FilterSection("Servizi desiderati") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            AVAILABLE_AMENITIES.forEach { amenity ->
+                                val isSelected = amenity in selectedAmenities
+                                SheetChip(label = amenity, selected = isSelected, onClick = { selectedAmenities = if (isSelected) selectedAmenities - amenity else selectedAmenities + amenity })
+                            }
                         }
                     }
                 }
-            }
 
-            // --- SEZIONE DINAMICA: OPZIONI VOLO ---
-            if (currentCategory == "Tutti" || currentCategory == "Voli") {
-                Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
-                Text("Opzioni Volo", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(12.dp))
+                if (showFlightSection) {
+                    FilterSection("Opzioni volo") { ToggleRow(label = "Solo voli diretti", checked = directFlightOnly, onCheckedChange = { directFlightOnly = it }) }
+                }
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mostra solo voli diretti", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Switch(
-                        checked = directFlightOnly,
-                        onCheckedChange = { directFlightOnly = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = TripifyGreen)
-                    )
+                if (showActivitySection) {
+                    FilterSection("Dettagli esperienza") { ToggleRow(label = "Con guida inclusa", checked = guideIncludedOnly, onCheckedChange = { guideIncludedOnly = it }) }
                 }
             }
 
-            // --- SEZIONE DINAMICA: ESCURSIONI ---
-            if (currentCategory == "Tutti" || currentCategory == "Escursioni") {
-                Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray.copy(alpha = 0.5f))
-                Text("Dettagli Esperienza", fontWeight = FontWeight.Black, fontSize = 18.sp, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Richiede guida inclusa", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Switch(
-                        checked = guideIncludedOnly,
-                        onCheckedChange = { guideIncludedOnly = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = TripifyGreen)
-                    )
+            HorizontalDivider(color = CatalogColors.Hairline)
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = CatalogSpacing.Gutter, vertical = 14.dp)) {
+                Button(
+                    onClick = {
+                        onApplyFilters(maxPrice, minRating, selectedAmenities.toList(), directFlightOnly, guideIncludedOnly, destination, departure)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+                    shape = CatalogShapes.Field, elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) {
+                    Text("MOSTRA RISULTATI", style = CatalogType.Button, color = Color.White)
                 }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // BOTTONE APPLICA
-            Button(
-                onClick = {
-                    onApplyFilters(maxPrice, minRating, selectedAmenities.toList(), directFlightOnly, guideIncludedOnly, destination, departure)
-                    onDismiss()
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen)
-            ) {
-                Text("MOSTRA RISULTATI", fontWeight = FontWeight.Black, fontSize = 16.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun FilterSection(title: String, content: @Composable () -> Unit) {
+    HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp), color = CatalogColors.Hairline)
+    Text(text = title.uppercase(), style = CatalogType.Overline, color = CatalogColors.InkSubtle)
+    Spacer(modifier = Modifier.height(10.dp))
+    content()
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SheetChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(text = label, style = if (selected) CatalogType.LabelStrong else CatalogType.Label) },
+        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = CatalogColors.AccentDark, selectedLabelColor = Color.White, containerColor = CatalogColors.Surface, labelColor = CatalogColors.InkMuted),
+        shape = CatalogShapes.Chip, border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected, borderColor = CatalogColors.Hairline, selectedBorderColor = CatalogColors.AccentDark)
+    )
+}
+
+@Composable
+private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(text = label, style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+        Switch(
+            checked = checked, onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = CatalogColors.AccentDark, checkedBorderColor = CatalogColors.AccentDark, uncheckedThumbColor = Color.White, uncheckedTrackColor = CatalogColors.Hairline, uncheckedBorderColor = CatalogColors.Hairline)
+        )
     }
 }

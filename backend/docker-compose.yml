@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  # Database per il servizio Catalog (il tuo)
+  # Database per il servizio Catalog
   db-catalog:
     image: postgres:15
     container_name: db-catalog
     ports:
-      - "5432:5432"
+      - "5435:5432"
     environment:
       POSTGRES_DB: db_catalog
       POSTGRES_USER: postgres
@@ -19,7 +19,7 @@ services:
     image: postgres:15
     container_name: db-booking
     ports:
-      - "5433:5432" # Porta esterna 5433 per non conflittare con catalog
+      - "5433:5432"
     environment:
       POSTGRES_DB: db_booking
       POSTGRES_USER: postgres
@@ -32,7 +32,7 @@ services:
     image: postgres:15
     container_name: db-auth
     ports:
-      - "5434:5432" # Porta esterna 5434
+      - "5434:5432"
     environment:
       POSTGRES_DB: db_auth
       POSTGRES_USER: postgres
@@ -40,12 +40,12 @@ services:
     networks:
       - travel-network
 
-    # Database per il servizio Communication (Gianmaria)
+  # Database per il servizio Communication (Gianmaria) - Porta spostata a 5437 per evitare conflitti
   communication-service:
     image: postgres:15
     container_name: communication-service
     ports:
-      - "5435:5432" # Porta esterna 5435
+      - "5437:5432"
     environment:
       POSTGRES_DB: communication-service
       POSTGRES_USER: postgres
@@ -53,15 +53,54 @@ services:
     networks:
       - travel-network
 
-  # RabbitMQ per le comunicazioni asincrone
+  # Database persistente per Keycloak
+  db-keycloak:
+    image: postgres:15
+    container_name: db-keycloak
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    networks:
+      - travel-network
+
+  # RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"   # Porta per i messaggi
-      - "15672:15672" # Interfaccia web di gestione
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - travel-network
+
+  # Il tuo guardiano Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    command: start-dev
+    depends_on:
+      - db-keycloak
+    ports:
+      - "8180:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: "xforwarded"
+      # Collegamento al DB
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db-keycloak:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+    networks:
+      - travel-network
+    volumes:
+      - ./keycloak-themes:/opt/keycloak/themes
 
 networks:
   travel-network:

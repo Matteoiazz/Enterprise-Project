@@ -1,13 +1,11 @@
 package com.tripify.user_auth_service.entity;
+
 import lombok.*;
 import jakarta.persistence.*;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.ArrayList;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "users")
@@ -16,13 +14,17 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class User implements UserDetails {
+public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
     @Column(nullable = false, unique = true)
     private String email;
 
+    // Nota: password e role li lasciamo per non rompere il database,
+    // anche se ormai per il login vero e proprio ci pensa Keycloak.
     @Column(nullable = false)
     private String password;
 
@@ -34,40 +36,25 @@ public class User implements UserDetails {
 
     @Column
     private String name;
+
     @Column
     private String phone;
+
     @Column
     private String address;
+
     @Column
     private String surname;
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.name()));
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<TravelDocument> documents = new ArrayList<>();
 
-    @Override
-    public String getUsername() {
-        return email;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Companion> companions = new ArrayList<>();
 
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<PaymentMethod> paymentMethods = new ArrayList<>();
 }

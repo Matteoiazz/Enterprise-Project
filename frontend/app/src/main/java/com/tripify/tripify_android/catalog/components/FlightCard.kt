@@ -1,91 +1,72 @@
 package com.tripify.tripify_android.catalog.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable // <-- IMPORT AGGIUNTO
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.Flight
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
-import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @Composable
 fun FlightCard(
     flight: CatalogItem.Flight,
-    onClick: () -> Unit // <-- PARAMETRO AGGIUNTO
+    onClick: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(360.dp)
-            .clickable { onClick() } // <-- LA CARD ORA È CLICCABILE
+    val lowSeats = flight.availableSeats in 1..4
+
+    PhotoCard(
+        imageUrl = flight.imageUrl,
+        eyebrow = if (flight.isDirect) "Volo diretto" else "Volo",
+        price = flight.price,
+        title = flight.title,
+        onClick = onClick
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = flight.imageUrl, contentDescription = null,
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-            )
-            Box(
-                modifier = Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)), startY = 300f)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = flight.departureAirport, style = CatalogType.Meta, color = Color.White)
+            RouteDot()
+            Icon(imageVector = Icons.Filled.Flight, contentDescription = null, tint = CatalogColors.AccentLight, modifier = Modifier.size(13.dp))
+            RouteDot()
+            Text(text = flight.arrivalAirport, style = CatalogType.Meta, color = Color.White)
+        }
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            PhotoMeta(icon = Icons.Filled.CalendarMonth, text = flight.departureTime)
+
+            if (flight.availableSeats > 0) {
+                PhotoMeta(
+                    icon = Icons.Filled.EventSeat,
+                    text = if (lowSeats) "Ultimi ${flight.availableSeats} posti" else "${flight.availableSeats} posti",
+                    tint = if (lowSeats) CatalogColors.AlertOnDark else Color.White.copy(alpha = 0.72f),
+                    textColor = if (lowSeats) CatalogColors.AlertOnDark else Color.White.copy(alpha = 0.92f)
                 )
-            )
-            Surface(
-                color = TripifyGreen,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-            ) {
-                Text(
-                    text = flight.price, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                )
-            }
-            Column(modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)) {
-                Text(
-                    text = flight.title, color = Color.White, fontSize = 28.sp,
-                    fontWeight = FontWeight.Black, letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Rotta
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(flight.departureAirport, color = Color.LightGray, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Filled.Flight, contentDescription = null, tint = TripifyGreen, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(flight.arrivalAirport, color = Color.LightGray, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Info Extra: Data e Posti rimasti
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(flight.departureTime, color = Color.White, fontSize = 13.sp)
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Icon(Icons.Filled.EventSeat, contentDescription = null, tint = if(flight.availableSeats < 5) Color.Red else Color.LightGray, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(if(flight.availableSeats < 5) "Ultimi ${flight.availableSeats} posti!" else "${flight.availableSeats} posti", color = if(flight.availableSeats < 5) Color.Red else Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
+}
+
+@Composable
+private fun RouteDot() {
+    Spacer(modifier = Modifier.width(7.dp))
+    Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.5f)))
+    Spacer(modifier = Modifier.width(7.dp))
 }
