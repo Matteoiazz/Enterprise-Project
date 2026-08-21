@@ -48,8 +48,9 @@ class MainActivity : ComponentActivity() {
                     factory = PaymentMethodsViewModelFactory(profileApi)
                 )
 
-                val settingsViewModel = remember { com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager) }
-
+                val settingsViewModel = remember {
+                    com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager, profileApi)
+                }
                 TripifyApp(
                     loginViewModel = loginViewModel,
                     catalogViewModel = catalogViewModel,

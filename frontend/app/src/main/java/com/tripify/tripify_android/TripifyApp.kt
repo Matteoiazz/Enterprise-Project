@@ -145,7 +145,6 @@ fun TripifyApp(
                         }
                     },
                     onNavigateToRegister = {
-                        // Gestito via Keycloak
                     }
                 )
             }
@@ -181,17 +180,17 @@ fun TripifyApp(
             }
 
             composable(Route.Settings.path) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val tokenManager = androidx.compose.runtime.remember { com.tripify.tripify_android.data.TokenManager(context) }
-                val settingsViewModel = androidx.compose.runtime.remember {
-                    com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager)
-                }
-
                 com.tripify.tripify_android.profile.ui.SettingsScreen(
                     viewModel = settingsViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToKeycloakAccount = {
                         // Qui poi metteremo il link per il cambio password
+                    },
+                    onAccountDeleted = {
+                        navController.navigate(Route.Home.path) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

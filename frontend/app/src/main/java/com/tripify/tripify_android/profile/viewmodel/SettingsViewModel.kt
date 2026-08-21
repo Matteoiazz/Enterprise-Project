@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.profile.api.ProfileApiService
 
-class SettingsViewModel(private val tokenManager: TokenManager) : ViewModel() {
+class SettingsViewModel(private val tokenManager: TokenManager, private val profileApi: ProfileApiService) : ViewModel() {
 
-    // Leggiamo i dati dal DataStore e li trasformiamo in State per Compose
     val useMetricSystem: StateFlow<Boolean> = tokenManager.useMetricSystemFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -23,7 +23,6 @@ class SettingsViewModel(private val tokenManager: TokenManager) : ViewModel() {
     val chatAlertsEnabled: StateFlow<Boolean> = tokenManager.chatAlertsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    // Funzioni per aggiornare i dati
     fun toggleMetricSystem(value: Boolean) {
         viewModelScope.launch { tokenManager.setUseMetricSystem(value) }
     }
@@ -41,5 +40,24 @@ class SettingsViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     fun toggleChatAlerts(value: Boolean) {
         viewModelScope.launch { tokenManager.setChatAlertsEnabled(value) }
+    }
+
+    fun deleteAccount(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = profileApi.deleteMyAccount()
+
+                if (response.isSuccessful) {
+                    tokenManager.clearTokens()
+                    onSuccess()
+                } else {
+                    println("Errore durante l'eliminazione dell'account: ${response.code()}")
+                }
+
+            } catch (e: Exception) {
+                println("Eccezione durante la chiamata di eliminazione:")
+                e.printStackTrace()
+            }
+        }
     }
 }
