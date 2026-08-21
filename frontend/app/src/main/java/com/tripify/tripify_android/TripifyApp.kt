@@ -166,7 +166,7 @@ fun TripifyApp(
                 ProfileScreen(
                     viewModel = profileViewModel,
                     onLogoutSuccess = {
-                        navController.navigate(Route.Auth.path) {
+                        navController.navigate(Route.Home.path) {
                             popUpTo(0) { inclusive = true }
                             launchSingleTop = true
                         }

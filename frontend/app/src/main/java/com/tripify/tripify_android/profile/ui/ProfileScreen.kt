@@ -1,5 +1,7 @@
 package com.tripify.tripify_android.profile.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,21 +15,22 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
-// Import del ViewModel
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 
-// I tuoi colori personalizzati
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
@@ -42,6 +45,16 @@ fun ProfileScreen(
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val logoutLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.logout()
+        onLogoutSuccess()
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.loadUserProfile()
     }
@@ -80,8 +93,24 @@ fun ProfileScreen(
             } else if (!isLoggedIn) {
                 GuestProfileView(onNavigateToLogin)
             } else {
-                // Passiamo l'azione giù al contenuto
-                LoggedProfileContent(viewModel, onNavigateToCompanions, onNavigateToTravelDocuments, onNavigateToPaymentMethods)
+                LoggedProfileContent(
+                    viewModel = viewModel,
+                    onNavigateToCompanions = onNavigateToCompanions,
+                    onNavigateToTravelDocuments = onNavigateToTravelDocuments,
+                    onNavigateToPaymentMethods = onNavigateToPaymentMethods,
+                    onLogoutClick = {
+                        coroutineScope.launch {
+                            val idToken = viewModel.getIdToken()
+                            if (!idToken.isNullOrEmpty()) {
+                                val intent = viewModel.getEndSessionIntent(context, idToken)
+                                logoutLauncher.launch(intent)
+                            } else {
+                                viewModel.logout()
+                                onLogoutSuccess()
+                            }
+                        }
+                    }
+                )
             }
         }
     }
@@ -128,7 +157,8 @@ fun LoggedProfileContent(
     viewModel: ProfileViewModel,
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
-    onNavigateToPaymentMethods: () -> Unit
+    onNavigateToPaymentMethods: () -> Unit,
+    onLogoutClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -163,17 +193,14 @@ fun LoggedProfileContent(
                 ) {
                     Column {
                         ProfileMenuRow(Icons.Outlined.Badge, "Documenti di Viaggio", hasDivider = true, onClick = onNavigateToTravelDocuments)
-
-                        // COLLEGATO AL CLICK!
                         ProfileMenuRow(Icons.Outlined.Group, "Compagni di Viaggio", hasDivider = true, onClick = onNavigateToCompanions)
-
                         ProfileMenuRow(Icons.Outlined.AccountBalanceWallet, "Portafoglio e Pagamenti", hasDivider = true, onClick = onNavigateToPaymentMethods)
                         ProfileMenuRow(Icons.Outlined.Settings, "Impostazioni App", hasDivider = false)
                     }
                 }
                 Spacer(modifier = Modifier.height(40.dp))
                 OutlinedButton(
-                    onClick = { viewModel.logout() },
+                    onClick = onLogoutClick,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -194,7 +221,6 @@ fun SectionTitle(title: String) {
     Text(text = title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), textAlign = TextAlign.Start)
 }
 
-// onClick Aggiunto alla firma e usato nel modifier
 @Composable
 fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick: () -> Unit = {}) {
     Column(modifier = Modifier.clickable { onClick() }) {
