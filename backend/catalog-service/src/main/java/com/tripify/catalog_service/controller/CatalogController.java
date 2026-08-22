@@ -96,4 +96,10 @@ public class CatalogController {
         }
         return ResponseEntity.ok(catalogService.getCitySuggestions(query.trim()));
     }
+
+    @GetMapping("/{itemId}/price")
+    public ResponseEntity<Double> getItemPrice(@PathVariable Long itemId) {
+        BigDecimal price = catalogService.getItemById(itemId).getPrice();
+        return ResponseEntity.ok(price != null ? price.doubleValue() : null);
+    }
 }
