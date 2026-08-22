@@ -90,6 +90,7 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     viewModelScope.launch {
                         tokenManager.saveToken(tokenResponse.accessToken ?: "")
                         tokenManager.saveIdToken(tokenResponse.idToken ?: "")
+                        tokenManager.saveRefreshToken(tokenResponse.refreshToken ?: "")
                         isLoginSuccessful = true
                         isLoading = false
                     }

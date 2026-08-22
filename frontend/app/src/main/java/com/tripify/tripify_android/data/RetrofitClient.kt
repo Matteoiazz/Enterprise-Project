@@ -22,7 +22,7 @@ object RetrofitClient {
             .create(AuthApi::class.java)
     }
 
-    // --- LA NOSTRA NUOVA FUNZIONE PER IL CATALOGO ---
+    // --- FUNZIONE PER IL CATALOGO ---
     fun createCatalogApi(tokenManager: TokenManager): CatalogApi {
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(tokenManager))
@@ -36,7 +36,7 @@ object RetrofitClient {
             .create(CatalogApi::class.java)
     }
 
-    // --- LA NUOVA FUNZIONE PER IL BOOKING (DA DEVELOP) ---
+    // --- LA NUOVA FUNZIONE PER IL BOOKING ---
     fun createBookingApi(tokenManager: TokenManager): BookingApi {
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(tokenManager))
@@ -50,7 +50,7 @@ object RetrofitClient {
             .create(BookingApi::class.java)
     }
 
-    // --- LA FUNZIONE PER IL PROFILO (DAL TUO BRANCH) ---
+    // --- LA FUNZIONE PER IL PROFILO ---
     fun createProfileApi(tokenManager: TokenManager): com.tripify.tripify_android.profile.api.ProfileApiService {
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(tokenManager))
@@ -63,6 +63,4 @@ object RetrofitClient {
             .build()
             .create(com.tripify.tripify_android.profile.api.ProfileApiService::class.java)
     }
-
-
 }

@@ -6,12 +6,16 @@ import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
 import com.tripify.user_auth_service.entity.Companion;
 import com.tripify.user_auth_service.entity.PaymentMethod;
 import com.tripify.user_auth_service.entity.TravelDocument;
+import com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO;
 import com.tripify.user_auth_service.entity.User;
 import com.tripify.user_auth_service.repository.CompanionRepository;
 import com.tripify.user_auth_service.repository.PaymentMethodRepository;
 import com.tripify.user_auth_service.repository.TravelDocumentRepository;
 import com.tripify.user_auth_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,7 +32,7 @@ public class ProfileService {
     private final TravelDocumentRepository documentRepository;
 
 
-    private User getUser(String email) {
+    public User getUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseGet(() -> {
                     User newUser = User.builder()
@@ -156,5 +160,51 @@ public class ProfileService {
 
         keycloak.realm("tripify").users().delete(keycloakUserId);
 
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public User updateUserProfile(String email, String keycloakUserId, com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
+        User user = getUser(email);
+
+        if (request.getName() != null) user.setName(request.getName());
+        if (request.getSurname() != null) user.setSurname(request.getSurname());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getAddress() != null) user.setAddress(request.getAddress());
+        if (request.getEmail() != null) user.setEmail(request.getEmail());
+
+        userRepository.save(user);
+
+        org.keycloak.admin.client.Keycloak keycloak = org.keycloak.admin.client.KeycloakBuilder.builder()
+                .serverUrl("http://localhost:8180")
+                .realm("master")
+                .clientId("admin-cli")
+                .grantType(org.keycloak.OAuth2Constants.PASSWORD)
+                .username("admin")
+                .password("admin")
+                .build();
+
+        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm("tripify").users().get(keycloakUserId);
+
+        if (request.getName() != null || request.getSurname() != null || request.getEmail() != null) {
+            org.keycloak.representations.idm.UserRepresentation kcUser = userResource.toRepresentation();
+            if (request.getName() != null) kcUser.setFirstName(request.getName());
+            if (request.getSurname() != null) kcUser.setLastName(request.getSurname());
+            if (request.getEmail() != null) {
+                kcUser.setEmail(request.getEmail());
+                kcUser.setUsername(request.getEmail());
+            }
+            userResource.update(kcUser);
+        }
+
+        if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
+            org.keycloak.representations.idm.CredentialRepresentation passwordCred = new org.keycloak.representations.idm.CredentialRepresentation();
+            passwordCred.setTemporary(false);
+            passwordCred.setType(org.keycloak.representations.idm.CredentialRepresentation.PASSWORD);
+            passwordCred.setValue(request.getNewPassword());
+
+            userResource.resetPassword(passwordCred);
+        }
+
+        return user;
     }
 }

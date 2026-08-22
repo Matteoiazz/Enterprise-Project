@@ -78,17 +78,15 @@ public class ProfileController {
     // --- PROFILO UTENTE ---
     @GetMapping("/me")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
-        String firstName = jwt.getClaimAsString("given_name");
-        String lastName = jwt.getClaimAsString("family_name");
         String email = jwt.getClaimAsString("email");
-        String preferredUsername = jwt.getClaimAsString("preferred_username");
 
-        String displayNome = firstName != null ? firstName : (preferredUsername != null ? preferredUsername : "Utente");
-        String displayCognome = lastName != null ? lastName : "";
-        String displayEmail = email != null ? email : jwt.getSubject();
+        com.tripify.user_auth_service.entity.User user = profileService.getUser(email);
+
+        String displayNome = user.getName() != null ? user.getName() : "Utente";
+        String displayCognome = user.getSurname() != null ? user.getSurname() : "";
 
         return ResponseEntity.ok(new com.tripify.user_auth_service.dto.response.UserResponse(
-                displayNome, displayCognome, displayEmail
+                displayNome, displayCognome, email
         ));
     }
 
@@ -101,5 +99,18 @@ public class ProfileController {
         profileService.deleteUserAccount(email, keycloakUserId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<Void> updateMyProfile(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
+
+        String email = jwt.getClaimAsString("email");
+        String keycloakUserId = jwt.getSubject();
+
+        profileService.updateUserProfile(email, keycloakUserId, request);
+
+        return ResponseEntity.ok().build();
     }
 }
