@@ -49,7 +49,7 @@ fun ChatScreen(
                                 .background(Color(0xFF4CAF50))
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Tripify Chat")
+                        Text("Tripify Chat (Utente $currentUserId)")
                     }
                 },
                 // FRECCIA INDIETRO IN ALTO A SINISTRA

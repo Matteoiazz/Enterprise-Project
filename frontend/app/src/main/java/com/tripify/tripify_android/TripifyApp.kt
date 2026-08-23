@@ -6,6 +6,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import com.tripify.tripify_android.chat.ui.InboxScreen
+import com.tripify.tripify_android.chat.viewmodel.InboxViewModel
+
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,6 +58,7 @@ fun TripifyApp(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val inboxViewModel = androidx.lifecycle.viewmodel.compose.viewModel { InboxViewModel(currentUserId = 1L) }
 
     val bottomNavItems = listOf(
         BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home),
@@ -128,7 +132,13 @@ fun TripifyApp(
 
             // ROTTE DI SERVIZIO / IN COSTRUZIONE
             composable("saved") { Box(modifier = Modifier.padding(16.dp)) { Text("Salvati (In costruzione)") } }
-            composable("chat") { Box(modifier = Modifier.padding(16.dp)) { Text("Messaggi (In costruzione)") } }
+            composable("chat") {
+                InboxScreen(
+                    viewModel = inboxViewModel,
+                    onChatRoomClick = { chatId -> navController.navigate("chat_detail/$chatId") },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
             composable("bookings") {
                 BookingsScreen(
                     onNavigateBack = { navController.popBackStack() }

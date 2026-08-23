@@ -8,30 +8,28 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "chat_messages")
+@Table(name = "chat_rooms", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"travelerId", "hostId"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatMessage {
+public class ChatRoom {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long roomId; // ID della ChatRoom a cui appartiene il messaggio
+    private Long travelerId; // L'ID del viaggiatore
 
     @Column(nullable = false)
-    private Long senderId; // Chi invia il messaggio
+    private Long hostId; // L'ID dell'organizzatore (host)
 
-    @Column(nullable = false, length = 1000)
-    private String content; // Il testo del messaggio
-
-    @Column(nullable = false)
-    private LocalDateTime timestamp;
+    private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
-        this.timestamp = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now();
     }
 }

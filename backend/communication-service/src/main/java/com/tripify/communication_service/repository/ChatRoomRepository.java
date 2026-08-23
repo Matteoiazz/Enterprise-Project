@@ -1,0 +1,21 @@
+package com.tripify.communication_service.repository;
+
+import com.tripify.communication_service.entity.ChatRoom;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
+
+    // Trova la chat specifica tra un viaggiatore e un host
+    Optional<ChatRoom> findByTravelerIdAndHostId(Long travelerId, Long hostId);
+
+    // Trova tutte le chat aperte da un determinato viaggiatore (per la schermata Inbox)
+    List<ChatRoom> findByTravelerId(Long travelerId);
+
+    // Trova tutte le chat in cui un utente partecipa come host
+    List<ChatRoom> findByHostId(Long hostId);
+}
