@@ -22,6 +22,8 @@ public class CatalogItemDTO {
     private String category;
     private Integer rating;
     private List<String> imageUrls;
+    // --- CHAT ---
+    private String hostId;
 
     // --- VOLO ---
     private String departureAirport;

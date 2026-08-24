@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "chat_messages")
@@ -16,13 +17,13 @@ public class ChatMessage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // L'ID progressivo del singolo messaggio può rimanere Long o diventare UUID, ma come chiave primaria numerica va benissimo
 
     @Column(nullable = false)
-    private Long roomId; // ID della ChatRoom a cui appartiene il messaggio
+    private String roomId; // ID della ChatRoom (ora è una Stringa UUID)
 
     @Column(nullable = false)
-    private Long senderId; // Chi invia il messaggio
+    private String senderId; // Chi invia il messaggio (UUID di Keycloak)
 
     @Column(nullable = false, length = 1000)
     private String content; // Il testo del messaggio

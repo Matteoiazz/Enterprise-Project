@@ -21,11 +21,10 @@ import com.tripify.tripify_android.chat.viewmodel.InboxViewModel
 @Composable
 fun InboxScreen(
     viewModel: InboxViewModel,
-    onChatRoomClick: (Long) -> Unit, // Callback quando clicchi su una chat (passa il roomId)
-    onBackClick: () -> Unit          // Per tornare alla home
+    onChatRoomClick: (String) -> Unit, // ORA È UNA STRINGA (UUID)
+    onBackClick: () -> Unit
 ) {
     val chatRooms by viewModel.chatRooms.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -49,11 +48,7 @@ fun InboxScreen(
             contentAlignment = Alignment.Center
         ) {
             when {
-                isLoading -> {
-                    CircularProgressIndicator()
-                }
                 chatRooms.isEmpty() -> {
-                    // Stato vuoto: Nessuna chat mai creata
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
@@ -74,20 +69,16 @@ fun InboxScreen(
                     }
                 }
                 else -> {
-                    // Lista delle chat aperte con i vari organizzatori
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(chatRooms) { room ->
-                            // Capiamo chi è l'interlocutore (se l'utente è il viaggiatore, l'altro è l'host e viceversa)
-                            val otherUserId = if (room.travelerId == viewModel.currentUserId) room.hostId else room.travelerId
-
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onChatRoomClick(room.id) },
+                                    .clickable { onChatRoomClick(room.id) }, // room.id ora è String!
                                 elevation = CardDefaults.cardElevation(2.dp)
                             ) {
                                 Row(
@@ -105,12 +96,13 @@ fun InboxScreen(
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column {
                                         Text(
-                                            text = "Chat con Organizzatore (ID: $otherUserId)",
+                                            // Ora il nome/id lo gestisce il backend senza fare logica in UI
+                                            text = "Chat con Organizzatore",
                                             style = MaterialTheme.typography.titleMedium
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = "Stanza #${room.id}",
+                                            text = "Stanza: ${room.id.take(8)}...", // Mostra i primi 8 caratteri dell'UUID per estetica
                                             style = MaterialTheme.typography.bodySmall,
                                             color = Color.Gray
                                         )

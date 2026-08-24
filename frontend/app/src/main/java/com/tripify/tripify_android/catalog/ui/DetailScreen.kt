@@ -44,6 +44,7 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.viewmodel.HoldOutcome
 import kotlinx.coroutines.launch
 import com.tripify.tripify_android.BuildConfig
+import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -546,7 +547,29 @@ private fun DetailContent(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedButton(
-                    onClick = { onChatWithOrganizer(item.id.toString()) },
+                    onClick = {
+                        scope.launch {
+                            // 1. Recuperiamo il token JWT salvato nel DataStore tramite il tuo TokenManager
+                            val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
+                            val token = tokenManager.tokenFlow.first()
+
+                            // 2. Usiamo l'UUID reale dell'organizzatore associato a questo elemento del catalogo
+                            val hostUuid = item.hostId
+
+                            // 3. Chiamiamo il repository passando l'hostId e il token reale dell'utente
+                            val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
+                                hostId = hostUuid,
+                                authToken = token
+                            )
+
+                            if (chatRoom != null) {
+                                // 4. Apriamo la chat passando l'ID della stanza restituito dal backend
+                                onChatWithOrganizer(chatRoom.id)
+                            } else {
+                                snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = CatalogShapes.Field,
                     border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)

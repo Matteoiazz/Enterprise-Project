@@ -10,5 +10,5 @@ import java.util.List;
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
     // Trova tutti i messaggi di una specifica ChatRoom ordinati per data
-    List<ChatMessage> findByRoomIdOrderByTimestampAsc(Long roomId);
+    List<ChatMessage> findByRoomIdOrderByTimestampAsc(String roomId);
 }

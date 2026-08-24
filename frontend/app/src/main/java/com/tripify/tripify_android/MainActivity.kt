@@ -41,7 +41,6 @@ class MainActivity : ComponentActivity() {
 
                 val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
                 val companionsViewModel = remember { CompanionsViewModel(profileApi) }
-                val chatViewModel = remember { ChatViewModel(currentUserId = 1L, roomId = 1L) }
 
                 val travelDocumentsViewModel: TravelDocumentsViewModel = viewModel(
                     factory = TravelDocumentsViewModelFactory(profileApi)

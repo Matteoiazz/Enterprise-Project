@@ -1,20 +1,20 @@
 package com.tripify.tripify_android.chat.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.chat.repository.ChatRepository
+import com.tripify.tripify_android.data.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class InboxViewModel(val currentUserId: Long) : ViewModel() {
+class InboxViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     private val _chatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
     val chatRooms: StateFlow<List<ChatRoom>> = _chatRooms.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
         loadChatRooms()
@@ -22,10 +22,26 @@ class InboxViewModel(val currentUserId: Long) : ViewModel() {
 
     fun loadChatRooms() {
         viewModelScope.launch {
-            _isLoading.value = true
-            val rooms = ChatRepository.getUserChatRooms(currentUserId)
-            _chatRooms.value = rooms
-            _isLoading.value = false
+            try {
+                // 1. Leggiamo il token JWT reale dal DataStore
+                val token = tokenManager.tokenFlow.first()
+
+                // 2. Chiamiamo il repository passando solo il token.
+                // Nessun ID finto: il server legge l'UUID dal token!
+                val rooms = ChatRepository.getUserChatRooms(authToken = token)
+                _chatRooms.value = rooms
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
+    }
+}
+class InboxViewModelFactory(private val tokenManager: TokenManager) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(InboxViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return InboxViewModel(tokenManager) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

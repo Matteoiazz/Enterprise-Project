@@ -34,6 +34,7 @@ public class CatalogMapper {
                 .category(item.getCategory())
                 .rating(item.getRating())
                 .imageUrls(extractedUrls)
+                .hostId(item.getHostId() != null ? item.getHostId().toString() : null)
                 .itemType(item.getClass().getSimpleName());
 
         if (item instanceof com.tripify.catalog_service.entity.Flight flight) {

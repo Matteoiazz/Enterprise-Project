@@ -12,9 +12,11 @@ import com.tripify.tripify_android.chat.ui.ChatScreen
 import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +34,7 @@ import com.tripify.tripify_android.catalog.ui.HomeScreen
 import com.tripify.tripify_android.catalog.ui.SearchResultsScreen
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.navigation.Route
+import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
 import com.tripify.tripify_android.profile.ui.PaymentMethodsScreen
 import com.tripify.tripify_android.profile.ui.ProfileScreen
@@ -60,7 +63,6 @@ fun TripifyApp(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val inboxViewModel = androidx.lifecycle.viewmodel.compose.viewModel { InboxViewModel(currentUserId = 1L) }
 
     val bottomNavItems = listOf(
         BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home),
@@ -134,20 +136,38 @@ fun TripifyApp(
 
             // ROTTE DI SERVIZIO / IN COSTRUZIONE
             composable("saved") { Box(modifier = Modifier.padding(16.dp)) { Text("Salvati (In costruzione)") } }
+            // ROTTA: Inbox (Messaggi)
             composable("chat") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+
+                // Niente ID fittizi! Passiamo il TokenManager al ViewModel
+                val inboxViewModel: InboxViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = com.tripify.tripify_android.chat.viewmodel.InboxViewModelFactory(tokenManager)
+                )
+
                 InboxScreen(
                     viewModel = inboxViewModel,
-                    onChatRoomClick = { chatId -> navController.navigate("chat_detail/$chatId") },
+                    onChatRoomClick = { roomId -> navController.navigate("chat_detail/$roomId") },
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("chat_detail/{chatId}") { backStackEntry ->
-                val chatIdString = backStackEntry.arguments?.getString("chatId")
-                val chatId = chatIdString?.toLongOrNull() ?: 0L
 
-                val chatViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
-                    ChatViewModel(currentUserId = 1L, roomId = chatId)
-                }
+            // ROTTA: Dettaglio Chat
+            composable("chat_detail/{chatId}") { backStackEntry ->
+                // Niente più Long, prendiamo l'UUID come Stringa!
+                val roomId = backStackEntry.arguments?.getString("chatId") ?: ""
+
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+
+                // Passiamo l'UUID reale della stanza e il TokenManager
+                val chatViewModel: ChatViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = com.tripify.tripify_android.chat.viewmodel.ChatViewModelFactory(
+                        roomId = roomId,
+                        tokenManager = tokenManager
+                    )
+                )
 
                 ChatScreen(
                     viewModel = chatViewModel,

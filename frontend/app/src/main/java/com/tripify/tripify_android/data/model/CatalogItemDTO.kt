@@ -10,6 +10,8 @@ data class CatalogItemDto(
     val category: String?,
     val rating: Int?,
     val imageUrls: List<String>?,
+    // --- CAMPI SPECIFICI chat ---
+    val hostId: String?,
 
     // --- CAMPI SPECIFICI VOLO ---
     val departureAirport: String?,
