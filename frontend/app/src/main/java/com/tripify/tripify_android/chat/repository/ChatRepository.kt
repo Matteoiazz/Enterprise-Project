@@ -12,7 +12,7 @@ import java.net.URL
 object ChatRepository {
 
     private val gson = Gson()
-    private const val BASE_URL = "http://172.20.10.2:8084"
+    private const val BASE_URL = "http://172.20.10.3:8084"
 
     // Funzione che chiama il backend per ottenere o creare la stanza tra viaggiatore e host
     suspend fun getOrCreateChatRoom(travelerId: Long, hostId: Long): ChatRoom? {

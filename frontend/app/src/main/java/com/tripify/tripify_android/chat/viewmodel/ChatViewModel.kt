@@ -27,23 +27,31 @@ class ChatViewModel(
     private val gson = Gson()
 
     init {
-        connectWebSocket("http://172.20.10.2:8084")
+        connectWebSocket("http://172.20.10.3:8084")
         loadHistory()
     }
 
     fun connectWebSocket(baseUrl: String) {
-        val wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat"
+        val wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat/websocket"
 
         stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl)
 
-        stompClient.lifecycle().subscribe { lifecycleEvent ->
-            when (lifecycleEvent.type) {
-                LifecycleEvent.Type.OPENED -> android.util.Log.d("STOMP", "Connessione aperta!")
-                LifecycleEvent.Type.CLOSED -> android.util.Log.d("STOMP", "Connessione chiusa!")
-                LifecycleEvent.Type.ERROR -> android.util.Log.e("STOMP", "Errore connessione: " + lifecycleEvent.exception)
-                else -> android.util.Log.d("STOMP", "Stato: " + lifecycleEvent.message)
+        stompClient.lifecycle().subscribe(
+            { lifecycleEvent ->
+                when (lifecycleEvent.type) {
+                    LifecycleEvent.Type.OPENED -> android.util.Log.d("STOMP", "Connessione aperta!")
+                    LifecycleEvent.Type.CLOSED -> android.util.Log.d("STOMP", "Connessione chiusa!")
+                    LifecycleEvent.Type.ERROR -> android.util.Log.e("STOMP", "Errore connessione: " + lifecycleEvent.exception)
+                    else -> android.util.Log.d("STOMP", "Stato: " + lifecycleEvent.message)
+                }
+            },
+            { error ->
+                // Questo blocco cattura gli errori senza far crashare l'app
+                android.util.Log.e("STOMP", "Errore critico RxJava", error)
             }
-        }
+        )
+
+
 
         stompClient.connect()
 
@@ -69,7 +77,7 @@ class ChatViewModel(
     fun loadHistory() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val url = "http://172.20.10.2:8084/chat/history/$roomId"
+                val url = "http://172.20.10.3:8084/chat/history/$roomId"
                 val response = java.net.URL(url).readText()
 
                 val type = object : com.google.gson.reflect.TypeToken<List<ChatMessage>>() {}.type

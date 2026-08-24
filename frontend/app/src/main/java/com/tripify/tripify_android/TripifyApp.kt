@@ -8,6 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import com.tripify.tripify_android.chat.ui.InboxScreen
 import com.tripify.tripify_android.chat.viewmodel.InboxViewModel
+import com.tripify.tripify_android.chat.ui.ChatScreen
+import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
 
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -136,6 +138,19 @@ fun TripifyApp(
                 InboxScreen(
                     viewModel = inboxViewModel,
                     onChatRoomClick = { chatId -> navController.navigate("chat_detail/$chatId") },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable("chat_detail/{chatId}") { backStackEntry ->
+                val chatIdString = backStackEntry.arguments?.getString("chatId")
+                val chatId = chatIdString?.toLongOrNull() ?: 0L
+
+                val chatViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
+                    ChatViewModel(currentUserId = 1L, roomId = chatId)
+                }
+
+                ChatScreen(
+                    viewModel = chatViewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }
