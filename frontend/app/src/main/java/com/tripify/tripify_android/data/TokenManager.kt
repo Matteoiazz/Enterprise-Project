@@ -17,6 +17,7 @@ class TokenManager(private val context: Context) {
     companion object {
         val JWT_TOKEN_KEY = stringPreferencesKey("jwt_token")
         val ID_TOKEN_KEY = stringPreferencesKey("id_token")
+        val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token") // 👉 AGGIUNTO
 
         val METRIC_SYSTEM_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("use_metric_system")
         val CURRENCY_KEY = androidx.datastore.preferences.core.stringPreferencesKey("selected_currency")
@@ -35,30 +36,34 @@ class TokenManager(private val context: Context) {
     suspend fun setChatAlertsEnabled(enabled: Boolean) { context.dataStore.edit { it[CHAT_ALERTS_KEY] = enabled } }
 
     suspend fun saveToken(token: String) {
-        context.dataStore.edit { preferences ->
-            preferences[JWT_TOKEN_KEY] = token
-        }
+        context.dataStore.edit { it[JWT_TOKEN_KEY] = token }
     }
 
     suspend fun saveIdToken(idToken: String) {
-        context.dataStore.edit { preferences ->
-            preferences[ID_TOKEN_KEY] = idToken
-        }
+        context.dataStore.edit { it[ID_TOKEN_KEY] = idToken }
     }
 
-    val tokenFlow: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[JWT_TOKEN_KEY]
+    suspend fun saveRefreshToken(refreshToken: String) {
+        context.dataStore.edit { it[REFRESH_TOKEN_KEY] = refreshToken }
     }
+
+    val tokenFlow: Flow<String?> = context.dataStore.data.map { it[JWT_TOKEN_KEY] }
 
     suspend fun getIdToken(): String? {
         val preferences = context.dataStore.data.first()
         return preferences[ID_TOKEN_KEY]
     }
 
+    suspend fun getRefreshToken(): String? {
+        val preferences = context.dataStore.data.first()
+        return preferences[REFRESH_TOKEN_KEY]
+    }
+
     suspend fun clearTokens() {
         context.dataStore.edit { preferences ->
             preferences.remove(JWT_TOKEN_KEY)
             preferences.remove(ID_TOKEN_KEY)
+            preferences.remove(REFRESH_TOKEN_KEY)
         }
     }
 }

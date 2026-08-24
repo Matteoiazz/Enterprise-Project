@@ -4,6 +4,7 @@ import com.tripify.user_auth_service.dto.request.CompanionDto;
 import com.tripify.user_auth_service.dto.request.PaymentMethodDto;
 import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
 import com.tripify.user_auth_service.service.ProfileService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -78,17 +79,15 @@ public class ProfileController {
     // --- PROFILO UTENTE ---
     @GetMapping("/me")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
-        String firstName = jwt.getClaimAsString("given_name");
-        String lastName = jwt.getClaimAsString("family_name");
         String email = jwt.getClaimAsString("email");
-        String preferredUsername = jwt.getClaimAsString("preferred_username");
 
-        String displayNome = firstName != null ? firstName : (preferredUsername != null ? preferredUsername : "Utente");
-        String displayCognome = lastName != null ? lastName : "";
-        String displayEmail = email != null ? email : jwt.getSubject();
+        com.tripify.user_auth_service.entity.User user = profileService.getUser(email);
+
+        String displayNome = user.getName() != null ? user.getName() : "Utente";
+        String displayCognome = user.getSurname() != null ? user.getSurname() : "";
 
         return ResponseEntity.ok(new com.tripify.user_auth_service.dto.response.UserResponse(
-                displayNome, displayCognome, displayEmail
+                displayNome, displayCognome, email
         ));
     }
 
@@ -101,5 +100,18 @@ public class ProfileController {
         profileService.deleteUserAccount(email, keycloakUserId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<Void> updateMyProfile(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
+
+        String email = jwt.getClaimAsString("email");
+        String keycloakUserId = jwt.getSubject();
+
+        profileService.updateUserProfile(email, keycloakUserId, request);
+
+        return ResponseEntity.ok().build();
     }
 }

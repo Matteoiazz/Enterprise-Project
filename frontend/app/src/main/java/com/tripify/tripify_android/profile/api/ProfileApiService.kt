@@ -7,6 +7,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ProfileApiService {
@@ -36,4 +37,10 @@ interface ProfileApiService {
 
     @DELETE("/api/v1/profile/me")
     suspend fun deleteMyAccount(): retrofit2.Response<Unit>
+
+    @PUT("/api/v1/profile/me")
+    suspend fun updateProfile(@Body request: com.tripify.tripify_android.data.model.UpdateProfileRequest): retrofit2.Response<Unit>
+
+    @DELETE("/api/v1/profile/payments/{id}")
+    suspend fun deletePaymentMethod(@Path("id") id: String)
 }

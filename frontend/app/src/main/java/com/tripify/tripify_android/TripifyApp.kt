@@ -6,6 +6,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import com.tripify.tripify_android.chat.ui.InboxScreen
+import com.tripify.tripify_android.chat.viewmodel.InboxViewModel
+import com.tripify.tripify_android.chat.ui.ChatScreen
+import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
+
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,6 +60,7 @@ fun TripifyApp(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val inboxViewModel = androidx.lifecycle.viewmodel.compose.viewModel { InboxViewModel(currentUserId = 1L) }
 
     val bottomNavItems = listOf(
         BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home),
@@ -128,7 +134,26 @@ fun TripifyApp(
 
             // ROTTE DI SERVIZIO / IN COSTRUZIONE
             composable("saved") { Box(modifier = Modifier.padding(16.dp)) { Text("Salvati (In costruzione)") } }
-            composable("chat") { Box(modifier = Modifier.padding(16.dp)) { Text("Messaggi (In costruzione)") } }
+            composable("chat") {
+                InboxScreen(
+                    viewModel = inboxViewModel,
+                    onChatRoomClick = { chatId -> navController.navigate("chat_detail/$chatId") },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable("chat_detail/{chatId}") { backStackEntry ->
+                val chatIdString = backStackEntry.arguments?.getString("chatId")
+                val chatId = chatIdString?.toLongOrNull() ?: 0L
+
+                val chatViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
+                    ChatViewModel(currentUserId = 1L, roomId = chatId)
+                }
+
+                ChatScreen(
+                    viewModel = chatViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
             composable("bookings") {
                 BookingsScreen(
                     onNavigateBack = { navController.popBackStack() }
@@ -183,11 +208,18 @@ fun TripifyApp(
             }
 
             composable(Route.Settings.path) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val tokenManager = androidx.compose.runtime.remember { com.tripify.tripify_android.data.TokenManager(context) }
+                val profileApi = androidx.compose.runtime.remember { com.tripify.tripify_android.data.RetrofitClient.createProfileApi(tokenManager) }
+                val settingsViewModel = androidx.compose.runtime.remember {
+                    com.tripify.tripify_android.profile.viewmodel.SettingsViewModel(tokenManager, profileApi)
+                }
+
                 com.tripify.tripify_android.profile.ui.SettingsScreen(
                     viewModel = settingsViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToKeycloakAccount = {
-                        // Qui poi metteremo il link per il cambio password
+                        navController.navigate("edit_profile")
                     },
                     onAccountDeleted = {
                         navController.navigate(Route.Home.path) {
@@ -227,6 +259,34 @@ fun TripifyApp(
                     viewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") }
+                )
+            }
+
+            composable("edit_profile") {
+                com.tripify.tripify_android.profile.ui.EditProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveProfile = { newName, newSurname, newPhone, newAddress, newEmail, newPwd ->
+                        profileViewModel.updateProfile(
+                            newName = newName,
+                            newSurname = newSurname,
+                            newPhone = newPhone,
+                            newAddress = newAddress,
+                            newEmail = newEmail,
+                            newPassword = newPwd,
+                            onSuccess = {
+                                if (newEmail.isNotBlank()) {
+                                    profileViewModel.logout()
+                                    navController.navigate(Route.Auth.path) {
+                                        popUpTo(0) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    profileViewModel.loadUserProfile()
+                                    navController.popBackStack()
+                                }
+                            }
+                        )
+                    }
                 )
             }
         }
