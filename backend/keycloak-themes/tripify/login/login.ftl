@@ -240,9 +240,14 @@
                 <p class="tf-sub">Inserisci le tue credenziali per continuare</p>
 
                 <#if message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
-                    <div class="tf-alert">
-                        ⚠️ ${kcSanitize(message.summary)?no_esc}
-                    </div>
+                    <#if message.summary != 'Your login attempt timed out. Login will start from the beginning.'
+                    && message.summary != 'Il tuo tentativo di accesso è scaduto. L\'accesso ripartirà dall\'inizio.'
+                    && message.summary != 'Action expired. Please continue with login now.'
+                    && message.summary != 'Page has expired'>
+                        <div class="tf-alert">
+                            ⚠️ ${kcSanitize(message.summary)?no_esc}
+                        </div>
+                    </#if>
                 </#if>
 
                 <form id="kc-form-login" onsubmit="login.disabled = true; return true;" action="${url.loginAction}" method="post">

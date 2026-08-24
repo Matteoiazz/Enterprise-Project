@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.EndSessionRequest
+import com.tripify.tripify_android.data.model.UpdateProfileRequest
 
 class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
@@ -27,6 +28,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     var isLoggedOut by mutableStateOf(false)
 
     private val api = RetrofitClient.createApi(tokenManager)
+
+    private val profileApi = RetrofitClient.createProfileApi(tokenManager)
 
     fun loadUserProfile() {
         viewModelScope.launch {
@@ -46,6 +49,47 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } catch (e: Exception) {
                 e.printStackTrace()
                 errorMessage = "Errore: ${e.localizedMessage}"
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun updateProfile(
+        newName: String,
+        newSurname: String,
+        newPhone: String,
+        newAddress: String,
+        newEmail: String,
+        newPassword: String?,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                val request = UpdateProfileRequest(
+                    name = newName.ifBlank { null },
+                    surname = newSurname.ifBlank { null },
+                    phone = newPhone.ifBlank { null },
+                    address = newAddress.ifBlank { null },
+                    email = newEmail.ifBlank { null },
+                    newPassword = if (newPassword.isNullOrBlank()) null else newPassword
+                )
+
+                val response = profileApi.updateProfile(request)
+
+                if (response.isSuccessful) {
+                    if (newName.isNotBlank()) name = newName
+                    if (newSurname.isNotBlank()) surname = newSurname
+                    if (newEmail.isNotBlank()) email = newEmail
+                    onSuccess()
+                } else {
+                    errorMessage = "Errore durante il salvataggio: ${response.code()}"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                errorMessage = "Errore di rete: ${e.localizedMessage}"
             } finally {
                 isLoading = false
             }
