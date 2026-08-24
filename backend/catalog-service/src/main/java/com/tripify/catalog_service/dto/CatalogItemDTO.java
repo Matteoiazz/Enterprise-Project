@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Data
 @Builder
@@ -15,7 +14,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CatalogItemDTO {
     private Long id;
-    private UUID hostId;
     private String title;
     private String description;
     private BigDecimal price;
@@ -24,6 +22,8 @@ public class CatalogItemDTO {
     private String category;
     private Integer rating;
     private List<String> imageUrls;
+    // --- CHAT ---
+    private String hostId;
 
     // --- VOLO ---
     private String departureAirport;

@@ -186,8 +186,9 @@ class CatalogViewModel(
 
         return when (dto.itemType.uppercase()) {
             "FLIGHT" -> CatalogItem.Flight(
-                id = dto.id, hostId = dto.hostId, title = dto.title, price = "Da $priceString", priceValue = dto.price.toInt(),
+                id = dto.id, title = dto.title, price = "Da $priceString", priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
                 departureAirport = dto.departureAirport ?: "N/D",
                 arrivalAirport = dto.arrivalAirport ?: "N/D",
                 departureCity = dto.departureCity ?: "N/D",
@@ -201,8 +202,9 @@ class CatalogViewModel(
                 } ?: emptyList()
             )
             "HOTEL" -> CatalogItem.Hotel(
-                id = dto.id, hostId = dto.hostId, title = dto.title, price = "Da $priceString/notte", priceValue = dto.price.toInt(),
+                id = dto.id, title = dto.title, price = "Da $priceString/notte", priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
                 address = dto.address ?: "Indirizzo non disponibile",
                 city = dto.city ?: "N/D",
                 rating = rating ?: 0.0,
@@ -218,8 +220,9 @@ class CatalogViewModel(
                 } ?: emptyList()
             )
             "ACTIVITY" -> CatalogItem.Excursion(
-                id = dto.id, hostId = dto.hostId, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
+                id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
                 duration = dto.duration ?: "Da definire",
                 guideIncluded = dto.guideIncluded ?: false,
                 activityType = dto.activityType ?: "Esperienza",
@@ -228,8 +231,9 @@ class CatalogViewModel(
                 rating = rating
             )
             else -> CatalogItem.Excursion(
-                id = dto.id, hostId = dto.hostId, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
+                id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
                 duration = dto.duration ?: "Da definire",
                 guideIncluded = dto.guideIncluded ?: false,
                 activityType = dto.activityType ?: "Esperienza",

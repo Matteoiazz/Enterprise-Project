@@ -11,11 +11,11 @@ import java.util.Optional;
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     // Trova la chat specifica tra un viaggiatore e un host
-    Optional<ChatRoom> findByTravelerIdAndHostId(Long travelerId, Long hostId);
+    Optional<ChatRoom> findByTravelerIdAndHostId(String travelerId, String hostId);
 
     // Trova tutte le chat aperte da un determinato viaggiatore (per la schermata Inbox)
-    List<ChatRoom> findByTravelerId(Long travelerId);
+    List<ChatRoom> findByTravelerId(String travelerId);
 
     // Trova tutte le chat in cui un utente partecipa come host
-    List<ChatRoom> findByHostId(Long hostId);
+    List<ChatRoom> findByHostId(String hostId);
 }
