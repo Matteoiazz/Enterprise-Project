@@ -2,6 +2,7 @@ package com.tripify.tripify_android.data.model
 
 data class CatalogItemDto(
     val id: Int,
+    val hostId: String?,
     val title: String,
     val description: String?,
     val price: Double,

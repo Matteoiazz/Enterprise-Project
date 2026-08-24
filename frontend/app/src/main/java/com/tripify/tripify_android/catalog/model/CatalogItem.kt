@@ -20,6 +20,7 @@ data class FareClassUi(
 
 sealed class CatalogItem {
     abstract val id: Int
+    abstract val hostId: String?
     abstract val title: String
     abstract val price: String
     abstract val priceValue: Int
@@ -29,7 +30,7 @@ sealed class CatalogItem {
         get() = imageUrls.firstOrNull() ?: "https://picsum.photos/seed/$id/600/800"
 
     data class Flight(
-        override val id: Int, override val title: String, override val price: String,
+        override val id: Int, override val hostId: String?, override val title: String, override val price: String,
         override val priceValue: Int, override val imageUrls: List<String>,
         val departureAirport: String,
         val arrivalAirport: String,
@@ -46,7 +47,7 @@ sealed class CatalogItem {
     }
 
     data class Hotel(
-        override val id: Int, override val title: String, override val price: String,
+        override val id: Int, override val hostId: String?, override val title: String, override val price: String,
         override val priceValue: Int, override val imageUrls: List<String>,
         val address: String,
         val city: String,
@@ -58,7 +59,7 @@ sealed class CatalogItem {
     ) : CatalogItem()
 
     data class Excursion(
-        override val id: Int, override val title: String, override val price: String,
+        override val id: Int, override val hostId: String?, override val title: String, override val price: String,
         override val priceValue: Int, override val imageUrls: List<String>,
         val duration: String,
         val guideIncluded: Boolean,

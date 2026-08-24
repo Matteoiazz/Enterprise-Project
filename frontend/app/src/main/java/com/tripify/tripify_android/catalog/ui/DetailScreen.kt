@@ -546,7 +546,7 @@ private fun DetailContent(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedButton(
-                    onClick = { onChatWithOrganizer(item.id.toString()) },
+                    onClick = { item.hostId?.let(onChatWithOrganizer) },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = CatalogShapes.Field,
                     border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)

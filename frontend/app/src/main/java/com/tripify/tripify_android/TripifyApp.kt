@@ -157,7 +157,10 @@ fun TripifyApp(
                     viewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onBookNow = { clickedItemId -> println("Inizio prenotazione per l'ID: $clickedItemId") },
-                    onChatWithOrganizer = { clickedItemId -> println("Apertura chat WebSocket per ID: $clickedItemId") }
+                    // In arrivo l'hostId dell'annuncio (non più l'id dell'item): la chat vera e propria
+                    // resta da collegare quando il servizio communication esporrà un modo per avviarla
+                    // a partire da un hostId invece che da ID numerici hardcoded.
+                    onChatWithOrganizer = { hostId -> println("Apertura chat con l'host: $hostId") }
                 )
             }
 

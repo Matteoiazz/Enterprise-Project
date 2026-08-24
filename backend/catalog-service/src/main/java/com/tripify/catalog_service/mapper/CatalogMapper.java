@@ -27,6 +27,7 @@ public class CatalogMapper {
 
         var builder = CatalogItemDTO.builder()
                 .id(item.getId())
+                .hostId(item.getHostId())
                 .title(item.getTitle())
                 .description(item.getDescription())
                 .price(item.getPrice())
