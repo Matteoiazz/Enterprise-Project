@@ -4,6 +4,7 @@ import com.tripify.user_auth_service.dto.request.CompanionDto;
 import com.tripify.user_auth_service.dto.request.PaymentMethodDto;
 import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
 import com.tripify.user_auth_service.service.ProfileService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -104,7 +105,7 @@ public class ProfileController {
     @PutMapping("/me")
     public ResponseEntity<Void> updateMyProfile(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestBody com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
+            @Valid @RequestBody com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
 
         String email = jwt.getClaimAsString("email");
         String keycloakUserId = jwt.getSubject();
