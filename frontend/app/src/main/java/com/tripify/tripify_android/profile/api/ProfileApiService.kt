@@ -40,4 +40,7 @@ interface ProfileApiService {
 
     @PUT("/api/v1/profile/me")
     suspend fun updateProfile(@Body request: com.tripify.tripify_android.data.model.UpdateProfileRequest): retrofit2.Response<Unit>
+
+    @DELETE("/api/v1/profile/payments/{id}")
+    suspend fun deletePaymentMethod(@Path("id") id: String)
 }

@@ -65,6 +65,22 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
         }
     }
 
+    fun deletePaymentMethod(id: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                apiService.deletePaymentMethod(id)
+
+                loadPaymentMethods()
+            } catch (e: Exception) {
+                _errorMessage.value = "Errore durante l'eliminazione: ${e.localizedMessage}"
+                Log.e("WalletVM", "Errore API Delete", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun clearError() {
         _errorMessage.value = null
     }
