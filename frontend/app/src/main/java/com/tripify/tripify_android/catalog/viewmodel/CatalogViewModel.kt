@@ -7,6 +7,7 @@ import com.tripify.tripify_android.catalog.model.FareClassUi
 import com.tripify.tripify_android.catalog.model.RoomTypeUi
 import com.tripify.tripify_android.catalog.ui.components.NO_PRICE_LIMIT
 import com.tripify.tripify_android.data.CatalogApi
+import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.CatalogItemDto
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.RoomHoldRequest
@@ -17,20 +18,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.UUID
 
 sealed class HoldOutcome {
     data class Success(val holdId: String, val expiresAt: String) : HoldOutcome()
     data class Unavailable(val message: String) : HoldOutcome()
     data class Error(val message: String) : HoldOutcome()
+    data object RequiresLogin : HoldOutcome()
 }
 
 class CatalogViewModel(
-    private val api: CatalogApi
+    private val api: CatalogApi,
+    private val tokenManager: TokenManager? = null
 ) : ViewModel() {
 
     private val _selectedCategory = MutableStateFlow("Tutti")
@@ -110,9 +113,8 @@ class CatalogViewModel(
     private var fetchJob: Job? = null
     private var searchDebounceJob: Job? = null
 
-    // Placeholder finché non esiste un vero login collegato a Catalog: identifica comunque
-    // in modo stabile questa sessione verso gli endpoint di hold, che richiedono uno userId.
-    private val guestUserId = "guest-${UUID.randomUUID()}"
+    /** L'identità reale (JWT) la legge il backend: qui serve solo per decidere se mostrare la UI di prenotazione. */
+    suspend fun isLoggedIn(): Boolean = !tokenManager?.tokenFlow?.first().isNullOrBlank()
 
     init {
         fetchCatalogData(isUserSearch = false)
@@ -433,23 +435,26 @@ class CatalogViewModel(
         }
     }
 
-    /** Blocca temporaneamente N camere di una tipologia per il range di notti scelto. */
-    suspend fun holdRoomType(roomTypeId: Int, checkIn: LocalDate, checkOut: LocalDate, rooms: Int): HoldOutcome =
-        runHold {
+    /** Blocca temporaneamente N camere di una tipologia per il range di notti scelto. Richiede login. */
+    suspend fun holdRoomType(roomTypeId: Int, checkIn: LocalDate, checkOut: LocalDate, rooms: Int): HoldOutcome {
+        if (!isLoggedIn()) return HoldOutcome.RequiresLogin
+        return runHold {
             api.holdRoom(
                 roomTypeId,
                 RoomHoldRequest(
                     checkIn = checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE),
                     checkOut = checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                    rooms = rooms,
-                    userId = guestUserId
+                    rooms = rooms
                 )
             )
         }
+    }
 
-    /** Blocca temporaneamente N posti di una classe tariffaria. */
-    suspend fun holdFareClass(fareClassId: Int, seats: Int): HoldOutcome =
-        runHold { api.holdSeats(fareClassId, SeatHoldRequest(seats = seats, userId = guestUserId)) }
+    /** Blocca temporaneamente N posti di una classe tariffaria. Richiede login. */
+    suspend fun holdFareClass(fareClassId: Int, seats: Int): HoldOutcome {
+        if (!isLoggedIn()) return HoldOutcome.RequiresLogin
+        return runHold { api.holdSeats(fareClassId, SeatHoldRequest(seats = seats)) }
+    }
 
     private suspend fun runHold(block: suspend () -> com.tripify.tripify_android.data.model.HoldResultDto): HoldOutcome {
         return try {
@@ -458,8 +463,11 @@ class CatalogViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: HttpException) {
-            if (e.code() == 409) HoldOutcome.Unavailable("Non è più disponibile per queste date/quantità: qualcun altro potrebbe averlo appena prenotato.")
-            else HoldOutcome.Error("Errore durante la richiesta. Riprova.")
+            when (e.code()) {
+                409 -> HoldOutcome.Unavailable("Non è più disponibile per queste date/quantità: qualcun altro potrebbe averlo appena prenotato.")
+                401 -> HoldOutcome.RequiresLogin
+                else -> HoldOutcome.Error("Errore durante la richiesta. Riprova.")
+            }
         } catch (e: Exception) {
             HoldOutcome.Error("Impossibile completare la richiesta. Controlla la connessione.")
         }
