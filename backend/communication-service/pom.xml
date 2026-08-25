@@ -54,7 +54,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.32</version>
+            <version>1.18.46</version>
             <optional>true</optional>
         </dependency>
 
@@ -62,11 +62,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -81,11 +76,6 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-amqp</artifactId>
-    </dependency>
 
     <build>
         <plugins>
