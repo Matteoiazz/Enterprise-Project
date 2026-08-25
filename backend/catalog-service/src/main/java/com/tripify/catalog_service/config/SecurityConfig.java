@@ -30,15 +30,16 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.POST, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 
-
-                        .requestMatchers(HttpMethod.POST, "/api/v1/catalog/room-types/**", "/api/v1/catalog/fare-classes/**", "/api/v1/catalog/holds/**").permitAll()
-
+                        // Hold/confirm/release richiedono un utente reale autenticato: l'id
+                        // viene letto dal JWT (sub), non più inviato dal client nel body.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/catalog/room-types/**", "/api/v1/catalog/fare-classes/**", "/api/v1/catalog/holds/**").authenticated()
 
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
 
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(gatewayAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable());
 

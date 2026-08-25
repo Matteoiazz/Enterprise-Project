@@ -112,6 +112,7 @@ private fun DetailContent(
     val snackbarHostState = remember { SnackbarHostState() }
     var isDescriptionExpanded by remember { mutableStateOf(false) }
     var isFavorite by remember { mutableStateOf(false) }
+    var showAddToItineraryDialog by remember { mutableStateOf(false) }
 
     var selectedRoomType by remember(item) {
         mutableStateOf((item as? CatalogItem.Hotel)?.roomTypes?.minByOrNull { it.price })
@@ -239,6 +240,7 @@ private fun DetailContent(
                         }
                         is HoldOutcome.Unavailable -> snackbarHostState.showSnackbar(outcome.message)
                         is HoldOutcome.Error -> snackbarHostState.showSnackbar(outcome.message)
+                        is HoldOutcome.RequiresLogin -> snackbarHostState.showSnackbar("Accedi per completare la prenotazione")
                     }
                 }
                 is CatalogItem.Flight -> {
@@ -257,6 +259,7 @@ private fun DetailContent(
                         }
                         is HoldOutcome.Unavailable -> snackbarHostState.showSnackbar(outcome.message)
                         is HoldOutcome.Error -> snackbarHostState.showSnackbar(outcome.message)
+                        is HoldOutcome.RequiresLogin -> snackbarHostState.showSnackbar("Accedi per completare la prenotazione")
                     }
                 }
                 is CatalogItem.Excursion -> onBookNow(item.id.toString())
@@ -320,7 +323,7 @@ private fun DetailContent(
                     AsyncImage(model = imageList[page], contentDescription = "Galleria", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
 
-                PhotoScrim(modifier = Modifier.fillMaxWidth().height(120.dp), startY = 0f, maxAlpha = 0.55f)
+                PhotoScrim(modifier = Modifier.fillMaxSize(), startY = 0f, maxAlpha = 0.55f)
 
                 Row(
                     modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 0.dp),
@@ -555,6 +558,10 @@ private fun DetailContent(
                                 // 1. Recuperiamo il token JWT salvato nel DataStore tramite il tuo TokenManager
                                 val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
                                 val token = tokenManager.tokenFlow.first()
+                                if (token.isNullOrBlank()) {
+                                    snackbarHostState.showSnackbar("Accedi per contattare l'organizzatore")
+                                    return@launch
+                                }
 
                                 // 2. Usiamo l'UUID reale dell'organizzatore associato a questo elemento del catalogo
                                 val hostUuid = item.hostId
@@ -583,8 +590,42 @@ private fun DetailContent(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
+                            val token = tokenManager.tokenFlow.first()
+                            if (token.isNullOrBlank()) {
+                                snackbarHostState.showSnackbar("Accedi per aggiungere a un itinerario")
+                            } else {
+                                showAddToItineraryDialog = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = CatalogShapes.Field,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                ) {
+                    Icon(Icons.Filled.PlaylistAdd, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Aggiungi a un itinerario", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        if (showAddToItineraryDialog) {
+            com.tripify.tripify_android.itinerary.ui.AddToItineraryDialog(
+                catalogItemId = item.id,
+                onDismiss = { showAddToItineraryDialog = false },
+                onAdded = {
+                    showAddToItineraryDialog = false
+                    scope.launch { snackbarHostState.showSnackbar("Aggiunto all'itinerario") }
+                }
+            )
         }
     }
 }

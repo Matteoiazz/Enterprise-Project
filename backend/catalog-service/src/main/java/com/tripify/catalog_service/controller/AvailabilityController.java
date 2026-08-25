@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -37,14 +39,16 @@ public class AvailabilityController {
     }
 
     @PostMapping("/room-types/{id}/hold")
-    public ResponseEntity<HoldResultDTO> holdRoom(@PathVariable Long id, @Valid @RequestBody RoomHoldRequestDTO request) {
-        HoldResultDTO result = availabilityService.holdRoom(id, request.checkIn(), request.checkOut(), request.rooms(), request.userId());
+    public ResponseEntity<HoldResultDTO> holdRoom(@PathVariable Long id, @Valid @RequestBody RoomHoldRequestDTO request,
+                                                   @AuthenticationPrincipal Jwt jwt) {
+        HoldResultDTO result = availabilityService.holdRoom(id, request.checkIn(), request.checkOut(), request.rooms(), jwt.getSubject());
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @PostMapping("/fare-classes/{id}/hold")
-    public ResponseEntity<HoldResultDTO> holdSeats(@PathVariable Long id, @Valid @RequestBody SeatHoldRequestDTO request) {
-        HoldResultDTO result = availabilityService.holdSeats(id, request.seats(), request.userId());
+    public ResponseEntity<HoldResultDTO> holdSeats(@PathVariable Long id, @Valid @RequestBody SeatHoldRequestDTO request,
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        HoldResultDTO result = availabilityService.holdSeats(id, request.seats(), jwt.getSubject());
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 

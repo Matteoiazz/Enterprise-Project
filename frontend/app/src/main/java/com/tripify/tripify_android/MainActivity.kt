@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 val profileViewModel = remember { ProfileViewModel(tokenManager) }
 
                 val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
-                val catalogViewModel = remember { CatalogViewModel(catalogApi) }
+                val catalogViewModel = remember { CatalogViewModel(catalogApi, tokenManager) }
 
                 val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
                 val companionsViewModel = remember { CompanionsViewModel(profileApi) }
