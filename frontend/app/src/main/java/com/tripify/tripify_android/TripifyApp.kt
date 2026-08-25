@@ -58,7 +58,8 @@ fun TripifyApp(
     companionsViewModel: CompanionsViewModel,
     travelDocumentsViewModel: TravelDocumentsViewModel,
     paymentMethodsViewModel: PaymentMethodsViewModel,
-    settingsViewModel: com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
+    settingsViewModel: com.tripify.tripify_android.profile.viewmodel.SettingsViewModel,
+    notificationViewModel: com.tripify.tripify_android.notification.viewmodel.NotificationViewModel
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -130,7 +131,9 @@ fun TripifyApp(
                     onNavigateToProfile = { navController.navigate(Route.Profile.path) },
                     onNavigateToBookings = { navController.navigate("bookings") },
                     onNavigateToSearchResults = { navController.navigate(Route.SearchResults.path) },
-                    onNavigateToChat = { navController.navigate("chat") }
+                    onNavigateToChat = { navController.navigate("chat")},
+                    onNavigateToNotifications = { navController.navigate("notifications") }
+
                 )
             }
 
@@ -180,6 +183,12 @@ fun TripifyApp(
 
                 ChatScreen(
                     viewModel = chatViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+            composable("notifications") {
+                com.tripify.tripify_android.notification.ui.NotificationsScreen(
+                    viewModel = notificationViewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }

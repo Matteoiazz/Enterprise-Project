@@ -14,6 +14,9 @@ import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
+import com.tripify.tripify_android.notification.data.NotificationRepository
+import com.tripify.tripify_android.notification.viewmodel.NotificationViewModel
+import com.tripify.tripify_android.notification.viewmodel.NotificationViewModelFactory
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
 import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModelFactory
@@ -42,6 +45,12 @@ class MainActivity : ComponentActivity() {
                 val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
                 val companionsViewModel = remember { CompanionsViewModel(profileApi) }
 
+                val notificationApi = remember { RetrofitClient.createNotificationApi(tokenManager) }
+                val notificationRepository = remember { NotificationRepository(notificationApi) }
+                val notificationViewModel: NotificationViewModel = viewModel(
+                    factory = NotificationViewModelFactory(notificationRepository)
+                )
+
                 val travelDocumentsViewModel: TravelDocumentsViewModel = viewModel(
                     factory = TravelDocumentsViewModelFactory(profileApi)
                 )
@@ -59,7 +68,8 @@ class MainActivity : ComponentActivity() {
                     companionsViewModel = companionsViewModel,
                     travelDocumentsViewModel = travelDocumentsViewModel,
                     paymentMethodsViewModel = paymentMethodsViewModel,
-                    settingsViewModel = settingsViewModel
+                    settingsViewModel = settingsViewModel,
+                    notificationViewModel = notificationViewModel
                 )
             }
         }

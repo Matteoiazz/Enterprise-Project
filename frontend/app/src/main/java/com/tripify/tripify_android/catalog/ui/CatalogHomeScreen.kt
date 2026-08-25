@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,7 +47,8 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit = {},
     onNavigateToBookings: () -> Unit = {},
     onNavigateToSearchResults: () -> Unit = {},
-    onNavigateToChat: () -> Unit = {}
+    onNavigateToChat: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val catalogItems by viewModel.catalogList.collectAsState()
@@ -123,8 +125,15 @@ fun HomeScreen(
                         Text("TRIPIFY", style = CatalogType.Wordmark, color = CatalogColors.Ink)
                     },
                     navigationIcon = {
-                        IconButton(onClick = onNavigateToChat) {
-                            Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Messaggi", tint = CatalogColors.AccentDark)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = onNavigateToChat) {
+                                Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Messaggi", tint = CatalogColors.AccentDark)
+                            }
+                            IconButton(onClick = onNavigateToNotifications) {
+                                Icon(Icons.Filled.Notifications, contentDescription = "Notifiche", tint = CatalogColors.AccentDark)
+                            }
                         }
                     },
                     actions = {
