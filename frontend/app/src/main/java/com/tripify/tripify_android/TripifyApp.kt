@@ -67,7 +67,7 @@ fun TripifyApp(
     val bottomNavItems = listOf(
         BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home),
         BottomNavItem("saved", "Salvati", Icons.Filled.FavoriteBorder),
-        BottomNavItem("chat", "Messaggi", Icons.Filled.ChatBubbleOutline),
+        BottomNavItem("itineraries", "Itinerari", Icons.Filled.Map),
         BottomNavItem("bookings", "Prenotazioni", Icons.Filled.ConfirmationNumber),
         BottomNavItem(Route.Profile.path, "Profilo", Icons.Filled.PersonOutline)
     )
@@ -129,13 +129,22 @@ fun TripifyApp(
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") },
                     onNavigateToProfile = { navController.navigate(Route.Profile.path) },
                     onNavigateToBookings = { navController.navigate("bookings") },
-                    onNavigateToSearchResults = { navController.navigate(Route.SearchResults.path) }
-
+                    onNavigateToSearchResults = { navController.navigate(Route.SearchResults.path) },
+                    onNavigateToChat = { navController.navigate("chat") }
                 )
             }
 
-            // ROTTE DI SERVIZIO / IN COSTRUZIONE
-            composable("saved") { Box(modifier = Modifier.padding(16.dp)) { Text("Salvati (In costruzione)") } }
+            // ROTTA: Salvati (le liste/itinerari personali dell'utente)
+            composable("saved") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+
+                com.tripify.tripify_android.itinerary.ui.MyItinerariesScreen(
+                    tokenManager = tokenManager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") }
+                )
+            }
             // ROTTA: Inbox (Messaggi)
             composable("chat") {
                 val context = LocalContext.current
@@ -180,6 +189,53 @@ fun TripifyApp(
                 )
             }
 
+            // ROTTA: Itinerari (liste pubbliche/social)
+            composable("itineraries") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel =
+                    androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
+                    )
+
+                com.tripify.tripify_android.itinerary.ui.ItineraryListScreen(
+                    viewModel = itineraryViewModel,
+                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") },
+                    onNavigateToMyLists = { navController.navigate("my_itineraries") }
+                )
+            }
+
+            composable("my_itineraries") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+
+                com.tripify.tripify_android.itinerary.ui.MyItinerariesScreen(
+                    tokenManager = tokenManager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") }
+                )
+            }
+
+            composable("itinerary_detail/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel =
+                    androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
+                    )
+
+                com.tripify.tripify_android.itinerary.ui.ItineraryDetailScreen(
+                    listId = id,
+                    viewModel = itineraryViewModel,
+                    catalogViewModel = catalogViewModel,
+                    tokenManager = tokenManager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToComponent = { itemId -> navController.navigate("detail/$itemId") },
+                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
+                )
+            }
+
             // ROTTA 2: Login
             composable(Route.Auth.path) {
                 LoginScreen(
@@ -202,10 +258,7 @@ fun TripifyApp(
                     viewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onBookNow = { clickedItemId -> println("Inizio prenotazione per l'ID: $clickedItemId") },
-                    // In arrivo l'hostId dell'annuncio (non più l'id dell'item): la chat vera e propria
-                    // resta da collegare quando il servizio communication esporrà un modo per avviarla
-                    // a partire da un hostId invece che da ID numerici hardcoded.
-                    onChatWithOrganizer = { hostId -> println("Apertura chat con l'host: $hostId") }
+                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
                 )
             }
 
