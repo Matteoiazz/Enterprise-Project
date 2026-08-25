@@ -55,6 +55,12 @@ public abstract class CatalogItem {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
+    // false per gli item di data.sql (nessun organizzatore reale dietro), true per quelli
+    // creati davvero da un Organizzatore autenticato: serve a decidere se mostrare "Chatta
+    // con l'organizzatore" (altrimenti si aprirebbe una chat con un host inesistente).
+    @Column(name = "is_user_generated", nullable = false, columnDefinition = "boolean default false")
+    private boolean isUserGenerated = false;
+
     @Column(length = 50)
     private String category;
 

@@ -546,37 +546,41 @@ private fun DetailContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            // 1. Recuperiamo il token JWT salvato nel DataStore tramite il tuo TokenManager
-                            val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
-                            val token = tokenManager.tokenFlow.first()
+                // Niente bottone chat sugli item di seed (data.sql): non hanno un organizzatore
+                // reale dietro, aprirebbe una chat con un host che non esiste.
+                if (item.isUserGenerated) {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                // 1. Recuperiamo il token JWT salvato nel DataStore tramite il tuo TokenManager
+                                val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
+                                val token = tokenManager.tokenFlow.first()
 
-                            // 2. Usiamo l'UUID reale dell'organizzatore associato a questo elemento del catalogo
-                            val hostUuid = item.hostId
+                                // 2. Usiamo l'UUID reale dell'organizzatore associato a questo elemento del catalogo
+                                val hostUuid = item.hostId
 
-                            // 3. Chiamiamo il repository passando l'hostId e il token reale dell'utente
-                            val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
-                                hostId = hostUuid,
-                                authToken = token
-                            )
+                                // 3. Chiamiamo il repository passando l'hostId e il token reale dell'utente
+                                val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
+                                    hostId = hostUuid,
+                                    authToken = token
+                                )
 
-                            if (chatRoom != null) {
-                                // 4. Apriamo la chat passando l'ID della stanza restituito dal backend
-                                onChatWithOrganizer(chatRoom.id)
-                            } else {
-                                snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                if (chatRoom != null) {
+                                    // 4. Apriamo la chat passando l'ID della stanza restituito dal backend
+                                    onChatWithOrganizer(chatRoom.id)
+                                } else {
+                                    snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                }
                             }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = CatalogShapes.Field,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
-                ) {
-                    Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Chatta con l'organizzatore", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = CatalogShapes.Field,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                    ) {
+                        Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Chatta con l'organizzatore", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

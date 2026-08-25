@@ -67,6 +67,7 @@ public class CatalogController {
             @Valid @RequestBody Flight flight,
             @RequestHeader("X-User-Id") String userId) {
         flight.setHostId(UUID.fromString(userId));
+        flight.setUserGenerated(true);
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedFlight);
     }
@@ -76,6 +77,7 @@ public class CatalogController {
             @Valid @RequestBody Hotel hotel,
             @RequestHeader("X-User-Id") String userId) {
         hotel.setHostId(UUID.fromString(userId));
+        hotel.setUserGenerated(true);
         Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedHotel);
     }
@@ -85,6 +87,7 @@ public class CatalogController {
             @Valid @RequestBody Activity activity,
             @RequestHeader("X-User-Id") String userId) {
         activity.setHostId(UUID.fromString(userId));
+        activity.setUserGenerated(true);
         Activity savedActivity = (Activity) catalogService.saveItem(activity);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedActivity);
     }

@@ -24,6 +24,7 @@ public class CatalogItemDTO {
     private List<String> imageUrls;
     // --- CHAT ---
     private String hostId;
+    private boolean isUserGenerated;
 
     // --- VOLO ---
     private String departureAirport;
