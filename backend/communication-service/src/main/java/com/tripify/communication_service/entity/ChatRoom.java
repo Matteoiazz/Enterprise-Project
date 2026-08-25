@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "chat_rooms", uniqueConstraints = {
@@ -17,19 +18,21 @@ import java.time.LocalDateTime;
 public class ChatRoom {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id; // L'ID della stanza diventa un UUID in formato String
 
     @Column(nullable = false)
-    private Long travelerId; // L'ID del viaggiatore
+    private String travelerId; // L'ID del viaggiatore (UUID di Keycloak)
 
     @Column(nullable = false)
-    private Long hostId; // L'ID dell'organizzatore (host)
+    private String hostId; // L'ID dell'organizzatore (UUID di Keycloak)
 
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
+        if (this.id == null) {
+            this.id = UUID.randomUUID().toString(); // Genera un UUID casuale prima di salvare se non è presente
+        }
         this.createdAt = LocalDateTime.now();
     }
 }

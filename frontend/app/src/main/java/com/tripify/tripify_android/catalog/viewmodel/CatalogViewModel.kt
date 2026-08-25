@@ -188,6 +188,8 @@ class CatalogViewModel(
             "FLIGHT" -> CatalogItem.Flight(
                 id = dto.id, title = dto.title, price = "Da $priceString", priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
+                isUserGenerated = dto.isUserGenerated,
                 departureAirport = dto.departureAirport ?: "N/D",
                 arrivalAirport = dto.arrivalAirport ?: "N/D",
                 departureCity = dto.departureCity ?: "N/D",
@@ -203,6 +205,8 @@ class CatalogViewModel(
             "HOTEL" -> CatalogItem.Hotel(
                 id = dto.id, title = dto.title, price = "Da $priceString/notte", priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
+                isUserGenerated = dto.isUserGenerated,
                 address = dto.address ?: "Indirizzo non disponibile",
                 city = dto.city ?: "N/D",
                 rating = rating ?: 0.0,
@@ -220,6 +224,8 @@ class CatalogViewModel(
             "ACTIVITY" -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
+                isUserGenerated = dto.isUserGenerated,
                 duration = dto.duration ?: "Da definire",
                 guideIncluded = dto.guideIncluded ?: false,
                 activityType = dto.activityType ?: "Esperienza",
@@ -230,6 +236,8 @@ class CatalogViewModel(
             else -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
+                hostId = dto.hostId ?: "",
+                isUserGenerated = dto.isUserGenerated,
                 duration = dto.duration ?: "Da definire",
                 guideIncluded = dto.guideIncluded ?: false,
                 activityType = dto.activityType ?: "Esperienza",

@@ -24,13 +24,18 @@ sealed class CatalogItem {
     abstract val price: String
     abstract val priceValue: Int
     abstract val imageUrls: List<String>
+    abstract val hostId: String // <-- L'UUID dell'organizzatore fornito dal backend
+    // false per gli item di data.sql (nessun organizzatore reale): nasconde "Chatta con
+    // l'organizzatore", altrimenti si aprirebbe una chat con un host che non esiste.
+    abstract val isUserGenerated: Boolean
 
     val imageUrl: String
         get() = imageUrls.firstOrNull() ?: "https://picsum.photos/seed/$id/600/800"
 
     data class Flight(
         override val id: Int, override val title: String, override val price: String,
-        override val priceValue: Int, override val imageUrls: List<String>,
+        override val priceValue: Int, override val imageUrls: List<String>, override val hostId: String,
+        override val isUserGenerated: Boolean = false,
         val departureAirport: String,
         val arrivalAirport: String,
         val departureCity: String,
@@ -47,7 +52,8 @@ sealed class CatalogItem {
 
     data class Hotel(
         override val id: Int, override val title: String, override val price: String,
-        override val priceValue: Int, override val imageUrls: List<String>,
+        override val priceValue: Int, override val imageUrls: List<String>, override val hostId: String,
+        override val isUserGenerated: Boolean = false,
         val address: String,
         val city: String,
         val rating: Double,
@@ -59,7 +65,8 @@ sealed class CatalogItem {
 
     data class Excursion(
         override val id: Int, override val title: String, override val price: String,
-        override val priceValue: Int, override val imageUrls: List<String>,
+        override val priceValue: Int, override val imageUrls: List<String>, override val hostId: String,
+        override val isUserGenerated: Boolean = false,
         val duration: String,
         val guideIncluded: Boolean,
         val activityType: String,

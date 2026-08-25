@@ -8,13 +8,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 
-@Controller
+@RestController
 public class ChatController {
 
     @Autowired
@@ -26,16 +29,30 @@ public class ChatController {
     @Autowired
     private ChatRoomRepository chatRoomRepository;
 
-    // 1. APRE O CREA LA CHAT TRA VIAGGIATORE E HOST (Chiamata HTTP REST)
-    // Chiamata da Android quando si clicca "Contatta organizzatore" dalla pagina del viaggio
+    // Metodo di servizio per estrarre l'UUID (sub) dell'utente dal token JWT di Keycloak
+    private String extractUserId(Principal principal) {
+        if (principal instanceof JwtAuthenticationToken) {
+            Jwt jwt = ((JwtAuthenticationToken) principal).getToken();
+            // Il subject ('sub') in Keycloak è l'UUID univoco dell'utente
+            return jwt.getSubject();
+        }
+        // Fallback di sicurezza se per test il token non è presente o è un principal generico
+        return principal != null ? principal.getName() : "anonymous";
+    }
+
+    // 1. APRE O CREA LA CHAT TRA VIAGGIATORE E HOST (Via REST)
+    // Il travelerId NON arriva più dai parametri, ma viene estratto in modo sicuro dal token JWT!
     @PostMapping("/chat/room")
     @ResponseBody
-    public ChatRoom getOrCreateChatRoom(@RequestParam Long travelerId, @RequestParam Long hostId) {
+    public ChatRoom getOrCreateChatRoom(@RequestParam String hostId, Principal principal) {
+        String travelerId = extractUserId(principal);
+
         Optional<ChatRoom> existingRoom = chatRoomRepository.findByTravelerIdAndHostId(travelerId, hostId);
         if (existingRoom.isPresent()) {
             return existingRoom.get();
         }
-        // Se non esiste, la creiamo al volo
+
+        // Se non esiste, la creiamo al volo con gli UUID
         ChatRoom newRoom = new ChatRoom();
         newRoom.setTravelerId(travelerId);
         newRoom.setHostId(hostId);
@@ -43,10 +60,12 @@ public class ChatController {
     }
 
     // 2. RECUPERA LA LISTA DELLE CHAT APERTE (Per la schermata Inbox)
-    @GetMapping("/chat/rooms/{userId}")
+    // Prende l'utente direttamente dal token, senza fargli passare l'ID nell'URL
+    @GetMapping("/chat/rooms")
     @ResponseBody
-    public List<ChatRoom> getUserChatRooms(@PathVariable Long userId) {
-        // Restituisce le chat sia se l'utente è viaggiatore, sia se è host
+    public List<ChatRoom> getUserChatRooms(Principal principal) {
+        String userId = extractUserId(principal);
+
         List<ChatRoom> asTraveler = chatRoomRepository.findByTravelerId(userId);
         List<ChatRoom> asHost = chatRoomRepository.findByHostId(userId);
         asTraveler.addAll(asHost);
@@ -56,13 +75,19 @@ public class ChatController {
     // 3. RECUPERO CRONOLOGIA MESSAGGI DI UNA STANZA SPECIFICA
     @GetMapping("/chat/history/{roomId}")
     @ResponseBody
-    public List<ChatMessage> getChatHistory(@PathVariable Long roomId) {
+    public List<ChatMessage> getChatHistory(@PathVariable String roomId) {
         return chatMessageRepository.findByRoomIdOrderByTimestampAsc(roomId);
     }
 
     // 4. RICEZIONE E INVIO IN TEMPO REALE (WebSocket)
     @MessageMapping("/chat.sendMessage")
-    public void processMessage(@Payload ChatMessage chatMessage) {
+    public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
+        // Anche sul WebSocket blindiamo il senderId prendendolo dal token di chi è connesso,
+        // impedendo che un utente possa mandare messaggi spacciandosi per un altro.
+        if (principal != null) {
+            chatMessage.setSenderId(extractUserId(principal));
+        }
+
         System.out.println("DEBUG: Messaggio ricevuto per la stanza " + chatMessage.getRoomId() +
                 " da " + chatMessage.getSenderId() +
                 ". Testo: " + chatMessage.getContent());
