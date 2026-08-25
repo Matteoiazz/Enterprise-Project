@@ -2,6 +2,8 @@ package com.tripify.itinerary_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -21,23 +23,63 @@ public class FavoriteList {
     private String name; // Esempio: "Weekend a Londra"
 
     /**
-     * ID dell'utente proprietario.
-     * Non usiamo l'oggetto User perché risiede nel db_users. [cite: 11, 53]
+     * UUID Keycloak del proprietario (stesso formato usato ovunque nel resto del
+     * sistema: hostId di Catalog, chat, ecc.). Non un oggetto User perché risiede
+     * in un altro microservizio.
      */
     @Column(nullable = false)
-    private Long ownerId;
+    private String ownerId;
 
     /**
-     * Lista di ID utenti per la condivisione. [cite: 32]
+     * UUID Keycloak degli utenti con cui la lista è condivisa.
      */
     @ElementCollection
     @CollectionTable(name = "list_shares", joinColumns = @JoinColumn(name = "list_id"))
-    private List<Long> sharedUserIds;
+    @Column(name = "user_id")
+    @Builder.Default
+    private List<String> sharedUserIds = new java.util.ArrayList<>();
 
     /**
-     * ID degli elementi del catalogo (Voli, Hotel, Attività). [cite: 27]
+     * ID degli elementi del catalogo (Voli, Hotel, Attività).
      */
     @ElementCollection
     @CollectionTable(name = "list_items", joinColumns = @JoinColumn(name = "list_id"))
-    private List<Long> catalogItemIds;
+    @Column(name = "catalog_item_id")
+    @Builder.Default
+    private List<Long> catalogItemIds = new java.util.ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Visibility visibility = Visibility.PRIVATE;
+
+    /**
+     * Token opaco generato solo quando la lista diventa PUBLIC: è il link con
+     * capabilities richiesto dalla traccia, dà accesso al dettaglio senza login.
+     */
+    @Column(name = "public_token", unique = true)
+    private String publicToken;
+
+    /**
+     * Città di riferimento, richiesta esplicitamente quando si pubblica la lista
+     * (serve per la ricerca nel feed pubblico, non derivata dai componenti).
+     */
+    private String city;
+
+    @Column(name = "likes_count", nullable = false)
+    @Builder.Default
+    private int likesCount = 0;
+
+    /**
+     * Contatore "best effort": incrementato quando qualcuno preme "prenota tutto",
+     * non quando il pagamento va davvero a buon fine (itinerary-service non è
+     * collegato al checkout di booking-service).
+     */
+    @Column(name = "bookings_count", nullable = false)
+    @Builder.Default
+    private int bookingsCount = 0;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 }
