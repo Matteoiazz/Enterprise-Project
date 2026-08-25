@@ -30,6 +30,7 @@ import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 import kotlinx.coroutines.launch
+import java.time.YearMonth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +191,6 @@ fun CreditCardPremium(
     ) {
         Box(modifier = Modifier.fillMaxSize().background(brush).padding(24.dp)) {
 
-            // TASTO ELIMINA + CIRCUITO IN ALTO A DESTRA
             Row(
                 modifier = Modifier.align(Alignment.TopEnd),
                 verticalAlignment = Alignment.CenterVertically,
@@ -205,7 +205,6 @@ fun CreditCardPremium(
                     letterSpacing = 2.sp
                 )
 
-                // Tondino elimina elegante
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -222,7 +221,6 @@ fun CreditCardPremium(
                 }
             }
 
-            // CHIP + CONTACTLESS
             Row(
                 modifier = Modifier.align(Alignment.CenterStart).offset(y = (-10).dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -250,7 +248,6 @@ fun CreditCardPremium(
                 )
             }
 
-            // NUMERO CARTA
             Text(
                 text = "•••• •••• •••• ${card.lastFourDigits ?: "0000"}",
                 color = Color.White,
@@ -261,7 +258,6 @@ fun CreditCardPremium(
                 modifier = Modifier.align(Alignment.BottomStart).offset(y = (-30).dp)
             )
 
-            // SCADENZA
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
                 Text("SCAD.", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
                 Text(card.expirationMonthYear, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 1.sp)
@@ -282,6 +278,9 @@ fun AddPaymentForm(
 
     val providerOptions = listOf("Visa", "Mastercard", "American Express", "Maestro")
     var expanded by remember { mutableStateOf(false) }
+
+    var isExpError by remember { mutableStateOf(false) }
+    var expErrorMsg by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -306,22 +305,13 @@ fun AddPaymentForm(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
                 ) {
-                    TextField(
+                    PremiumTextField(
                         value = provider,
+                        label = "Circuito",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Circuito", fontWeight = FontWeight.SemiBold, color = Color.Gray) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFF4F7F5),
-                            unfocusedContainerColor = Color(0xFFF4F7F5),
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor = TripifyDarkGreen,
-                            unfocusedTextColor = TripifyDarkGreen
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.menuAnchor()
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
@@ -340,58 +330,66 @@ fun AddPaymentForm(
                     }
                 }
 
-                TextField(
+                PremiumTextField(
                     value = cardNumber,
+                    label = "Numero Carta",
+                    placeholder = "0000 0000 0000 0000",
                     onValueChange = {
                         val digits = it.filter { char -> char.isDigit() }
                         if (digits.length <= 16) cardNumber = digits
                     },
-                    label = { Text("Numero Carta", fontWeight = FontWeight.SemiBold, color = Color.Gray) },
-                    placeholder = { Text("0000 0000 0000 0000", color = Color.LightGray) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFFF4F7F5),
-                        unfocusedContainerColor = Color(0xFFF4F7F5),
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = TripifyDarkGreen,
-                        unfocusedTextColor = TripifyDarkGreen
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
-                TextField(
+                PremiumTextField(
                     value = expiration,
+                    label = "Scadenza (MMAA)",
+                    placeholder = "1228",
+                    isError = isExpError,
+                    supportingText = if (isExpError) expErrorMsg else null,
                     onValueChange = {
                         val digits = it.filter { char -> char.isDigit() }
-                        if (digits.length <= 4) expiration = digits
+                        if (digits.length <= 4) {
+                            expiration = digits
+                            if (digits.length == 4) {
+                                val month = digits.substring(0, 2).toIntOrNull() ?: 0
+                                val year = digits.substring(2, 4).toIntOrNull() ?: 0
+                                if (month !in 1..12) {
+                                    isExpError = true
+                                    expErrorMsg = "Mese non valido"
+                                } else {
+                                    val currentYM = YearMonth.now()
+                                    val cardYM = YearMonth.of(2000 + year, month)
+                                    if (cardYM.isBefore(currentYM)) {
+                                        isExpError = true
+                                        expErrorMsg = "La carta è scaduta"
+                                    } else {
+                                        isExpError = false
+                                        expErrorMsg = ""
+                                    }
+                                }
+                            } else {
+                                isExpError = false
+                                expErrorMsg = ""
+                            }
+                        }
                     },
-                    label = { Text("Scadenza (MMAA)", fontWeight = FontWeight.SemiBold, color = Color.Gray) },
-                    placeholder = { Text("1228", color = Color.LightGray) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFFF4F7F5),
-                        unfocusedContainerColor = Color(0xFFF4F7F5),
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = TripifyDarkGreen,
-                        unfocusedTextColor = TripifyDarkGreen
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                val isFormValid = provider.isNotBlank() && cardNumber.length == 16 && expiration.length == 4 && !isExpError
+
                 Button(
                     onClick = { onSave(provider, cardNumber, expiration) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TripifyGreen,
+                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                    ),
                     shape = RoundedCornerShape(14.dp),
-                    enabled = provider.isNotBlank() && cardNumber.length == 16 && expiration.length == 4
+                    enabled = isFormValid
                 ) {
                     Text("AGGIUNGI CARTA", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
@@ -405,6 +403,52 @@ fun AddPaymentForm(
             }
         }
     }
+}
+
+@Composable
+fun PremiumTextField(
+    value: String,
+    label: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "",
+    readOnly: Boolean = false,
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    modifier: Modifier = Modifier
+) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        readOnly = readOnly,
+        enabled = enabled,
+        label = { Text(label, fontWeight = FontWeight.SemiBold, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
+        placeholder = { Text(placeholder, color = Color.LightGray) },
+        trailingIcon = trailingIcon,
+        isError = isError,
+        supportingText = supportingText?.let { { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) } },
+        keyboardOptions = keyboardOptions,
+        modifier = modifier.fillMaxWidth(),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color(0xFFF4F7F5),
+            unfocusedContainerColor = Color(0xFFF4F7F5),
+            disabledContainerColor = if (isError) Color(0xFFFFF0F0) else Color(0xFFF4F7F5),
+            errorContainerColor = Color(0xFFFFF0F0),
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent,
+            focusedTextColor = TripifyDarkGreen,
+            unfocusedTextColor = TripifyDarkGreen,
+            disabledTextColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
+            disabledLabelColor = if (isError) MaterialTheme.colorScheme.error else Color.Gray,
+            disabledTrailingIconColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+        ),
+        shape = RoundedCornerShape(12.dp),
+        singleLine = true
+    )
 }
 
 @Composable

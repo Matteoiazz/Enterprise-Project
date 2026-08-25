@@ -1,27 +1,42 @@
 package com.tripify.tripify_android.profile.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,57 +69,66 @@ fun TravelDocumentsScreen(
         containerColor = SfondoPremium,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Documenti di Viaggio", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
+            Column {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "DOCUMENTI",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
+                            letterSpacing = 2.sp,
+                            color = TripifyDarkGreen
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = TripifyDarkGreen)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                )
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showBottomSheet = true },
-                containerColor = TripifyGreen,
-                contentColor = Color.White
+                containerColor = TripifyDarkGreen,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Aggiungi Documento")
+                Icon(Icons.Filled.Add, contentDescription = "Aggiungi Documento", modifier = Modifier.size(28.dp))
             }
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (isLoading && documents.isEmpty()) {
-                CircularProgressIndicator(color = TripifyGreen, modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(color = TripifyDarkGreen, modifier = Modifier.align(Alignment.Center))
             } else if (documents.isEmpty()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Filled.Badge, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Nessun documento salvato", color = Color.Gray, fontSize = 16.sp)
-                    Text("Aggiungi il tuo passaporto o carta d'identità", color = Color.Gray, fontSize = 12.sp)
-                }
+                EmptyDocumentsState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 24.dp, start = 20.dp, end = 20.dp, bottom = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(documents) { doc ->
-                        DocumentCardPremium(doc) {
-                            doc.id?.let { viewModel.deleteDocument(it) }
-                        }
+                    items(documents, key = { it.id ?: it.hashCode() }) { doc ->
+                        DocumentCardPremium(
+                            doc = doc,
+                            onDeleteClick = {
+                                doc.id?.let { id -> viewModel.deleteDocument(id) }
+                            }
+                        )
                     }
                 }
             }
 
-            // L'overlay di caricamento mentre si elimina/salva
             if (isLoading && documents.isNotEmpty()) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                    color = TripifyGreen
+                    color = TripifyGreen,
+                    trackColor = Color.Transparent
                 )
             }
         }
@@ -113,20 +137,17 @@ fun TravelDocumentsScreen(
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
                 sheetState = sheetState,
-                containerColor = Color.White
+                containerColor = Color.Transparent,
+                dragHandle = null
             ) {
                 AddDocumentForm(
                     onSave = { type, number, exp, country ->
                         viewModel.addDocument(type, number, exp, country) {
-                            scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                if (!sheetState.isVisible) showBottomSheet = false
-                            }
+                            scope.launch { sheetState.hide() }.invokeOnCompletion { showBottomSheet = false }
                         }
                     },
                     onCancel = {
-                        scope.launch { sheetState.hide() }.invokeOnCompletion {
-                            if (!sheetState.isVisible) showBottomSheet = false
-                        }
+                        scope.launch { sheetState.hide() }.invokeOnCompletion { showBottomSheet = false }
                     }
                 )
             }
@@ -135,95 +156,331 @@ fun TravelDocumentsScreen(
 }
 
 @Composable
+fun EmptyDocumentsState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .background(TripifyGreen.copy(alpha = 0.1f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Outlined.Badge, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Nessun documento", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Aggiungi il tuo passaporto o carta d'identità in corso di validità per averli sempre a portata di mano.",
+            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 15.sp
+        )
+    }
+}
+
+@Composable
 fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(TripifyGreen.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.Badge, contentDescription = null, tint = TripifyDarkGreen)
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = doc.documentType, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-                Text(text = "N°: ${doc.documentNumber}", fontSize = 14.sp, color = Color.DarkGray)
-                Spacer(modifier = Modifier.height(4.dp))
+            val sideColor = if (doc.documentType.contains("Passaporto", true)) Color(0xFF1A365D) else TripifyGreen
+            Box(modifier = Modifier.width(8.dp).fillMaxHeight().background(sideColor))
+
+            Column(modifier = Modifier.weight(1f).padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Filled.Public, contentDescription = null, tint = sideColor, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = doc.documentType.uppercase(), fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color.Gray, letterSpacing = 1.sp)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = doc.documentNumber, fontSize = 20.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen, letterSpacing = 2.sp)
+
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Event, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Scade: ${doc.expirationDate} (${doc.issuingCountry})", fontSize = 12.sp, color = Color.Gray)
+                    Text(text = "Scade: ${doc.expirationDate}", fontSize = 13.sp, color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Icon(Icons.Filled.Flag, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = doc.issuingCountry, fontSize = 13.sp, color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
                 }
             }
-            IconButton(onClick = onDeleteClick) {
-                Icon(Icons.Filled.DeleteOutline, contentDescription = "Elimina", tint = Color.Red.copy(alpha = 0.7f))
+
+            Box(
+                modifier = Modifier.width(60.dp).fillMaxHeight().clickable { onDeleteClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.DeleteOutline, contentDescription = "Elimina", tint = Color(0xFFD14343), modifier = Modifier.size(24.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddDocumentForm(
+    onSave: (String, String, String, String) -> Unit,
+    onCancel: () -> Unit
+) {
+    var docType by remember { mutableStateOf("Passaporto") }
+    var docNumber by remember { mutableStateOf("") }
+    var expirationDate by remember { mutableStateOf("") }
+    var issuingCountry by remember { mutableStateOf("ITA") }
+
+    val docTypes = listOf("Passaporto", "Carta d'Identità", "Patente di Guida")
+    val countries = listOf("ITA", "USA", "GBR", "FRA", "ESP", "DEU")
+
+    var expandedType by remember { mutableStateOf(false) }
+    var expandedCountry by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
+
+    var isDateError by remember { mutableStateOf(false) }
+    var dateErrorMsg by remember { mutableStateOf("") }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val localDate = Instant.ofEpochMilli(millis).atZone(ZoneId.of("UTC")).toLocalDate()
+                            expirationDate = localDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
+                            if (localDate.isBefore(LocalDate.now())) {
+                                isDateError = true
+                                dateErrorMsg = "Il documento è scaduto!"
+                            } else {
+                                isDateError = false
+                                dateErrorMsg = ""
+                            }
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("CONFERMA", color = TripifyDarkGreen, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold) }
+            },
+            colors = DatePickerDefaults.colors(containerColor = Color.White)
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    selectedDayContainerColor = TripifyDarkGreen,
+                    todayDateBorderColor = TripifyGreen,
+                    todayContentColor = TripifyDarkGreen
+                )
+            )
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 24.dp)
+    ) {
+        LiveIDCard(type = docType, number = docNumber, expiration = expirationDate, country = issuingCountry)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ExposedDropdownMenuBox(expanded = expandedType, onExpandedChange = { expandedType = !expandedType }) {
+                    PremiumTextField(
+                        value = docType, label = "Tipo Documento", onValueChange = {}, readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
+                        modifier = Modifier.menuAnchor()
+                    )
+                    ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }, modifier = Modifier.background(Color.White)) {
+                        docTypes.forEach { type ->
+                            DropdownMenuItem(text = { Text(type, fontWeight = FontWeight.Bold, color = TripifyDarkGreen) }, onClick = { docType = type; expandedType = false })
+                        }
+                    }
+                }
+
+                ExposedDropdownMenuBox(expanded = expandedCountry, onExpandedChange = { expandedCountry = !expandedCountry }) {
+                    PremiumTextField(
+                        value = issuingCountry, label = "Nazione Emittente", onValueChange = {}, readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCountry) },
+                        modifier = Modifier.menuAnchor()
+                    )
+                    ExposedDropdownMenu(expanded = expandedCountry, onDismissRequest = { expandedCountry = false }, modifier = Modifier.background(Color.White)) {
+                        countries.forEach { c ->
+                            DropdownMenuItem(text = { Text(c, fontWeight = FontWeight.Bold, color = TripifyDarkGreen) }, onClick = { issuingCountry = c; expandedCountry = false })
+                        }
+                    }
+                }
+
+                PremiumTextField(
+                    value = docNumber,
+                    label = "Numero Documento",
+                    onValueChange = { docNumber = it.uppercase() },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                )
+
+                Box(modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }) {
+                    PremiumTextField(
+                        value = expirationDate,
+                        label = "Data di Scadenza",
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        isError = isDateError,
+                        supportingText = if (isDateError) dateErrorMsg else null,
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                tint = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+                            )
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val isFormValid = docNumber.isNotBlank() && expirationDate.isNotBlank() && !isDateError
+                Button(
+                    onClick = { onSave(docType, docNumber, expirationDate, issuingCountry) },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TripifyGreen,
+                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    enabled = isFormValid
+                ) {
+                    Text("SALVA DOCUMENTO", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+
+                TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+                    Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
             }
         }
     }
 }
 
 @Composable
-fun AddDocumentForm(
-    onSave: (String, String, String, String) -> Unit,
-    onCancel: () -> Unit
+fun PremiumTextField(
+    value: String,
+    label: String,
+    onValueChange: (String) -> Unit,
+    readOnly: Boolean = false,
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    modifier: Modifier = Modifier
 ) {
-    var docType by remember { mutableStateOf("") }
-    var docNumber by remember { mutableStateOf("") }
-    var expirationDate by remember { mutableStateOf("") }
-    var issuingCountry by remember { mutableStateOf("") }
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        readOnly = readOnly,
+        enabled = enabled,
+        label = { Text(label, fontWeight = FontWeight.SemiBold, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
+        trailingIcon = trailingIcon,
+        isError = isError,
+        supportingText = supportingText?.let { { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) } },
+        keyboardOptions = keyboardOptions,
+        modifier = modifier.fillMaxWidth(),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color(0xFFF4F7F5),
+            unfocusedContainerColor = Color(0xFFF4F7F5),
+            disabledContainerColor = if (isError) Color(0xFFFFF0F0) else Color(0xFFF4F7F5),
+            errorContainerColor = Color(0xFFFFF0F0),
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent,
+            focusedTextColor = TripifyDarkGreen,
+            unfocusedTextColor = TripifyDarkGreen,
+            disabledTextColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
+            disabledLabelColor = if (isError) MaterialTheme.colorScheme.error else Color.Gray,
+            disabledTrailingIconColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+        ),
+        shape = RoundedCornerShape(12.dp),
+        singleLine = true
+    )
+}
 
-    Column(modifier = Modifier.padding(24.dp).fillMaxWidth()) {
-        Text("Nuovo Documento", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = TripifyDarkGreen)
-        Spacer(modifier = Modifier.height(16.dp))
+@Composable
+fun LiveIDCard(type: String, number: String, expiration: String, country: String) {
+    val isPassport = type.contains("Passaporto", true)
 
-        OutlinedTextField(
-            value = docType, onValueChange = { docType = it },
-            label = { Text("Tipo (Passaporto, Carta d'Identità...)") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = docNumber, onValueChange = { docNumber = it },
-            label = { Text("Numero Documento") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = expirationDate, onValueChange = { expirationDate = it },
-            label = { Text("Scadenza (es. 2030-12-31)") },
-            placeholder = { Text("AAAA-MM-GG") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = issuingCountry, onValueChange = { issuingCountry = it },
-            label = { Text("Nazione Emittente (es. ITA)") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true
-        )
+    val gradientColors = if (isPassport) {
+        listOf(Color(0xFF101C38), Color(0xFF1A365D))
+    } else {
+        listOf(TripifyDarkGreen, Color(0xFF0B3023))
+    }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onCancel) {
-                Text("Annulla", color = Color.Gray)
+    val displayNum = number.ifBlank { "AB1234567" }
+    val displayExp = expiration.ifBlank { "YYYY-MM-DD" }
+
+    Card(
+        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth().height(200.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize().background(Brush.linearGradient(gradientColors)).padding(24.dp)) {
+            Row(modifier = Modifier.align(Alignment.TopStart), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Public, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(country.uppercase(), color = Color.White.copy(alpha = 0.8f), fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp)
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(
-                onClick = { onSave(docType, docNumber, expirationDate, issuingCountry) },
-                colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen)
+
+            Text(
+                text = type.uppercase(),
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                fontSize = 12.sp,
+                letterSpacing = 1.sp,
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(y = (-10).dp)
+                    .size(40.dp)
+                    .background(Color(0xFFFFD700).copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Salva")
+                Icon(Icons.Filled.Fingerprint, contentDescription = "Biometric", tint = Color(0xFFFFD700).copy(alpha = 0.8f), modifier = Modifier.size(24.dp))
+            }
+
+            Column(modifier = Modifier.align(Alignment.BottomStart)) {
+                Text("DOCUMENT NO.", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+                Text(displayNum, color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp, letterSpacing = 2.sp, maxLines = 1)
+            }
+
+            Column(modifier = Modifier.align(Alignment.BottomEnd)) {
+                Text("EXPIRY DATE", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+                Text(displayExp, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 1.sp)
             }
         }
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }

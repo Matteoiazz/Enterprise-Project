@@ -1,6 +1,5 @@
 package com.tripify.tripify_android.profile.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -10,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.YearMonth
 
 class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewModel() {
 
@@ -28,8 +28,7 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
             try {
                 _paymentMethods.value = apiService.getPaymentMethods()
             } catch (e: Exception) {
-                _errorMessage.value = "Errore nel caricamento carte: ${e.localizedMessage}"
-                Log.e("WalletVM", "Errore API", e)
+                _errorMessage.value = "Errore nel caricamento carte."
             } finally {
                 _isLoading.value = false
             }
@@ -41,6 +40,22 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
     ) {
         if (provider.isBlank() || cardNumber.isBlank() || expiration.isBlank()) {
             _errorMessage.value = "Tutti i campi sono obbligatori"
+            return
+        }
+
+        try {
+            val parts = expiration.split("/")
+            if (parts.size == 2) {
+                val month = parts[0].toInt()
+                val year = parts[1].toInt() + 2000
+                val cardYM = YearMonth.of(year, month)
+                if (cardYM.isBefore(YearMonth.now())) {
+                    _errorMessage.value = "Impossibile salvare: La carta è scaduta."
+                    return
+                }
+            }
+        } catch (e: Exception) {
+            _errorMessage.value = "Formato scadenza non valido."
             return
         }
 
@@ -58,7 +73,7 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
                 loadPaymentMethods()
                 onSuccess()
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante il salvataggio: ${e.localizedMessage}"
+                _errorMessage.value = "Errore durante il salvataggio."
             } finally {
                 _isLoading.value = false
             }
@@ -70,11 +85,9 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
             _isLoading.value = true
             try {
                 apiService.deletePaymentMethod(id)
-
                 loadPaymentMethods()
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante l'eliminazione: ${e.localizedMessage}"
-                Log.e("WalletVM", "Errore API Delete", e)
+                _errorMessage.value = "Errore durante l'eliminazione."
             } finally {
                 _isLoading.value = false
             }

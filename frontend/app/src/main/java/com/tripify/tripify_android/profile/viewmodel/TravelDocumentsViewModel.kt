@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
-// 1. Passiamo l'API direttamente nel costruttore
 class TravelDocumentsViewModel(private val apiService: ProfileApiService) : ViewModel() {
 
     private val _documents = MutableStateFlow<List<TravelDocumentDto>>(emptyList())
@@ -31,7 +33,6 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Usiamo l'apiService passata nel costruttore
                 _documents.value = apiService.getTravelDocuments()
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nel caricamento documenti: ${e.localizedMessage}"
@@ -50,6 +51,17 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
             return
         }
 
+        try {
+            val expDate = LocalDate.parse(expiration, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            if (expDate.isBefore(LocalDate.now())) {
+                _errorMessage.value = "Impossibile salvare: Il documento è scaduto."
+                return
+            }
+        } catch (e: DateTimeParseException) {
+            _errorMessage.value = "Formato data non valido."
+            return
+        }
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -61,7 +73,6 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
                     issuingCountry = country
                 )
 
-                // Usiamo l'apiService passata nel costruttore
                 apiService.addTravelDocument(newDoc)
 
                 loadDocuments()
@@ -79,7 +90,6 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Usiamo l'apiService passata nel costruttore
                 apiService.deleteTravelDocument(id)
                 loadDocuments()
             } catch (e: Exception) {
@@ -95,7 +105,6 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
     }
 }
 
-// 2. Creiamo una Factory per istanziare il ViewModel passandogli l'API
 class TravelDocumentsViewModelFactory(private val apiService: ProfileApiService) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TravelDocumentsViewModel::class.java)) {

@@ -30,10 +30,11 @@ import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
+import java.time.Period
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-// I tuoi colori
+// I tuoi colori core
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
@@ -46,17 +47,28 @@ fun CompanionsScreen(
 ) {
     val companions by viewModel.companions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.loadCompanions()
     }
 
+    // Gestione Errori via Snackbar
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
     Scaffold(
         containerColor = SfondoPremium,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -87,7 +99,7 @@ fun CompanionsScreen(
                 shape = RoundedCornerShape(16.dp),
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Aggiungi Compagno", modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(28.dp))
             }
         }
     ) { innerPadding ->
@@ -132,15 +144,11 @@ fun CompanionsScreen(
             ) {
                 BoardingPassFormSheet(
                     onDismiss = {
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                            if (!sheetState.isVisible) showAddSheet = false
-                        }
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { showAddSheet = false }
                     },
                     onConfirm = { nome, cognome, data ->
                         viewModel.addCompanion(nome, cognome, data)
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                            if (!sheetState.isVisible) showAddSheet = false
-                        }
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { showAddSheet = false }
                     }
                 )
             }
@@ -163,11 +171,11 @@ fun EmptyCompanionsState(modifier: Modifier = Modifier) {
             Icon(Icons.Outlined.GroupAdd, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Nessun compagno salvato", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+        Text("Porta chi vuoi", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "Aggiungi i tuoi amici o familiari per velocizzare le prenotazioni dei tuoi prossimi voli.",
-            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 15.sp
+            text = "Aggiungi amici o familiari (solo maggiorenni) per velocizzare le prenotazioni.",
+            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 15.sp, lineHeight = 22.sp
         )
     }
 }
@@ -186,12 +194,10 @@ fun CompanionTicketCard(firstName: String, lastName: String, dob: String, onDele
         ) {
             Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(TripifyGreen))
 
-            Column(
-                modifier = Modifier.weight(1f).padding(20.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f).padding(20.dp)) {
                 Text(text = "NOME PASSEGGERO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
-                Text(text = "$firstName $lastName".uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
-                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "$firstName $lastName".uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen, maxLines = 1)
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(text = "DATA DI NASCITA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
                 Text(text = dob, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TripifyDarkGreen)
             }
@@ -230,7 +236,10 @@ fun BoardingPassFormSheet(
     var cognome by remember { mutableStateOf("") }
     var dataNascita by remember { mutableStateOf("") }
 
-    // Gestione visualizzazione DatePicker
+    // Logica validazione +18
+    var isDateError by remember { mutableStateOf(false) }
+    var dateErrorMsg by remember { mutableStateOf("") }
+
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
 
@@ -241,31 +250,35 @@ fun BoardingPassFormSheet(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            val localDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.of("UTC"))
-                                .toLocalDate()
+                            val localDate = Instant.ofEpochMilli(millis).atZone(ZoneId.of("UTC")).toLocalDate()
                             dataNascita = localDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
+                            // Calcolo Età (+18)
+                            val age = Period.between(localDate, LocalDate.now()).years
+                            if (localDate.isAfter(LocalDate.now())) {
+                                isDateError = true
+                                dateErrorMsg = "La data non può essere nel futuro"
+                            } else if (age < 18) {
+                                isDateError = true
+                                dateErrorMsg = "Il compagno deve essere maggiorenne (+18)"
+                            } else {
+                                isDateError = false
+                                dateErrorMsg = ""
+                            }
                         }
                         showDatePicker = false
                     }
-                ) {
-                    Text("CONFERMA", color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
-                }
+                ) { Text("CONFERMA", color = TripifyDarkGreen, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold)
-                }
+                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold) }
             },
-            colors = DatePickerDefaults.colors(
-                containerColor = Color.White
-            )
+            colors = DatePickerDefaults.colors(containerColor = Color.White)
         ) {
             DatePicker(
                 state = datePickerState,
                 colors = DatePickerDefaults.colors(
                     selectedDayContainerColor = TripifyDarkGreen,
-                    selectedDayContentColor = Color.White,
                     todayDateBorderColor = TripifyGreen,
                     todayContentColor = TripifyDarkGreen
                 )
@@ -274,11 +287,8 @@ fun BoardingPassFormSheet(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp)
     ) {
-        // --- PARTE SUPERIORE BIGLIETTO ---
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
@@ -302,18 +312,42 @@ fun BoardingPassFormSheet(
                     PremiumTextField(value = nome, label = "Nome", onValueChange = { nome = it })
                     PremiumTextField(value = cognome, label = "Cognome", onValueChange = { cognome = it })
 
-                    // Campo Data cliccabile che apre il calendario
-                    PremiumDatePickerField(
-                        value = dataNascita,
-                        label = "Data di Nascita",
-                        placeholder = "Seleziona dal calendario",
-                        onClick = { showDatePicker = true }
-                    )
+                    // Campo Data (con errore integrato se minorenne)
+                    Box(modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }) {
+                        TextField(
+                            value = dataNascita,
+                            onValueChange = {},
+                            readOnly = true,
+                            enabled = false,
+                            label = { Text("Data di Nascita", fontWeight = FontWeight.SemiBold, color = if (isDateError) MaterialTheme.colorScheme.error else Color.Gray) },
+                            placeholder = { Text("Seleziona dal calendario", color = Color.LightGray) },
+                            isError = isDateError,
+                            supportingText = if (isDateError) { { Text(dateErrorMsg, color = MaterialTheme.colorScheme.error) } } else null,
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = "Calendario",
+                                    tint = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = TextFieldDefaults.colors(
+                                disabledContainerColor = if (isDateError) Color(0xFFFFF0F0) else Color(0xFFF4F7F5),
+                                disabledIndicatorColor = Color.Transparent,
+                                disabledTextColor = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
+                                disabledLabelColor = if (isDateError) MaterialTheme.colorScheme.error else Color.Gray,
+                                disabledTrailingIconColor = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
+                                errorContainerColor = Color(0xFFFFF0F0),
+                                errorIndicatorColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
+                    }
                 }
             }
         }
 
-        // --- LINEA TRATTEGGIATA (EFFETTO STRAPPO) ---
         Box(
             modifier = Modifier.fillMaxWidth().height(20.dp).background(Color.Transparent),
             contentAlignment = Alignment.Center
@@ -329,7 +363,6 @@ fun BoardingPassFormSheet(
             }
         }
 
-        // --- PARTE INFERIORE BIGLIETTO (Azioni e Codice a barre) ---
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp),
@@ -340,18 +373,21 @@ fun BoardingPassFormSheet(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                val isFormValid = nome.isNotBlank() && cognome.isNotBlank() && dataNascita.isNotBlank() && !isDateError
                 Button(
                     onClick = { onConfirm(nome, cognome, dataNascita) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TripifyGreen),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TripifyGreen,
+                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                    ),
                     shape = RoundedCornerShape(14.dp),
-                    enabled = nome.isNotBlank() && cognome.isNotBlank() && dataNascita.isNotBlank()
+                    enabled = isFormValid
                 ) {
                     Text("EMETTI TRAVEL ID", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
                 TextButton(onClick = onDismiss) {
                     Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
@@ -388,43 +424,6 @@ fun PremiumTextField(
 }
 
 @Composable
-fun PremiumDatePickerField(
-    value: String,
-    label: String,
-    placeholder: String,
-    onClick: () -> Unit
-) {
-    Box(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
-        TextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            enabled = false,
-            label = { Text(label, fontWeight = FontWeight.SemiBold, color = Color.Gray) },
-            placeholder = { Text(placeholder, color = Color.LightGray) },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.CalendarMonth,
-                    contentDescription = "Seleziona Data",
-                    tint = TripifyDarkGreen
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.colors(
-                disabledContainerColor = Color(0xFFF4F7F5),
-                disabledIndicatorColor = Color.Transparent,
-                disabledTextColor = TripifyDarkGreen,
-                disabledLabelColor = Color.Gray,
-                disabledPlaceholderColor = Color.LightGray,
-                disabledTrailingIconColor = TripifyDarkGreen
-            ),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true
-        )
-    }
-}
-
-@Composable
 fun BarcodeVisual() {
     Row(
         modifier = Modifier.fillMaxWidth().height(40.dp),
@@ -433,12 +432,7 @@ fun BarcodeVisual() {
     ) {
         val pattern = listOf(2, 4, 1, 3, 2, 1, 5, 2, 1, 3, 4, 1, 2, 2, 1, 3, 1, 4, 2)
         pattern.forEach { width ->
-            Box(
-                modifier = Modifier
-                    .width(width.dp)
-                    .fillMaxHeight()
-                    .background(Color.Black)
-            )
+            Box(modifier = Modifier.width(width.dp).fillMaxHeight().background(Color.Black))
             Spacer(modifier = Modifier.width(2.dp))
         }
     }
