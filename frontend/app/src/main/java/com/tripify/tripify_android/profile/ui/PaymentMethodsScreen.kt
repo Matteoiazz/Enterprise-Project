@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -29,6 +30,7 @@ import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 
@@ -66,10 +68,8 @@ fun PaymentMethodsScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            "METODI DI PAGAMENTO",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = 2.sp,
+                            text = "METODI DI PAGAMENTO",
+                            style = CatalogType.Wordmark,
                             color = TripifyDarkGreen
                         )
                     },
@@ -164,11 +164,13 @@ fun EmptyPaymentState(modifier: Modifier = Modifier) {
             Icon(Icons.Outlined.CreditCardOff, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Nessuna carta", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+        Text("Nessuna carta", style = CatalogType.Section, color = TripifyDarkGreen)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Aggiungi il tuo metodo di pagamento principale per prenotazioni veloci e sicure in 1 click.",
-            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 15.sp
+            style = CatalogType.Body,
+            textAlign = TextAlign.Center,
+            color = Color.Gray
         )
     }
 }
@@ -198,11 +200,8 @@ fun CreditCardPremium(
             ) {
                 Text(
                     text = card.cardProvider.uppercase(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    fontSize = 18.sp,
-                    letterSpacing = 2.sp
+                    style = CatalogType.CardTitle.copy(fontStyle = FontStyle.Italic, letterSpacing = 2.sp),
+                    color = Color.White
                 )
 
                 Box(
@@ -250,17 +249,15 @@ fun CreditCardPremium(
 
             Text(
                 text = "•••• •••• •••• ${card.lastFourDigits ?: "0000"}",
+                style = CatalogType.CardTitle.copy(letterSpacing = 2.sp),
                 color = Color.White,
-                fontWeight = FontWeight.Medium,
-                fontSize = 18.sp,
-                letterSpacing = 2.sp,
                 maxLines = 1,
                 modifier = Modifier.align(Alignment.BottomStart).offset(y = (-30).dp)
             )
 
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
-                Text("SCAD.", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-                Text(card.expirationMonthYear, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 1.sp)
+                Text("SCAD.", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.6f))
+                Text(card.expirationMonthYear, style = CatalogType.BodyStrong, color = Color.White)
             }
         }
     }
@@ -320,7 +317,7 @@ fun AddPaymentForm(
                     ) {
                         providerOptions.forEach { selectionOption ->
                             DropdownMenuItem(
-                                text = { Text(selectionOption, color = TripifyDarkGreen, fontWeight = FontWeight.Bold) },
+                                text = { Text(selectionOption, style = CatalogType.LabelStrong, color = TripifyDarkGreen) },
                                 onClick = {
                                     provider = selectionOption
                                     expanded = false
@@ -391,14 +388,14 @@ fun AddPaymentForm(
                     shape = RoundedCornerShape(14.dp),
                     enabled = isFormValid
                 ) {
-                    Text("AGGIUNGI CARTA", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("AGGIUNGI CARTA", style = CatalogType.Button)
                 }
 
                 TextButton(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("ANNULLA", style = CatalogType.Button, color = Color.Gray)
                 }
             }
         }
@@ -424,11 +421,11 @@ fun PremiumTextField(
         onValueChange = onValueChange,
         readOnly = readOnly,
         enabled = enabled,
-        label = { Text(label, fontWeight = FontWeight.SemiBold, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
-        placeholder = { Text(placeholder, color = Color.LightGray) },
+        label = { Text(label, style = CatalogType.LabelStrong, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
+        placeholder = { Text(placeholder, style = CatalogType.Body, color = Color.LightGray) },
         trailingIcon = trailingIcon,
         isError = isError,
-        supportingText = supportingText?.let { { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) } },
+        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption, color = MaterialTheme.colorScheme.error) } },
         keyboardOptions = keyboardOptions,
         modifier = modifier.fillMaxWidth(),
         colors = TextFieldDefaults.colors(
@@ -446,6 +443,7 @@ fun PremiumTextField(
             disabledLabelColor = if (isError) MaterialTheme.colorScheme.error else Color.Gray,
             disabledTrailingIconColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen
         ),
+        textStyle = CatalogType.BodyStrong,
         shape = RoundedCornerShape(12.dp),
         singleLine = true
     )
@@ -477,11 +475,8 @@ fun LivePremiumCard(provider: String, cardNumber: String, expiration: String) {
 
             Text(
                 text = if (provider.isEmpty()) "CIRCUITO" else provider.uppercase(),
+                style = CatalogType.CardTitle.copy(fontStyle = FontStyle.Italic, letterSpacing = 2.sp),
                 color = Color.White,
-                fontWeight = FontWeight.Black,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                fontSize = 20.sp,
-                letterSpacing = 2.sp,
                 modifier = Modifier.align(Alignment.TopEnd)
             )
 
@@ -499,17 +494,15 @@ fun LivePremiumCard(provider: String, cardNumber: String, expiration: String) {
 
             Text(
                 text = formattedNumber,
+                style = CatalogType.CardTitle.copy(letterSpacing = 2.sp),
                 color = Color.White,
-                fontWeight = FontWeight.Medium,
-                fontSize = 18.sp,
-                letterSpacing = 2.sp,
                 maxLines = 1,
                 modifier = Modifier.align(Alignment.BottomStart).offset(y = (-30).dp)
             )
 
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
-                Text("SCAD.", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-                Text(displayExp, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 1.sp)
+                Text("SCAD.", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.6f))
+                Text(displayExp, style = CatalogType.BodyStrong, color = Color.White)
             }
         }
     }

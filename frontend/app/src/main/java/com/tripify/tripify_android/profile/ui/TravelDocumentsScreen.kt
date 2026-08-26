@@ -1,6 +1,5 @@
 package com.tripify.tripify_android.profile.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,10 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,10 +30,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,9 +71,7 @@ fun TravelDocumentsScreen(
                     title = {
                         Text(
                             text = "DOCUMENTI",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = 2.sp,
+                            style = CatalogType.Wordmark,
                             color = TripifyDarkGreen
                         )
                     },
@@ -170,11 +165,13 @@ fun EmptyDocumentsState(modifier: Modifier = Modifier) {
             Icon(Icons.Outlined.Badge, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Nessun documento", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+        Text("Nessun documento", style = CatalogType.Section, color = TripifyDarkGreen)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Aggiungi il tuo passaporto o carta d'identità in corso di validità per averli sempre a portata di mano.",
-            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 15.sp
+            style = CatalogType.Body,
+            textAlign = TextAlign.Center,
+            color = Color.Gray
         )
     }
 }
@@ -198,23 +195,23 @@ fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Filled.Public, contentDescription = null, tint = sideColor, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = doc.documentType.uppercase(), fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color.Gray, letterSpacing = 1.sp)
+                    Text(text = doc.documentType.uppercase(), style = CatalogType.Overline, color = Color.Gray)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = doc.documentNumber, fontSize = 20.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen, letterSpacing = 2.sp)
+                Text(text = doc.documentNumber, style = CatalogType.CardTitle, color = TripifyDarkGreen)
 
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Event, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Scade: ${doc.expirationDate}", fontSize = 13.sp, color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
+                    Text(text = "Scade: ${doc.expirationDate}", style = CatalogType.BodyStrong, color = TripifyDarkGreen)
 
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Icon(Icons.Filled.Flag, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = doc.issuingCountry, fontSize = 13.sp, color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
+                    Text(text = doc.issuingCountry, style = CatalogType.BodyStrong, color = TripifyDarkGreen)
                 }
             }
 
@@ -270,10 +267,10 @@ fun AddDocumentForm(
                         }
                         showDatePicker = false
                     }
-                ) { Text("CONFERMA", color = TripifyDarkGreen, fontWeight = FontWeight.Bold) }
+                ) { Text("CONFERMA", style = CatalogType.Button, color = TripifyDarkGreen) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", style = CatalogType.Button, color = Color.Gray) }
             },
             colors = DatePickerDefaults.colors(containerColor = Color.White)
         ) {
@@ -315,7 +312,7 @@ fun AddDocumentForm(
                     )
                     ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }, modifier = Modifier.background(Color.White)) {
                         docTypes.forEach { type ->
-                            DropdownMenuItem(text = { Text(type, fontWeight = FontWeight.Bold, color = TripifyDarkGreen) }, onClick = { docType = type; expandedType = false })
+                            DropdownMenuItem(text = { Text(type, style = CatalogType.LabelStrong, color = TripifyDarkGreen) }, onClick = { docType = type; expandedType = false })
                         }
                     }
                 }
@@ -328,7 +325,7 @@ fun AddDocumentForm(
                     )
                     ExposedDropdownMenu(expanded = expandedCountry, onDismissRequest = { expandedCountry = false }, modifier = Modifier.background(Color.White)) {
                         countries.forEach { c ->
-                            DropdownMenuItem(text = { Text(c, fontWeight = FontWeight.Bold, color = TripifyDarkGreen) }, onClick = { issuingCountry = c; expandedCountry = false })
+                            DropdownMenuItem(text = { Text(c, style = CatalogType.LabelStrong, color = TripifyDarkGreen) }, onClick = { issuingCountry = c; expandedCountry = false })
                         }
                     }
                 }
@@ -372,11 +369,11 @@ fun AddDocumentForm(
                     shape = RoundedCornerShape(14.dp),
                     enabled = isFormValid
                 ) {
-                    Text("SALVA DOCUMENTO", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("SALVA DOCUMENTO", style = CatalogType.Button)
                 }
 
                 TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-                    Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("ANNULLA", style = CatalogType.Button, color = Color.Gray)
                 }
             }
         }
@@ -401,10 +398,10 @@ fun PremiumTextField(
         onValueChange = onValueChange,
         readOnly = readOnly,
         enabled = enabled,
-        label = { Text(label, fontWeight = FontWeight.SemiBold, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
+        label = { Text(label, style = CatalogType.LabelStrong, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
         trailingIcon = trailingIcon,
         isError = isError,
-        supportingText = supportingText?.let { { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) } },
+        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption, color = MaterialTheme.colorScheme.error) } },
         keyboardOptions = keyboardOptions,
         modifier = modifier.fillMaxWidth(),
         colors = TextFieldDefaults.colors(
@@ -422,6 +419,7 @@ fun PremiumTextField(
             disabledLabelColor = if (isError) MaterialTheme.colorScheme.error else Color.Gray,
             disabledTrailingIconColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen
         ),
+        textStyle = CatalogType.BodyStrong,
         shape = RoundedCornerShape(12.dp),
         singleLine = true
     )
@@ -449,15 +447,13 @@ fun LiveIDCard(type: String, number: String, expiration: String, country: String
             Row(modifier = Modifier.align(Alignment.TopStart), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Public, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(country.uppercase(), color = Color.White.copy(alpha = 0.8f), fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp)
+                Text(country.uppercase(), style = CatalogType.CardTitle.copy(letterSpacing = 2.sp), color = Color.White.copy(alpha = 0.8f))
             }
 
             Text(
                 text = type.uppercase(),
+                style = CatalogType.Overline,
                 color = Color.White,
-                fontWeight = FontWeight.Black,
-                fontSize = 12.sp,
-                letterSpacing = 1.sp,
                 modifier = Modifier.align(Alignment.TopEnd)
             )
 
@@ -473,13 +469,13 @@ fun LiveIDCard(type: String, number: String, expiration: String, country: String
             }
 
             Column(modifier = Modifier.align(Alignment.BottomStart)) {
-                Text("DOCUMENT NO.", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-                Text(displayNum, color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp, letterSpacing = 2.sp, maxLines = 1)
+                Text("DOCUMENT NO.", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.5f))
+                Text(displayNum, style = CatalogType.Hero.copy(fontSize = 22.sp, letterSpacing = 2.sp), color = Color.White, maxLines = 1)
             }
 
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
-                Text("EXPIRY DATE", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-                Text(displayExp, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 1.sp)
+                Text("EXPIRY DATE", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.5f))
+                Text(displayExp, style = CatalogType.BodyStrong, color = Color.White)
             }
         }
     }

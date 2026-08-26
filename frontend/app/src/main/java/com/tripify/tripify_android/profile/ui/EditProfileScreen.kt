@@ -33,11 +33,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// I tuoi colori core
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,20 +44,17 @@ fun EditProfileScreen(
     onNavigateBack: () -> Unit,
     onSaveProfile: (String, String, String, String, String, String) -> Unit
 ) {
-    // Dati base (Intatti)
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
 
-    // Sicurezza (Intatti)
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
-    // --- LOGICA DI VALIDAZIONE IN TEMPO REALE (Intatta al 100%) ---
     val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email).matches()
     val hasMinLength = newPassword.length >= 8
     val hasUpper = newPassword.any { it.isUpperCase() }
@@ -78,9 +74,7 @@ fun EditProfileScreen(
                     title = {
                         Text(
                             text = "MODIFICA PROFILO",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = 2.sp,
+                            style = CatalogType.Wordmark,
                             color = TripifyDarkGreen
                         )
                     },
@@ -99,12 +93,10 @@ fun EditProfileScreen(
             modifier = Modifier.fillMaxSize().padding(paddingValues),
             contentPadding = PaddingValues(bottom = 40.dp)
         ) {
-            // --- HERO HEADER (Stile fluttuante) ---
             item(key = "hero") {
                 EditProfileHeroHeader()
             }
 
-            // --- SEZIONE 1: DATI PERSONALI (Card fluttuante) ---
             item(key = "personal_data") {
                 Box(modifier = Modifier.offset(y = -cardOverlap).padding(horizontal = 20.dp)) {
                     PremiumCard {
@@ -151,14 +143,12 @@ fun EditProfileScreen(
                 }
             }
 
-            // --- SEZIONE 2: SICUREZZA (Card fluttuante separate) ---
             item(key = "security") {
                 Box(modifier = Modifier.offset(y = -cardOverlap + 16.dp).padding(horizontal = 20.dp)) {
                     PremiumCard {
                         Column(modifier = Modifier.padding(24.dp)) {
                             SectionHeader("Sicurezza")
 
-                            // Campo Nuova Password con checklist live integrata
                             PremiumTextField(
                                 value = newPassword,
                                 label = "Nuova Password (Opzionale)",
@@ -170,7 +160,6 @@ fun EditProfileScreen(
                                 onValueChange = { newPassword = it }
                             )
 
-                            // Checklist integrata elegante
                             if (newPassword.isNotEmpty()) {
                                 Column(
                                     modifier = Modifier
@@ -178,7 +167,7 @@ fun EditProfileScreen(
                                         .background(Color(0xFFF4F7F5), RoundedCornerShape(12.dp))
                                         .padding(16.dp)
                                 ) {
-                                    Text("La password deve avere:", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                                    Text("La password deve avere:", style = CatalogType.LabelStrong, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
                                     PasswordRequirement("Almeno 8 caratteri", hasMinLength)
                                     PasswordRequirement("Almeno una lettera maiuscola", hasUpper)
                                     PasswordRequirement("Almeno un numero", hasDigit)
@@ -187,7 +176,6 @@ fun EditProfileScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
 
-                            // Campo Conferma Password live
                             PremiumTextField(
                                 value = confirmPassword,
                                 label = "Conferma Nuova Password",
@@ -204,7 +192,6 @@ fun EditProfileScreen(
                 }
             }
 
-            // --- BOTTONE INTELLIGENTE PREMIM ---
             item(key = "save_button") {
                 Spacer(modifier = Modifier.height(cardOverlap))
                 Button(
@@ -229,9 +216,7 @@ fun EditProfileScreen(
                     }
                     Text(
                         text = "SALVA MODIFICHE",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        letterSpacing = 1.sp,
+                        style = CatalogType.Button,
                         color = if (isFormValid) Color.White else Color.Gray
                     )
                 }
@@ -239,8 +224,6 @@ fun EditProfileScreen(
         }
     }
 }
-
-// --- COMPONENTI PREMIUM RIUTILIZZABILI (DESIGN SYSTEM) ---
 
 @Composable
 private fun EditProfileHeroHeader() {
@@ -256,21 +239,18 @@ private fun EditProfileHeroHeader() {
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.offset(y = (-16).dp), // Compensiamo l'overlap
+            modifier = Modifier.offset(y = (-16).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "AGGIORNA IL TUO PROFILO",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
+                style = CatalogType.Overline,
                 color = Color.White.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Dati e Sicurezza",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
+                style = CatalogType.Hero,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
@@ -282,9 +262,7 @@ private fun EditProfileHeroHeader() {
 fun SectionHeader(title: String) {
     Text(
         text = title.uppercase(),
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Black,
-        letterSpacing = 1.5.sp,
+        style = CatalogType.Overline,
         color = Color.Gray,
         modifier = Modifier.padding(bottom = 20.dp)
     )
@@ -319,7 +297,7 @@ fun PremiumTextField(
     TextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, fontWeight = FontWeight.SemiBold) },
+        label = { Text(label, style = CatalogType.LabelStrong) },
         leadingIcon = {
             Icon(imageVector = icon, contentDescription = null, tint = TripifyDarkGreen, modifier = Modifier.size(20.dp))
         },
@@ -335,7 +313,7 @@ fun PremiumTextField(
         },
         isError = isError,
         supportingText = supportingText?.let {
-            { Text(it, fontSize = 12.sp) }
+            { Text(it, style = CatalogType.Caption) }
         },
         visualTransformation = if (isPassword && !isVisible) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
@@ -355,17 +333,16 @@ fun PremiumTextField(
             unfocusedLabelColor = Color.Gray,
             cursorColor = TripifyGreen
         ),
+        textStyle = CatalogType.BodyStrong,
         shape = RoundedCornerShape(12.dp),
         singleLine = singleLine
     )
 }
 
-// COMPONENTE PER LA CHECKLIST (Ridisegnato Premium)
 @Composable
 fun PasswordRequirement(text: String, isMet: Boolean) {
     val color = if (isMet) TripifyGreen else Color.Gray.copy(alpha = 0.6f)
     val icon = if (isMet) Icons.Filled.CheckCircle else Icons.Filled.Cancel
-    val weight = if (isMet) FontWeight.Bold else FontWeight.Normal
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -378,6 +355,6 @@ fun PasswordRequirement(text: String, isMet: Boolean) {
             modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
-        Text(text = text, color = color, fontSize = 13.sp, fontWeight = weight)
+        Text(text = text, color = color, style = if (isMet) CatalogType.LabelStrong else CatalogType.Label)
     }
 }

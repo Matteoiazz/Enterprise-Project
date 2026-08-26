@@ -46,6 +46,9 @@ public class User {
     @Column
     private String surname;
 
+    @Column
+    private String profilePictureUrl;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<TravelDocument> documents = new ArrayList<>();

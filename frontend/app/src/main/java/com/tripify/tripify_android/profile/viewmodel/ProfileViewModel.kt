@@ -11,24 +11,30 @@ import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.BuildConfig
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.data.model.UpdateProfileRequest
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.EndSessionRequest
-import com.tripify.tripify_android.data.model.UpdateProfileRequest
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
 
 class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     var name by mutableStateOf("")
     var surname by mutableStateOf("")
     var email by mutableStateOf("")
+    var profilePictureUrl by mutableStateOf<String?>(null)
 
     var isLoading by mutableStateOf(false)
+    var isUploadingImage by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
     var isLoggedOut by mutableStateOf(false)
 
     private val api = RetrofitClient.createApi(tokenManager)
-
     private val profileApi = RetrofitClient.createProfileApi(tokenManager)
 
     fun loadUserProfile() {
@@ -43,6 +49,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     name = user.name ?: ""
                     surname = user.surname ?: ""
                     email = user.email
+                    profilePictureUrl = user.profilePictureUrl
                 } else {
                     errorMessage = "Impossibile recuperare i dati. Errore: ${response.code()}"
                 }
@@ -52,6 +59,53 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } finally {
                 isLoading = false
             }
+        }
+    }
+
+    fun uploadProfilePicture(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            isUploadingImage = true
+            errorMessage = null
+            try {
+                val file = getFileFromUri(context, uri)
+                if (file == null) {
+                    errorMessage = "Errore durante la lettura dell'immagine."
+                    isUploadingImage = false
+                    return@launch
+                }
+
+                val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+                val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+
+                val response = profileApi.uploadProfilePicture(body)
+
+                if (response.isSuccessful && response.body() != null) {
+                    profilePictureUrl = response.body()?.get("imageUrl")
+                } else {
+                    errorMessage = "Errore caricamento immagine: ${response.code()}"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                errorMessage = "Errore di rete: ${e.localizedMessage}"
+            } finally {
+                isUploadingImage = false
+            }
+        }
+    }
+
+    private fun getFileFromUri(context: Context, uri: Uri): File? {
+        return try {
+            val contentResolver = context.contentResolver
+            val tempFile = File.createTempFile("profile_img", ".jpg", context.cacheDir)
+            val inputStream = contentResolver.openInputStream(uri)
+            val outputStream = FileOutputStream(tempFile)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            tempFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 
@@ -127,6 +181,10 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun logout() {
         viewModelScope.launch {
             tokenManager.clearTokens()
+            name = ""
+            surname = ""
+            email = ""
+            profilePictureUrl = null
             isLoggedOut = true
         }
     }
