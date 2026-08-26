@@ -11,6 +11,7 @@ import com.tripify.booking_service.exception.EmptyCartException;
 import com.tripify.booking_service.exception.InvalidBookingStateException;
 import com.tripify.booking_service.exception.PaymentValidationException;
 import com.tripify.booking_service.exception.ResourceNotFoundException;
+import com.tripify.booking_service.messaging.BookingEventPublisher;
 import com.tripify.booking_service.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,7 @@ public class BookingService {
     private final BookingAuditService auditService;
     private final CatalogClient catalogClient;
     private final PaymentService paymentService;
+    private final BookingEventPublisher eventPublisher;
 
     // 1. Processo di Checkout: converte il carrello in una Booking confermata
     @Transactional
@@ -251,6 +253,8 @@ public class BookingService {
 
         auditService.log(booking, userId, AuditAction.STATUS_CHANGED,
                 "Pagamento di " + amount + "€ approvato, stato aggiornato a CONFIRMED");
+
+        eventPublisher.publishBookingConfirmed(booking);
 
         return booking;
     }
