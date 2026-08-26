@@ -6,12 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
-// Predisposto per pubblicare eventi verso la stessa coda RabbitMQ
-// ("notification_queue") che communication-service ascolta già
-// (vedi communication-service NotificationConsumer), ma NON è collegato a
-// nessuna chiamata reale in BookingService/PaymentService: il mismatch di
-// tipo sullo userId (vedi BookingNotificationEvent) va risolto lato
-// communication-service prima di attivare l'invio.
+// Pubblica eventi sulla stessa coda RabbitMQ ("notification_queue") che
+// communication-service ascolta (vedi communication-service NotificationConsumer).
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -27,7 +23,12 @@ public class BookingEventPublisher {
                 "Prenotazione confermata",
                 "La tua prenotazione #" + booking.getId() + " è stata confermata."
         );
-        log.info("Evento di notifica pronto per la prenotazione {} ma non pubblicato (vedi nota su BookingNotificationEvent)", booking.getId());
-        // rabbitTemplate.convertAndSend(NOTIFICATION_QUEUE, event);
+        try {
+            rabbitTemplate.convertAndSend(NOTIFICATION_QUEUE, event);
+        } catch (RuntimeException ex) {
+            // Una notifica mancata non deve mai far fallire il pagamento/la
+            // prenotazione già andata a buon fine: logghiamo e proseguiamo.
+            log.warn("Impossibile pubblicare la notifica per la prenotazione {}: {}", booking.getId(), ex.getMessage());
+        }
     }
 }

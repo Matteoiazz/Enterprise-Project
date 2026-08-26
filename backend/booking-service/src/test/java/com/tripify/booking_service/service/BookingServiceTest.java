@@ -10,6 +10,7 @@ import com.tripify.booking_service.exception.AccessDeniedException;
 import com.tripify.booking_service.exception.EmptyCartException;
 import com.tripify.booking_service.exception.InvalidBookingStateException;
 import com.tripify.booking_service.exception.PaymentValidationException;
+import com.tripify.booking_service.messaging.BookingEventPublisher;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +53,8 @@ class BookingServiceTest {
     private CatalogClient catalogClient;
     @MockitoBean
     private PaymentService paymentService;
+    @MockitoBean
+    private BookingEventPublisher eventPublisher;
     @PersistenceContext
     private EntityManager entityManager;
 
