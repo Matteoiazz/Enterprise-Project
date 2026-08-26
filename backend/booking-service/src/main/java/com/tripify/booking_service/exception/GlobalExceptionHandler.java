@@ -1,19 +1,22 @@
 package com.tripify.booking_service.exception;
 
+import feign.FeignException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // 404: la risorsa richiesta (es. una Booking con un certo id) non esiste
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
+    @ExceptionHandler({ResourceNotFoundException.class, CatalogItemNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         return buildError(ex.getMessage(), HttpStatus.NOT_FOUND, "Risorsa non trovata");
     }
 
@@ -23,11 +26,47 @@ public class GlobalExceptionHandler {
         return buildError(ex.getMessage(), HttpStatus.FORBIDDEN, "Accesso negato");
     }
 
-    // Fallback: qualunque altra RuntimeException (es. carrello vuoto) resta un 400,
-    // esattamente come facevi già prima con l'handler unico.
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeExceptions(RuntimeException ex) {
+    // 400: input del client non valido/incompleto
+    @ExceptionHandler({EmptyCartException.class, PaymentValidationException.class, IllegalArgumentException.class})
+    public ResponseEntity<Map<String, Object>> handleBadRequest(RuntimeException ex) {
         return buildError(ex.getMessage(), HttpStatus.BAD_REQUEST, "Richiesta non valida");
+    }
+
+    // 409: l'operazione richiesta non è compatibile con lo stato attuale della risorsa
+    // (es. pagare una prenotazione già confermata, invitare due volte lo stesso amico)
+    @ExceptionHandler(InvalidBookingStateException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(InvalidBookingStateException ex) {
+        return buildError(ex.getMessage(), HttpStatus.CONFLICT, "Stato non valido");
+    }
+
+    // 400: uno o più campi del body non rispettano le regole di validazione (@Valid)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .collect(Collectors.joining("; "));
+        return buildError(message.isBlank() ? "Dati non validi" : message, HttpStatus.BAD_REQUEST, "Dati non validi");
+    }
+
+    // Propaga (con lo stesso status HTTP quando possibile) gli errori restituiti
+    // dagli altri microservizi chiamati via Feign (es. catalog-service: hold
+    // scaduto -> 409, disponibilità insufficiente -> 409, articolo non trovato -> 404),
+    // invece di far risalire un 500 generico che nasconderebbe la causa reale.
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<Map<String, Object>> handleFeignException(FeignException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.status());
+        if (status == null || status == HttpStatus.INTERNAL_SERVER_ERROR) {
+            status = HttpStatus.BAD_GATEWAY;
+        }
+        return buildError("Errore comunicando con un servizio esterno.", status, "Errore di integrazione");
+    }
+
+    // Fallback finale: qualunque altra eccezione non prevista è un vero errore
+    // interno (bug, NPE, ecc.), non un 400 "colpa del client" come accadeva
+    // prima intercettando genericamente RuntimeException.
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        return buildError("Si è verificato un errore imprevisto.", HttpStatus.INTERNAL_SERVER_ERROR, "Errore interno");
     }
 
     private ResponseEntity<Map<String, Object>> buildError(String message, HttpStatus status, String errorLabel) {

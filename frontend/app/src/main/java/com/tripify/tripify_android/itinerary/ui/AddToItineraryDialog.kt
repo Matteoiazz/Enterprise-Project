@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.itinerary.data.AddListItemRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
 import kotlinx.coroutines.launch
 
@@ -62,7 +63,7 @@ fun AddToItineraryDialog(
                                 .clickable {
                                     scope.launch {
                                         try {
-                                            val response = api.addItem(list.id, catalogItemId.toLong())
+                                            val response = api.addItem(list.id, AddListItemRequest(catalogItemId.toLong()))
                                             if (response.isSuccessful) onAdded()
                                         } catch (e: Exception) {
                                             errorMessage = "Impossibile aggiungere l'elemento"

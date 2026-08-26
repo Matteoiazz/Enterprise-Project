@@ -40,13 +40,14 @@ public class FavoriteList {
     private List<String> sharedUserIds = new java.util.ArrayList<>();
 
     /**
-     * ID degli elementi del catalogo (Voli, Hotel, Attività).
+     * Componenti del catalogo (Voli, Hotel, Attività), con i dettagli necessari a
+     * booking-service per aprire l'hold quando si preme "prenota tutto" (vedi
+     * FavoriteListItem).
      */
     @ElementCollection
     @CollectionTable(name = "list_items", joinColumns = @JoinColumn(name = "list_id"))
-    @Column(name = "catalog_item_id")
     @Builder.Default
-    private List<Long> catalogItemIds = new java.util.ArrayList<>();
+    private List<FavoriteListItem> items = new java.util.ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -82,4 +83,13 @@ public class FavoriteList {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    /**
+     * Non persistito: valorizzato a runtime in base a chi sta chiedendo la lista,
+     * cosi' il frontend sa se mostrare il cuore pieno o vuoto senza dover tenere
+     * uno stato locale separato.
+     */
+    @Transient
+    @Builder.Default
+    private boolean likedByMe = false;
 }

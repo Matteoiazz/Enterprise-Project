@@ -131,7 +131,12 @@ fun ItineraryDetailScreen(
                                 },
                                 modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.White)
                             ) {
-                                Icon(Icons.Filled.Favorite, contentDescription = "Mi piace", tint = CatalogColors.Alert, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    if (list.likedByMe) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    contentDescription = "Mi piace",
+                                    tint = CatalogColors.Alert,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
@@ -176,11 +181,11 @@ fun ItineraryDetailScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            list.catalogItemIds.forEach { itemId ->
+                            list.items.forEach { item ->
                                 ItineraryComponentRow(
-                                    itemId = itemId,
+                                    itemId = item.catalogItemId,
                                     catalogViewModel = catalogViewModel,
-                                    onClick = { onNavigateToComponent(itemId.toString()) }
+                                    onClick = { onNavigateToComponent(item.catalogItemId.toString()) }
                                 )
                             }
                         }

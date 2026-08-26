@@ -26,19 +26,20 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
             response.close()
 
             val refreshToken = runBlocking { tokenManager.getRefreshToken() }
+            val newAccessToken = refreshToken?.takeIf { it.isNotEmpty() }?.let { refreshAccessToken(it) }
 
-            if (!refreshToken.isNullOrEmpty()) {
-                val newAccessToken = refreshAccessToken(refreshToken)
-
-                if (newAccessToken != null) {
-                    val newRequest = chain.request().newBuilder()
-                        .header("Authorization", "Bearer $newAccessToken")
-                        .build()
-                    return chain.proceed(newRequest)
-                } else {
-                    runBlocking { tokenManager.clearTokens() }
-                }
+            if (newAccessToken != null) {
+                val newRequest = chain.request().newBuilder()
+                    .header("Authorization", "Bearer $newAccessToken")
+                    .build()
+                return chain.proceed(newRequest)
             }
+
+            // Nessun refresh token, o refresh fallito: il token salvato non e' piu'
+            // valido. Va pulito subito, altrimenti resta riattaccato a ogni
+            // richiesta futura (anche verso endpoint pubblici) e continua a
+            // far fallire tutto finche' l'utente non cancella i dati dell'app.
+            runBlocking { tokenManager.clearTokens() }
         }
 
         return response

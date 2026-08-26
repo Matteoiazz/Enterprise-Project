@@ -17,17 +17,18 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
     private val _uiState = MutableStateFlow<BookingState>(BookingState.Loading)
     val uiState: StateFlow<BookingState> = _uiState
 
-    // 1. Recupera lo storico dei viaggi dell'utente
-    fun fetchUserBookings(userId: String) {
+    // 1. Recupera lo storico dei viaggi dell'utente autenticato (non serve più
+    // passare l'userId: il backend lo ricava dal JWT). Lo storico ora arriva
+    // paginato dal server: qui prendiamo sempre la prima pagina.
+    fun fetchUserBookings() {
         viewModelScope.launch {
             _uiState.value = BookingState.Loading
             try {
-                val response = api.getUserBookings(userId)
+                val response = api.getUserBookings()
 
                 if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = BookingState.Success(response.body()!!)
+                    _uiState.value = BookingState.Success(response.body()!!.content)
                 } else {
-                    // MODIFICATO QUI: Estraiamo l'errore pulito dal server
                     val cleanError = response.parseErrorMessage()
                     _uiState.value = BookingState.Error(cleanError)
                 }
@@ -37,25 +38,48 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
-    // 2. Invita un amico a un viaggio esistente
+    // 2. Invita un amico a un viaggio esistente. leaderId non serve più
+    // passarlo: solo il vero proprietario del token puo' invitare comunque
+    // (il backend lo verifica sempre lato server tramite il JWT).
     fun inviteFriend(
         bookingId: Long,
-        leaderId: String,
         friendId: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             try {
-                val response = api.inviteFriend(bookingId, leaderId, friendId)
+                val response = api.inviteFriend(bookingId, friendId)
 
                 if (response.isSuccessful) {
                     onSuccess()
-                    fetchUserBookings(leaderId)
+                    fetchUserBookings()
                 } else {
-                    // MODIFICATO QUI: Estraiamo l'errore pulito dal server e lo passiamo alla UI
                     val cleanError = response.parseErrorMessage()
                     onError(cleanError)
+                }
+            } catch (e: Exception) {
+                onError("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
+
+    // 3. Annulla una prenotazione (solo il Leader); se era già confermata il
+    // backend avvia anche il rimborso.
+    fun cancelBooking(
+        bookingId: Long,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val response = api.cancelBooking(bookingId)
+
+                if (response.isSuccessful) {
+                    onSuccess()
+                    fetchUserBookings()
+                } else {
+                    onError(response.parseErrorMessage())
                 }
             } catch (e: Exception) {
                 onError("Nessuna connessione: ${e.message}")

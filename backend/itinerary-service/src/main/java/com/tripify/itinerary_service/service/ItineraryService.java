@@ -1,20 +1,30 @@
 package com.tripify.itinerary_service.service;
 
+import com.tripify.itinerary_service.client.BookingClient;
 import com.tripify.itinerary_service.client.CatalogClient;
+import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
+import com.tripify.itinerary_service.dto.AddToCartRequestDTO;
+import com.tripify.itinerary_service.dto.BookAllResultDTO;
 import com.tripify.itinerary_service.dto.CatalogItemSummaryDTO;
+import com.tripify.itinerary_service.entity.CatalogItemLike;
 import com.tripify.itinerary_service.entity.FavoriteList;
+import com.tripify.itinerary_service.entity.FavoriteListItem;
 import com.tripify.itinerary_service.entity.FavoriteListLike;
 import com.tripify.itinerary_service.entity.Visibility;
 import com.tripify.itinerary_service.exception.ListNotFoundException;
 import com.tripify.itinerary_service.exception.NotListOwnerException;
 import com.tripify.itinerary_service.exception.PublishRequirementsNotMetException;
+import com.tripify.itinerary_service.repository.CatalogItemLikeRepository;
 import com.tripify.itinerary_service.repository.FavoriteListLikeRepository;
 import com.tripify.itinerary_service.repository.FavoriteListRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -27,7 +37,9 @@ public class ItineraryService {
 
     private final FavoriteListRepository repository;
     private final FavoriteListLikeRepository likeRepository;
+    private final CatalogItemLikeRepository catalogItemLikeRepository;
     private final CatalogClient catalogClient;
+    private final BookingClient bookingClient;
 
     public FavoriteList createList(String name, String ownerId) {
         FavoriteList list = FavoriteList.builder()
@@ -37,9 +49,16 @@ public class ItineraryService {
         return repository.save(list);
     }
 
-    public void addItemToList(Long listId, Long itemId, String requesterId) {
+    public void addItemToList(Long listId, AddListItemRequestDTO request, String requesterId) {
         FavoriteList list = getOwnedList(listId, requesterId);
-        list.getCatalogItemIds().add(itemId);
+        list.getItems().add(FavoriteListItem.builder()
+                .catalogItemId(request.catalogItemId())
+                .quantity(request.quantity() != null ? request.quantity() : 1)
+                .roomTypeId(request.roomTypeId())
+                .fareClassId(request.fareClassId())
+                .checkIn(request.checkIn())
+                .checkOut(request.checkOut())
+                .build());
         repository.save(list);
     }
 
@@ -55,10 +74,52 @@ public class ItineraryService {
     }
 
     public List<FavoriteList> getUserLists(String userId) {
-        // Ritorna sia le proprie che quelle condivise
+        // Ritorna sia le proprie che quelle condivise. Usata da "Le mie liste" (dove si
+        // può anche aggiungere un item), quindi include solo liste su cui si può agire,
+        // non gli itinerari altrui a cui si è messo semplicemente like.
         List<FavoriteList> owned = repository.findByOwnerId(userId);
         owned.addAll(repository.findBySharedUserIdsContaining(userId));
         return owned;
+    }
+
+    /**
+     * "Salvati": tutto ciò che l'utente considera suo in senso lato — le liste che
+     * possiede, quelle condivise con lui, e gli itinerari pubblici altrui a cui ha
+     * messo like. A differenza di getUserLists() questa è pensata solo per la
+     * visualizzazione, non per poterci aggiungere componenti.
+     */
+    public List<FavoriteList> getSavedLists(String userId) {
+        Map<Long, FavoriteList> merged = new LinkedHashMap<>();
+        for (FavoriteList list : repository.findByOwnerId(userId)) merged.put(list.getId(), list);
+        for (FavoriteList list : repository.findBySharedUserIdsContaining(userId)) merged.putIfAbsent(list.getId(), list);
+
+        List<Long> likedListIds = likeRepository.findByUserId(userId).stream().map(FavoriteListLike::getListId).toList();
+        if (!likedListIds.isEmpty()) {
+            for (FavoriteList list : repository.findAllById(likedListIds)) merged.putIfAbsent(list.getId(), list);
+        }
+
+        List<FavoriteList> result = new ArrayList<>(merged.values());
+        applyLikedByMe(result, userId);
+        return result;
+    }
+
+    /** Mette/toglie il like a un singolo elemento del catalogo (non a un'intera lista). */
+    @Transactional
+    public boolean toggleCatalogItemLike(Long catalogItemId, String userId) {
+        var existing = catalogItemLikeRepository.findByUserIdAndCatalogItemId(userId, catalogItemId);
+        if (existing.isPresent()) {
+            catalogItemLikeRepository.delete(existing.get());
+            return false;
+        }
+        catalogItemLikeRepository.save(CatalogItemLike.builder().userId(userId).catalogItemId(catalogItemId).build());
+        return true;
+    }
+
+    /** Id dei componenti di catalogo a cui l'utente ha messo like singolarmente, più recenti prima. */
+    public List<Long> getLikedCatalogItemIds(String userId) {
+        return catalogItemLikeRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(CatalogItemLike::getCatalogItemId)
+                .toList();
     }
 
     public FavoriteList getById(Long listId) {
@@ -81,6 +142,16 @@ public class ItineraryService {
         return repository.findByPublicToken(token)
                 .filter(list -> list.getVisibility() == Visibility.PUBLIC)
                 .orElseThrow(() -> new ListNotFoundException("Nessuna lista pubblica trovata per questo link"));
+    }
+
+    /** Valorizza likedByMe su una lista in base a chi sta guardando (null se non autenticato). */
+    public void applyLikedByMe(FavoriteList list, String requesterId) {
+        list.setLikedByMe(requesterId != null && likeRepository.existsByListIdAndUserId(list.getId(), requesterId));
+    }
+
+    public void applyLikedByMe(List<FavoriteList> lists, String requesterId) {
+        if (requesterId == null) return;
+        lists.forEach(list -> applyLikedByMe(list, requesterId));
     }
 
     /**
@@ -107,7 +178,8 @@ public class ItineraryService {
 
     private void validatePublishRequirements(FavoriteList list) {
         int flights = 0, hotels = 0, activities = 0;
-        for (Long itemId : list.getCatalogItemIds()) {
+        for (FavoriteListItem listItem : list.getItems()) {
+            Long itemId = listItem.getCatalogItemId();
             CatalogItemSummaryDTO item;
             try {
                 item = catalogClient.getItem(itemId);
@@ -170,6 +242,35 @@ public class ItineraryService {
         FavoriteList list = getById(listId);
         list.setBookingsCount(list.getBookingsCount() + 1);
         repository.save(list);
+    }
+
+    /**
+     * "Prenota tutto": aggiunge ogni componente della lista al carrello reale
+     * dell'utente su booking-service, propagando il suo JWT così l'identità è
+     * verificata da booking-service esattamente come per una singola aggiunta
+     * manuale al carrello. Continua anche se un componente fallisce, per non
+     * bloccare gli altri; il contatore best-effort viene comunque incrementato.
+     */
+    public BookAllResultDTO bookAllItems(Long listId, String requesterId, String rawJwt) {
+        FavoriteList list = getAccessibleById(listId, requesterId);
+        String authorizationHeader = "Bearer " + rawJwt;
+
+        int successCount = 0;
+        List<String> errors = new ArrayList<>();
+        for (FavoriteListItem item : list.getItems()) {
+            try {
+                bookingClient.addToCart(authorizationHeader, new AddToCartRequestDTO(
+                        item.getCatalogItemId(), item.getQuantity(),
+                        item.getRoomTypeId(), item.getFareClassId(),
+                        item.getCheckIn(), item.getCheckOut()));
+                successCount++;
+            } catch (Exception e) {
+                errors.add("Componente " + item.getCatalogItemId() + ": " + e.getMessage());
+            }
+        }
+
+        registerBookingAttempt(listId);
+        return new BookAllResultDTO(successCount, list.getItems().size(), errors);
     }
 
     private FavoriteList getOwnedList(Long listId, String requesterId) {

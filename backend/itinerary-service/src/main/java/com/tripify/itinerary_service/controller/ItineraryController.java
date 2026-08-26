@@ -1,5 +1,7 @@
 package com.tripify.itinerary_service.controller;
 
+import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
+import com.tripify.itinerary_service.dto.BookAllResultDTO;
 import com.tripify.itinerary_service.dto.CreateListRequestDTO;
 import com.tripify.itinerary_service.dto.UpdateVisibilityRequestDTO;
 import com.tripify.itinerary_service.entity.FavoriteList;
@@ -30,9 +32,9 @@ public class ItineraryController {
     }
 
     @PostMapping("/{id}/items")
-    public ResponseEntity<Void> addItem(@PathVariable Long id, @RequestParam Long itemId,
+    public ResponseEntity<Void> addItem(@PathVariable Long id, @Valid @RequestBody AddListItemRequestDTO request,
                                          @AuthenticationPrincipal Jwt jwt) {
-        service.addItemToList(id, itemId, jwt.getSubject());
+        service.addItemToList(id, request, jwt.getSubject());
         return ResponseEntity.ok().build();
     }
 
@@ -48,9 +50,29 @@ public class ItineraryController {
         return ResponseEntity.ok(service.getUserLists(jwt.getSubject()));
     }
 
+    /** "Salvati": liste proprie + condivise + itinerari altrui a cui si è messo like. */
+    @GetMapping("/saved")
+    public ResponseEntity<List<FavoriteList>> getSavedLists(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.getSavedLists(jwt.getSubject()));
+    }
+
+    @PostMapping("/catalog-likes/{catalogItemId}")
+    public ResponseEntity<Map<String, Boolean>> toggleCatalogItemLike(@PathVariable Long catalogItemId,
+                                                                        @AuthenticationPrincipal Jwt jwt) {
+        boolean liked = service.toggleCatalogItemLike(catalogItemId, jwt.getSubject());
+        return ResponseEntity.ok(Map.of("liked", liked));
+    }
+
+    @GetMapping("/catalog-likes/mine")
+    public ResponseEntity<List<Long>> getMyLikedCatalogItems(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.getLikedCatalogItemIds(jwt.getSubject()));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<FavoriteList> getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(service.getAccessibleById(id, jwt.getSubject()));
+        FavoriteList list = service.getAccessibleById(id, jwt.getSubject());
+        service.applyLikedByMe(list, jwt.getSubject());
+        return ResponseEntity.ok(list);
     }
 
     @PatchMapping("/{id}/visibility")
@@ -73,16 +95,33 @@ public class ItineraryController {
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * "Prenota tutto": aggiunge ogni componente della lista al carrello reale su
+     * booking-service, propagando il JWT dell'utente corrente (booking-service
+     * ricava l'identità solo dal token, non da un header).
+     */
+    @PostMapping("/{id}/book-all")
+    public ResponseEntity<BookAllResultDTO> bookAll(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        BookAllResultDTO result = service.bookAllItems(id, jwt.getSubject(), jwt.getTokenValue());
+        return ResponseEntity.ok(result);
+    }
+
     // --- Feed pubblico e link con capabilities: nessuna autenticazione richiesta ---
 
     @GetMapping("/public")
     public ResponseEntity<List<FavoriteList>> getPublicFeed(@RequestParam(required = false) String city,
-                                                              @RequestParam(required = false) String sort) {
-        return ResponseEntity.ok(service.getPublicFeed(city, sort));
+                                                              @RequestParam(required = false) String sort,
+                                                              @AuthenticationPrincipal Jwt jwt) {
+        List<FavoriteList> feed = service.getPublicFeed(city, sort);
+        service.applyLikedByMe(feed, jwt != null ? jwt.getSubject() : null);
+        return ResponseEntity.ok(feed);
     }
 
     @GetMapping("/public/{publicToken}")
-    public ResponseEntity<FavoriteList> getByPublicToken(@PathVariable String publicToken) {
-        return ResponseEntity.ok(service.getByPublicToken(publicToken));
+    public ResponseEntity<FavoriteList> getByPublicToken(@PathVariable String publicToken,
+                                                          @AuthenticationPrincipal Jwt jwt) {
+        FavoriteList list = service.getByPublicToken(publicToken);
+        service.applyLikedByMe(list, jwt != null ? jwt.getSubject() : null);
+        return ResponseEntity.ok(list);
     }
 }

@@ -14,11 +14,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.data.CreateListRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
@@ -27,22 +31,29 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * "Le mie liste": crea nuovi itinerari e li apre per aggiungerci componenti prima
- * di eventualmente pubblicarli. Usa direttamente ItineraryApi (nessuno stato
- * condiviso complesso serve qui, solo lista + creazione).
+ * Due modalità nella stessa schermata:
+ * - "Le mie liste" (showSavedContent=false): solo le liste che possiedi, con FAB per
+ *   crearne di nuove — usata quando devi poterci aggiungere/gestire componenti.
+ * - "Salvati" (showSavedContent=true): tutto ciò che hai salvato in senso lato — le
+ *   tue liste, quelle condivise, gli itinerari altrui a cui hai messo like, e i
+ *   singoli elementi del catalogo a cui hai messo like — sola visualizzazione.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyItinerariesScreen(
     tokenManager: TokenManager,
     onNavigateBack: () -> Unit,
-    onNavigateToDetail: (Long) -> Unit
+    onNavigateToDetail: (Long) -> Unit,
+    catalogViewModel: CatalogViewModel? = null,
+    showSavedContent: Boolean = false,
+    onNavigateToCatalogItem: (Long) -> Unit = {}
 ) {
     val api = remember { ItineraryRetrofit.create(tokenManager) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var lists by remember { mutableStateOf<List<FavoriteListDto>>(emptyList()) }
+    var likedCatalogItems by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isLoggedIn by remember { mutableStateOf(true) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -51,10 +62,18 @@ fun MyItinerariesScreen(
         scope.launch {
             isLoading = true
             try {
-                val response = api.getMyLists()
+                val response = if (showSavedContent) api.getSavedLists() else api.getMyLists()
                 if (response.isSuccessful) lists = response.body() ?: emptyList()
+
+                if (showSavedContent && catalogViewModel != null) {
+                    val likedIdsResponse = api.getLikedCatalogItemIds()
+                    if (likedIdsResponse.isSuccessful) {
+                        val ids = likedIdsResponse.body() ?: emptyList()
+                        likedCatalogItems = ids.mapNotNull { catalogViewModel.getOrFetchItem(it.toInt()) }
+                    }
+                }
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar("Impossibile caricare le tue liste")
+                snackbarHostState.showSnackbar("Impossibile caricare i tuoi salvati")
             }
             isLoading = false
         }
@@ -111,7 +130,7 @@ fun MyItinerariesScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Le mie liste", style = CatalogType.TitleCompact, color = CatalogColors.Ink) },
+                title = { Text(if (showSavedContent) "Salvati" else "Le mie liste", style = CatalogType.TitleCompact, color = CatalogColors.Ink) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
@@ -129,6 +148,7 @@ fun MyItinerariesScreen(
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            val isEmpty = lists.isEmpty() && likedCatalogItems.isEmpty()
             when {
                 !isLoggedIn -> Column(
                     modifier = Modifier.align(Alignment.Center).padding(40.dp),
@@ -136,12 +156,12 @@ fun MyItinerariesScreen(
                 ) {
                     Icon(Icons.Filled.Lock, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(36.dp))
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Accedi per vedere le tue liste", style = CatalogType.Section, color = CatalogColors.Ink)
+                    Text("Accedi per vedere i tuoi salvati", style = CatalogType.Section, color = CatalogColors.Ink)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("Devi effettuare l'accesso per creare e gestire i tuoi itinerari.", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                    Text("Devi effettuare l'accesso per vedere e gestire i tuoi itinerari.", style = CatalogType.Body, color = CatalogColors.InkMuted)
                 }
                 isLoading -> CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
-                lists.isEmpty() -> Column(
+                isEmpty -> Column(
                     modifier = Modifier.align(Alignment.Center).padding(40.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -150,37 +170,96 @@ fun MyItinerariesScreen(
                     Text("Crea il tuo primo itinerario con il pulsante +", style = CatalogType.Body, color = CatalogColors.InkMuted)
                 }
                 else -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(lists, key = { it.id }) { list ->
-                        Surface(
-                            shape = CatalogShapes.Field,
-                            color = CatalogColors.Surface,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline),
-                            modifier = Modifier.fillMaxWidth().clickable { onNavigateToDetail(list.id) }
-                        ) {
-                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier.size(40.dp).clip(CircleShape).background(CatalogColors.AccentSoft),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val icon = when (list.visibility) {
-                                        "PUBLIC" -> Icons.Filled.Public
-                                        "SHARED" -> Icons.Filled.Group
-                                        else -> Icons.Filled.Lock
-                                    }
-                                    Icon(icon, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(18.dp))
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(list.name, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    val subtitle = if (list.catalogItemIds.size == 1) "1 tappa" else "${list.catalogItemIds.size} tappe"
-                                    Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted)
-                                }
-                                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CatalogColors.InkSubtle)
-                            }
+                    if (lists.isNotEmpty()) {
+                        item(key = "header-lists") {
+                            Text("ITINERARI", style = CatalogType.Overline, color = CatalogColors.InkMuted, modifier = Modifier.padding(bottom = 2.dp))
+                        }
+                        items(lists, key = { "list-${it.id}" }) { list ->
+                            ItineraryListRow(list = list, onClick = { onNavigateToDetail(list.id) })
+                        }
+                    }
+                    if (likedCatalogItems.isNotEmpty()) {
+                        item(key = "header-items") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("OGGETTI SALVATI", style = CatalogType.Overline, color = CatalogColors.InkMuted, modifier = Modifier.padding(bottom = 2.dp))
+                        }
+                        items(likedCatalogItems, key = { "item-${it.id}" }) { item ->
+                            SavedCatalogItemRow(item = item, onClick = { onNavigateToCatalogItem(item.id.toLong()) })
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ItineraryListRow(list: FavoriteListDto, onClick: () -> Unit) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = CatalogColors.Surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(CatalogColors.AccentSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                val icon = when (list.visibility) {
+                    "PUBLIC" -> Icons.Filled.Public
+                    "SHARED" -> Icons.Filled.Group
+                    else -> Icons.Filled.Lock
+                }
+                Icon(icon, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(list.name, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val subtitle = if (list.items.size == 1) "1 tappa" else "${list.items.size} tappe"
+                Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            }
+            if (list.likedByMe) {
+                Icon(Icons.Filled.Favorite, contentDescription = "Piaciuto", tint = CatalogColors.Alert, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CatalogColors.InkSubtle)
+        }
+    }
+}
+
+@Composable
+private fun SavedCatalogItemRow(item: CatalogItem, onClick: () -> Unit) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = CatalogColors.Surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    ) {
+        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = item.imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(52.dp).clip(CatalogShapes.Badge)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                val (icon, label) = when (item) {
+                    is CatalogItem.Flight -> Icons.Filled.Flight to "Volo"
+                    is CatalogItem.Hotel -> Icons.Filled.Hotel to "Hotel"
+                    is CatalogItem.Excursion -> Icons.Filled.Tour to "Attività"
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(label, style = CatalogType.Overline, color = CatalogColors.InkMuted)
+                }
+                Text(item.title, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.Filled.Favorite, contentDescription = "Piaciuto", tint = CatalogColors.Alert, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CatalogColors.InkSubtle)
         }
     }
 }

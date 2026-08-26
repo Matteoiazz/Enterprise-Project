@@ -1,39 +1,65 @@
 package com.tripify.tripify_android.data
 
+import com.tripify.tripify_android.data.model.AddToCartRequestDTO
 import com.tripify.tripify_android.data.model.BookingResponseDTO
 import com.tripify.tripify_android.data.model.CartDTO
+import com.tripify.tripify_android.data.model.PagedResponse
+import com.tripify.tripify_android.data.model.PaymentRequestDTO
+import com.tripify.tripify_android.data.model.PaymentResultDTO
 import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
-import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface BookingApi {
 
-    @GET("api/v1/cart/{userId}")
-    suspend fun getCartForUser(
-        @Path("userId") userId: String
-    ): Response<CartDTO>
+    // L'utente non si passa più esplicitamente (né come path, né come header
+    // X-User-Id): il backend lo ricava dal JWT che AuthInterceptor allega già
+    // in automatico a ogni richiesta (header Authorization).
+    @GET("api/v1/cart")
+    suspend fun getCart(): Response<CartDTO>
 
-    @POST("api/v1/cart/{userId}/add")
+    // catalogItemId/quantity (e opzionalmente roomTypeId/fareClassId/checkIn/
+    // checkOut per camere e voli) vanno ora nel body, non più come query param.
+    @POST("api/v1/cart/add")
     suspend fun addToCart(
-        @Path("userId") userId: String,
-        @Query("catalogItemId") catalogItemId: Long,
-        @Query("quantity") quantity: Int,
+        @Body request: AddToCartRequestDTO
     ): Response<Unit>
 
-    // NUOVO: Chiede lo storico dei viaggi leggendo l'utente sicuro dall'Header
+    @DELETE("api/v1/cart/clear")
+    suspend fun clearCart(): Response<Unit>
+
+    // Trasforma il carrello dell'utente autenticato in una prenotazione PENDING.
+    @POST("api/v1/bookings/checkout")
+    suspend fun checkout(): Response<BookingResponseDTO>
+
+    // Storico dei viaggi, ora paginato lato server.
     @GET("api/v1/bookings/user")
     suspend fun getUserBookings(
-        @Header("X-User-Id") userId: String
-    ): Response<List<BookingResponseDTO>>
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): Response<PagedResponse<BookingResponseDTO>>
 
-    // NUOVO: Permette al Leader di invitare un amico a un viaggio
+    // Permette al Leader di invitare un amico a un viaggio
     @POST("api/v1/bookings/{bookingId}/invite")
     suspend fun inviteFriend(
         @Path("bookingId") bookingId: Long,
-        @Header("X-User-Id") leaderId: String,
         @Query("friendId") friendId: String
     ): Response<BookingResponseDTO>
+
+    // Annulla una prenotazione (solo il Leader); se era già pagata avvia anche il rimborso.
+    @POST("api/v1/bookings/{bookingId}/cancel")
+    suspend fun cancelBooking(
+        @Path("bookingId") bookingId: Long
+    ): Response<BookingResponseDTO>
+
+    // Simula l'addebito sulla carta e, se approvato, conferma la prenotazione
+    // (PENDING -> CONFIRMED) lato booking-service.
+    @POST("api/v1/payments/process")
+    suspend fun processPayment(
+        @Body request: PaymentRequestDTO
+    ): Response<PaymentResultDTO>
 }

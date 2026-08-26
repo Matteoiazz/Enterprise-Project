@@ -20,11 +20,21 @@ interface ItineraryApi {
     @GET("api/v1/itinerary/mine")
     suspend fun getMyLists(): Response<List<FavoriteListDto>>
 
+    /** "Salvati": liste proprie + condivise + itinerari altrui a cui si è messo like. */
+    @GET("api/v1/itinerary/saved")
+    suspend fun getSavedLists(): Response<List<FavoriteListDto>>
+
+    @POST("api/v1/itinerary/catalog-likes/{catalogItemId}")
+    suspend fun toggleCatalogItemLike(@Path("catalogItemId") catalogItemId: Long): Response<LikeResponse>
+
+    @GET("api/v1/itinerary/catalog-likes/mine")
+    suspend fun getLikedCatalogItemIds(): Response<List<Long>>
+
     @POST("api/v1/itinerary")
     suspend fun createList(@Body request: CreateListRequest): Response<FavoriteListDto>
 
     @POST("api/v1/itinerary/{id}/items")
-    suspend fun addItem(@Path("id") id: Long, @Query("itemId") itemId: Long): Response<Unit>
+    suspend fun addItem(@Path("id") id: Long, @Body request: AddListItemRequest): Response<Unit>
 
     @PUT("api/v1/itinerary/{id}/share")
     suspend fun share(@Path("id") id: Long, @Query("userId") userId: String): Response<Unit>
@@ -37,4 +47,8 @@ interface ItineraryApi {
 
     @POST("api/v1/itinerary/{id}/booked")
     suspend fun registerBookingAttempt(@Path("id") id: Long): Response<Unit>
+
+    /** "Prenota tutto": booking-service riceve ogni componente della lista con hold su room/fare quando presenti. */
+    @POST("api/v1/itinerary/{id}/book-all")
+    suspend fun bookAll(@Path("id") id: Long): Response<BookAllResultDto>
 }
