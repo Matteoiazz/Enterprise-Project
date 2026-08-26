@@ -3,11 +3,15 @@ package com.tripify.tripify_android.profile.api
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.profile.model.CompanionDto
+import okhttp3.MultipartBody
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 
 interface ProfileApiService {
@@ -36,11 +40,17 @@ interface ProfileApiService {
     suspend fun addPaymentMethod(@Body dto: PaymentMethodDto): PaymentMethodDto
 
     @DELETE("/api/v1/profile/me")
-    suspend fun deleteMyAccount(): retrofit2.Response<Unit>
+    suspend fun deleteMyAccount(): Response<Unit>
 
     @PUT("/api/v1/profile/me")
-    suspend fun updateProfile(@Body request: com.tripify.tripify_android.data.model.UpdateProfileRequest): retrofit2.Response<Unit>
+    suspend fun updateProfile(@Body request: com.tripify.tripify_android.data.model.UpdateProfileRequest): Response<Unit>
 
     @DELETE("/api/v1/profile/payments/{id}")
     suspend fun deletePaymentMethod(@Path("id") id: String)
+
+    @Multipart
+    @POST("/api/v1/profile/me/picture")
+    suspend fun uploadProfilePicture(
+        @Part file: MultipartBody.Part
+    ): Response<Map<String, String>>
 }

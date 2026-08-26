@@ -1,5 +1,6 @@
 package com.tripify.user_auth_service.service;
 
+import com.cloudinary.Cloudinary;
 import com.tripify.user_auth_service.dto.request.CompanionDto;
 import com.tripify.user_auth_service.dto.request.PaymentMethodDto;
 import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
@@ -30,6 +31,7 @@ public class ProfileService {
     private final CompanionRepository companionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final TravelDocumentRepository documentRepository;
+    private final Cloudinary cloudinary;
 
 
     public User getUser(String email) {
@@ -206,5 +208,23 @@ public class ProfileService {
         }
 
         return user;
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public String uploadProfilePicture(String email, org.springframework.web.multipart.MultipartFile file) {
+        User user = getUser(email);
+        try {
+            java.util.Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
+                    com.cloudinary.utils.ObjectUtils.asMap("folder", "tripify_profiles"));
+
+            String imageUrl = uploadResult.get("url").toString();
+
+            user.setProfilePictureUrl(imageUrl);
+            userRepository.save(user);
+
+            return imageUrl;
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Errore durante l'upload dell'immagine", e);
+        }
     }
 }

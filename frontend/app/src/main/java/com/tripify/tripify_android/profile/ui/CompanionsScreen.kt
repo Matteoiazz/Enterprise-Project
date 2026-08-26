@@ -22,10 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -33,11 +31,10 @@ import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-// I tuoi colori core
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,7 +55,6 @@ fun CompanionsScreen(
         viewModel.loadCompanions()
     }
 
-    // Gestione Errori via Snackbar
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -74,10 +70,8 @@ fun CompanionsScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            "COMPAGNI DI VIAGGIO",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = 2.sp,
+                            text = "COMPAGNI DI VIAGGIO",
+                            style = CatalogType.Wordmark,
                             color = TripifyDarkGreen
                         )
                     },
@@ -171,11 +165,17 @@ fun EmptyCompanionsState(modifier: Modifier = Modifier) {
             Icon(Icons.Outlined.GroupAdd, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Porta chi vuoi", fontSize = 22.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen)
+        Text(
+            text = "Porta chi vuoi",
+            style = CatalogType.Section,
+            color = TripifyDarkGreen
+        )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Aggiungi amici o familiari (solo maggiorenni) per velocizzare le prenotazioni.",
-            textAlign = TextAlign.Center, color = Color.Gray, fontSize = 15.sp, lineHeight = 22.sp
+            style = CatalogType.Body,
+            textAlign = TextAlign.Center,
+            color = Color.Gray
         )
     }
 }
@@ -195,11 +195,28 @@ fun CompanionTicketCard(firstName: String, lastName: String, dob: String, onDele
             Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(TripifyGreen))
 
             Column(modifier = Modifier.weight(1f).padding(20.dp)) {
-                Text(text = "NOME PASSEGGERO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
-                Text(text = "$firstName $lastName".uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Black, color = TripifyDarkGreen, maxLines = 1)
+                Text(
+                    text = "NOME PASSEGGERO",
+                    style = CatalogType.Overline,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "$firstName $lastName".uppercase(),
+                    style = CatalogType.CardTitle,
+                    color = TripifyDarkGreen,
+                    maxLines = 1
+                )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text(text = "DATA DI NASCITA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
-                Text(text = dob, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TripifyDarkGreen)
+                Text(
+                    text = "DATA DI NASCITA",
+                    style = CatalogType.Overline,
+                    color = Color.Gray
+                )
+                Text(
+                    text = dob,
+                    style = CatalogType.BodyStrong,
+                    color = TripifyDarkGreen
+                )
             }
 
             Canvas(modifier = Modifier.width(1.dp).fillMaxHeight().padding(vertical = 12.dp)) {
@@ -236,7 +253,6 @@ fun BoardingPassFormSheet(
     var cognome by remember { mutableStateOf("") }
     var dataNascita by remember { mutableStateOf("") }
 
-    // Logica validazione +18
     var isDateError by remember { mutableStateOf(false) }
     var dateErrorMsg by remember { mutableStateOf("") }
 
@@ -253,7 +269,6 @@ fun BoardingPassFormSheet(
                             val localDate = Instant.ofEpochMilli(millis).atZone(ZoneId.of("UTC")).toLocalDate()
                             dataNascita = localDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
-                            // Calcolo Età (+18)
                             val age = Period.between(localDate, LocalDate.now()).years
                             if (localDate.isAfter(LocalDate.now())) {
                                 isDateError = true
@@ -268,10 +283,10 @@ fun BoardingPassFormSheet(
                         }
                         showDatePicker = false
                     }
-                ) { Text("CONFERMA", color = TripifyDarkGreen, fontWeight = FontWeight.Bold) }
+                ) { Text("CONFERMA", style = CatalogType.Button, color = TripifyDarkGreen) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", style = CatalogType.Button, color = Color.Gray) }
             },
             colors = DatePickerDefaults.colors(containerColor = Color.White)
         ) {
@@ -301,7 +316,11 @@ fun BoardingPassFormSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("TRIPIFY TRAVEL ID", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 2.sp, fontSize = 14.sp)
+                    Text(
+                        text = "TRIPIFY TRAVEL ID",
+                        style = CatalogType.Overline,
+                        color = Color.White
+                    )
                     Icon(Icons.Outlined.FlightTakeoff, contentDescription = null, tint = Color.White)
                 }
 
@@ -312,17 +331,16 @@ fun BoardingPassFormSheet(
                     PremiumTextField(value = nome, label = "Nome", onValueChange = { nome = it })
                     PremiumTextField(value = cognome, label = "Cognome", onValueChange = { cognome = it })
 
-                    // Campo Data (con errore integrato se minorenne)
                     Box(modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }) {
                         TextField(
                             value = dataNascita,
                             onValueChange = {},
                             readOnly = true,
                             enabled = false,
-                            label = { Text("Data di Nascita", fontWeight = FontWeight.SemiBold, color = if (isDateError) MaterialTheme.colorScheme.error else Color.Gray) },
-                            placeholder = { Text("Seleziona dal calendario", color = Color.LightGray) },
+                            label = { Text("Data di Nascita", style = CatalogType.LabelStrong, color = if (isDateError) MaterialTheme.colorScheme.error else Color.Gray) },
+                            placeholder = { Text("Seleziona dal calendario", style = CatalogType.Body, color = Color.LightGray) },
                             isError = isDateError,
-                            supportingText = if (isDateError) { { Text(dateErrorMsg, color = MaterialTheme.colorScheme.error) } } else null,
+                            supportingText = if (isDateError) { { Text(dateErrorMsg, style = CatalogType.Caption, color = MaterialTheme.colorScheme.error) } } else null,
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.CalendarMonth,
@@ -384,12 +402,12 @@ fun BoardingPassFormSheet(
                     shape = RoundedCornerShape(14.dp),
                     enabled = isFormValid
                 ) {
-                    Text("EMETTI TRAVEL ID", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("EMETTI TRAVEL ID", style = CatalogType.Button)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("ANNULLA", color = Color.Gray, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("ANNULLA", style = CatalogType.Button, color = Color.Gray)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -408,7 +426,7 @@ fun PremiumTextField(
     TextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, fontWeight = FontWeight.SemiBold, color = Color.Gray) },
+        label = { Text(label, style = CatalogType.LabelStrong, color = Color.Gray) },
         modifier = Modifier.fillMaxWidth(),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color(0xFFF4F7F5),
@@ -418,6 +436,7 @@ fun PremiumTextField(
             focusedTextColor = TripifyDarkGreen,
             unfocusedTextColor = TripifyDarkGreen
         ),
+        textStyle = CatalogType.BodyStrong,
         shape = RoundedCornerShape(12.dp),
         singleLine = true
     )

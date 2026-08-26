@@ -1,9 +1,11 @@
 package com.tripify.tripify_android.profile.ui
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -12,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -25,18 +28,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
-
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
-
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +73,7 @@ fun ProfileScreen(
         }
     }
 
-    val isLoggedIn = viewModel.name.isNotEmpty() && viewModel.errorMessage == null
+    val isLoggedIn = viewModel.name.isNotEmpty()
 
     Scaffold(
         containerColor = SfondoPremium,
@@ -80,9 +83,7 @@ fun ProfileScreen(
                     title = {
                         Text(
                             text = "PROFILO",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = 2.sp,
+                            style = CatalogType.Wordmark,
                             color = TripifyDarkGreen
                         )
                     },
@@ -108,6 +109,7 @@ fun ProfileScreen(
             } else {
                 LoggedProfileContent(
                     viewModel = viewModel,
+                    context = context,
                     onNavigateToCompanions = onNavigateToCompanions,
                     onNavigateToTravelDocuments = onNavigateToTravelDocuments,
                     onNavigateToPaymentMethods = onNavigateToPaymentMethods,
@@ -156,18 +158,16 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
         Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = "Accedi al tuo mondo",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Black,
+            style = CatalogType.DetailTitle,
             color = TripifyDarkGreen,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Gestisci i documenti, i compagni di viaggio e velocizza i pagamenti in un unico posto.",
+            style = CatalogType.Body,
             textAlign = TextAlign.Center,
-            color = Color.Gray,
-            fontSize = 15.sp,
-            lineHeight = 22.sp
+            color = Color.Gray
         )
         Spacer(modifier = Modifier.height(48.dp))
         Button(
@@ -179,7 +179,7 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
             shape = RoundedCornerShape(16.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp, pressedElevation = 2.dp)
         ) {
-            Text("ACCEDI O REGISTRATI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, letterSpacing = 1.sp)
+            Text("ACCEDI O REGISTRATI", style = CatalogType.Button, color = Color.White)
         }
     }
 }
@@ -187,6 +187,7 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
 @Composable
 fun LoggedProfileContent(
     viewModel: ProfileViewModel,
+    context: android.content.Context,
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
@@ -195,12 +196,17 @@ fun LoggedProfileContent(
 ) {
     val cardOverlap = 32.dp
 
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.uploadProfilePicture(context, it) }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = PaddingValues(bottom = 40.dp)
     ) {
-        // --- HERO HEADER ---
         item {
             Box(
                 modifier = Modifier
@@ -218,45 +224,74 @@ fun LoggedProfileContent(
                     modifier = Modifier.offset(y = (-16).dp)
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(90.dp)
-                            .background(Color.White, CircleShape),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.size(90.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(82.dp)
-                                .clip(CircleShape)
-                                .background(TripifyGreen.copy(alpha = 0.15f)),
+                                .size(90.dp)
+                                .background(Color.White, CircleShape)
+                                .clickable { imagePickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = viewModel.name.take(1).uppercase() + viewModel.surname.take(1).uppercase(),
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Black,
-                                color = TripifyDarkGreen
-                            )
+                            if (viewModel.profilePictureUrl != null) {
+                                AsyncImage(
+                                    model = viewModel.profilePictureUrl,
+                                    contentDescription = "Foto Profilo",
+                                    modifier = Modifier.size(82.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.size(82.dp).clip(CircleShape).background(TripifyGreen.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = viewModel.name.take(1).uppercase() + viewModel.surname.take(1).uppercase(),
+                                        style = CatalogType.DetailTitle,
+                                        color = TripifyDarkGreen
+                                    )
+                                }
+                            }
+
+                            if (viewModel.isUploadingImage) {
+                                Box(
+                                    modifier = Modifier.size(82.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .offset(x = (-4).dp, y = (-4).dp)
+                                .size(28.dp)
+                                .background(TripifyDarkGreen, CircleShape)
+                                .border(2.dp, Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                         }
                     }
+
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "${viewModel.name} ${viewModel.surname}".trim().ifEmpty { "Utente Tripify" },
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
+                        style = CatalogType.DetailTitle,
                         color = Color.White
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = viewModel.email,
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Medium
+                        style = CatalogType.BodyStrong,
+                        color = Color.White.copy(alpha = 0.7f)
                     )
                 }
             }
         }
 
-        // --- MENU CARD SOVRAPPOSTA ---
         item {
             Card(
                 modifier = Modifier
@@ -296,14 +331,12 @@ fun LoggedProfileContent(
             }
         }
 
-        // --- TASTO LOGOUT ESTRA-CARD ---
         item {
             Button(
                 onClick = onLogoutClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    // Compensa l'offset della card
                     .offset(y = -cardOverlap + 24.dp)
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -321,8 +354,7 @@ fun LoggedProfileContent(
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Esci dall'account",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
+                    style = CatalogType.Button
                 )
             }
         }
@@ -344,7 +376,6 @@ fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icona premium nel tondino
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -361,8 +392,7 @@ fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = text,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                style = CatalogType.LabelStrong,
                 color = TripifyDarkGreen,
                 modifier = Modifier.weight(1f)
             )

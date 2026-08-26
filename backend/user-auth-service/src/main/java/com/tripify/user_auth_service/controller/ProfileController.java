@@ -87,11 +87,10 @@ public class ProfileController {
         String displayCognome = user.getSurname() != null ? user.getSurname() : "";
 
         return ResponseEntity.ok(new com.tripify.user_auth_service.dto.response.UserResponse(
-                displayNome, displayCognome, email
+                displayNome, displayCognome, email,user.getProfilePictureUrl()
         ));
     }
 
-    // --- ELIMINAZIONE ACCOUNT (DANGER ZONE) ---
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMyAccount(@AuthenticationPrincipal Jwt jwt) {
         String email = jwt.getClaimAsString("email");
@@ -113,5 +112,16 @@ public class ProfileController {
         profileService.updateUserProfile(email, keycloakUserId, request);
 
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/me/picture")
+    public ResponseEntity<java.util.Map<String, String>> uploadProfilePicture(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+
+        String email = jwt.getClaimAsString("email");
+        String imageUrl = profileService.uploadProfilePicture(email, file);
+
+        return ResponseEntity.ok(java.util.Map.of("imageUrl", imageUrl));
     }
 }

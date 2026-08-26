@@ -15,18 +15,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tripify.tripify_android.core.theme.SfondoPremium
 import com.tripify.tripify_android.core.theme.TripifyDarkGreen
 import com.tripify.tripify_android.core.theme.TripifyGreen
 import com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,9 +49,7 @@ fun SettingsScreen(
                     title = {
                         Text(
                             text = "IMPOSTAZIONI",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = 2.sp,
+                            style = CatalogType.Wordmark,
                             color = TripifyDarkGreen
                         )
                     },
@@ -74,12 +70,10 @@ fun SettingsScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 40.dp)
         ) {
-            // --- HERO HEADER (Come nella HomeScreen) ---
             item(key = "hero") {
                 SettingsHeroHeader()
             }
 
-            // --- MENU IMPOSTAZIONI SOVRAPPOSTO ---
             item(key = "settings_card") {
                 Box(modifier = Modifier.offset(y = (-32).dp).padding(horizontal = 20.dp)) {
                     Card(
@@ -89,8 +83,6 @@ fun SettingsScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
                         Column(modifier = Modifier.padding(vertical = 12.dp)) {
-
-                            // SEZIONE 1: Preferenze
                             SettingsSectionTitle("Preferenze di Viaggio")
                             SettingsSwitchRow(
                                 icon = Icons.Default.Straighten,
@@ -108,8 +100,6 @@ fun SettingsScreen(
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            // SEZIONE 2: Notifiche
                             SettingsSectionTitle("Avvisi e Notifiche")
                             SettingsSwitchRow(
                                 icon = Icons.Default.NotificationsActive,
@@ -127,8 +117,6 @@ fun SettingsScreen(
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            // SEZIONE 3: Sicurezza
                             SettingsSectionTitle("Account e Sicurezza")
                             SettingsActionRow(
                                 icon = Icons.Default.ManageAccounts,
@@ -142,7 +130,6 @@ fun SettingsScreen(
                 }
             }
 
-            // --- TASTO ELIMINA ACCOUNT ESTRA-CARD ---
             item(key = "danger_zone") {
                 Button(
                     onClick = { showDeleteDialog = true },
@@ -160,12 +147,11 @@ fun SettingsScreen(
                 ) {
                     Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("Elimina Account Definitivamente", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Elimina Account Definitivamente", style = CatalogType.Button)
                 }
             }
         }
 
-        // --- DIALOG CONFERMA ---
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
@@ -189,19 +175,17 @@ fun SettingsScreen(
                 title = {
                     Text(
                         text = "Elimina Account",
-                        fontWeight = FontWeight.Black,
+                        style = CatalogType.CardTitle,
                         color = TripifyDarkGreen,
-                        fontSize = 22.sp,
                         textAlign = TextAlign.Center
                     )
                 },
                 text = {
                     Text(
                         text = "Sei sicuro di voler eliminare definitivamente il tuo account? Questa azione è irreversibile. Perderai l'accesso a tutte le tue prenotazioni, metodi di pagamento e storico dei viaggi.",
+                        style = CatalogType.Body,
                         color = Color.Gray,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp
+                        textAlign = TextAlign.Center
                     )
                 },
                 confirmButton = {
@@ -214,7 +198,7 @@ fun SettingsScreen(
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
-                        Text("Sì, Elimina Definitivamente", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Sì, Elimina Definitivamente", style = CatalogType.Button, color = Color.White)
                     }
                 },
                 dismissButton = {
@@ -222,7 +206,7 @@ fun SettingsScreen(
                         onClick = { showDeleteDialog = false },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                     ) {
-                        Text("Annulla", color = TripifyDarkGreen, fontWeight = FontWeight.Bold)
+                        Text("Annulla", style = CatalogType.Button, color = TripifyDarkGreen)
                     }
                 }
             )
@@ -244,21 +228,18 @@ private fun SettingsHeroHeader() {
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.offset(y = (-20).dp), // Compensiamo l'overlap della card
+            modifier = Modifier.offset(y = (-20).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "PERSONALIZZA LA TUA APP",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
+                style = CatalogType.Overline,
                 color = Color.White.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Le tue preferenze",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
+                style = CatalogType.Hero,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
@@ -270,9 +251,7 @@ private fun SettingsHeroHeader() {
 fun SettingsSectionTitle(title: String) {
     Text(
         text = title.uppercase(),
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Black,
-        letterSpacing = 1.5.sp,
+        style = CatalogType.Overline,
         color = Color.Gray.copy(alpha = 0.8f),
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp, start = 24.dp)
     )
@@ -304,8 +283,7 @@ fun SettingsSwitchRow(
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+                style = CatalogType.LabelStrong,
                 color = TripifyDarkGreen,
                 modifier = Modifier.weight(1f)
             )
@@ -362,17 +340,15 @@ fun SettingsActionRow(
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+                style = CatalogType.LabelStrong,
                 color = TripifyDarkGreen,
                 modifier = Modifier.weight(1f)
             )
             if (value.isNotEmpty()) {
                 Text(
                     text = value,
-                    fontSize = 14.sp,
+                    style = CatalogType.LabelStrong,
                     color = Color.Gray,
-                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(end = 12.dp)
                 )
             }
