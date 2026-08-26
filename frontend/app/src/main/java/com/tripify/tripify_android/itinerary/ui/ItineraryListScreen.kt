@@ -143,7 +143,7 @@ fun ItineraryListScreen(
                                     title = list.name,
                                     onClick = { onNavigateToDetail(list.id) }
                                 ) {
-                                    val componentsLabel = if (list.catalogItemIds.size == 1) "1 tappa" else "${list.catalogItemIds.size} tappe"
+                                    val componentsLabel = if (list.items.size == 1) "1 tappa" else "${list.items.size} tappe"
                                     PhotoMeta(icon = Icons.Filled.Route, text = componentsLabel)
                                 }
                             }

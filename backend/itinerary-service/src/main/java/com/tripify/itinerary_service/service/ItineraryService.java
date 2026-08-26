@@ -1,9 +1,14 @@
 package com.tripify.itinerary_service.service;
 
+import com.tripify.itinerary_service.client.BookingClient;
 import com.tripify.itinerary_service.client.CatalogClient;
+import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
+import com.tripify.itinerary_service.dto.AddToCartRequestDTO;
+import com.tripify.itinerary_service.dto.BookAllResultDTO;
 import com.tripify.itinerary_service.dto.CatalogItemSummaryDTO;
 import com.tripify.itinerary_service.entity.CatalogItemLike;
 import com.tripify.itinerary_service.entity.FavoriteList;
+import com.tripify.itinerary_service.entity.FavoriteListItem;
 import com.tripify.itinerary_service.entity.FavoriteListLike;
 import com.tripify.itinerary_service.entity.Visibility;
 import com.tripify.itinerary_service.exception.ListNotFoundException;
@@ -34,6 +39,7 @@ public class ItineraryService {
     private final FavoriteListLikeRepository likeRepository;
     private final CatalogItemLikeRepository catalogItemLikeRepository;
     private final CatalogClient catalogClient;
+    private final BookingClient bookingClient;
 
     public FavoriteList createList(String name, String ownerId) {
         FavoriteList list = FavoriteList.builder()
@@ -43,9 +49,16 @@ public class ItineraryService {
         return repository.save(list);
     }
 
-    public void addItemToList(Long listId, Long itemId, String requesterId) {
+    public void addItemToList(Long listId, AddListItemRequestDTO request, String requesterId) {
         FavoriteList list = getOwnedList(listId, requesterId);
-        list.getCatalogItemIds().add(itemId);
+        list.getItems().add(FavoriteListItem.builder()
+                .catalogItemId(request.catalogItemId())
+                .quantity(request.quantity() != null ? request.quantity() : 1)
+                .roomTypeId(request.roomTypeId())
+                .fareClassId(request.fareClassId())
+                .checkIn(request.checkIn())
+                .checkOut(request.checkOut())
+                .build());
         repository.save(list);
     }
 
@@ -165,7 +178,8 @@ public class ItineraryService {
 
     private void validatePublishRequirements(FavoriteList list) {
         int flights = 0, hotels = 0, activities = 0;
-        for (Long itemId : list.getCatalogItemIds()) {
+        for (FavoriteListItem listItem : list.getItems()) {
+            Long itemId = listItem.getCatalogItemId();
             CatalogItemSummaryDTO item;
             try {
                 item = catalogClient.getItem(itemId);
@@ -228,6 +242,35 @@ public class ItineraryService {
         FavoriteList list = getById(listId);
         list.setBookingsCount(list.getBookingsCount() + 1);
         repository.save(list);
+    }
+
+    /**
+     * "Prenota tutto": aggiunge ogni componente della lista al carrello reale
+     * dell'utente su booking-service, propagando il suo JWT così l'identità è
+     * verificata da booking-service esattamente come per una singola aggiunta
+     * manuale al carrello. Continua anche se un componente fallisce, per non
+     * bloccare gli altri; il contatore best-effort viene comunque incrementato.
+     */
+    public BookAllResultDTO bookAllItems(Long listId, String requesterId, String rawJwt) {
+        FavoriteList list = getAccessibleById(listId, requesterId);
+        String authorizationHeader = "Bearer " + rawJwt;
+
+        int successCount = 0;
+        List<String> errors = new ArrayList<>();
+        for (FavoriteListItem item : list.getItems()) {
+            try {
+                bookingClient.addToCart(authorizationHeader, new AddToCartRequestDTO(
+                        item.getCatalogItemId(), item.getQuantity(),
+                        item.getRoomTypeId(), item.getFareClassId(),
+                        item.getCheckIn(), item.getCheckOut()));
+                successCount++;
+            } catch (Exception e) {
+                errors.add("Componente " + item.getCatalogItemId() + ": " + e.getMessage());
+            }
+        }
+
+        registerBookingAttempt(listId);
+        return new BookAllResultDTO(successCount, list.getItems().size(), errors);
     }
 
     private FavoriteList getOwnedList(Long listId, String requesterId) {

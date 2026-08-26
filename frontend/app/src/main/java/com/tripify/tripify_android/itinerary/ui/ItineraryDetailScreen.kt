@@ -181,11 +181,11 @@ fun ItineraryDetailScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            list.catalogItemIds.forEach { itemId ->
+                            list.items.forEach { item ->
                                 ItineraryComponentRow(
-                                    itemId = itemId,
+                                    itemId = item.catalogItemId,
                                     catalogViewModel = catalogViewModel,
-                                    onClick = { onNavigateToComponent(itemId.toString()) }
+                                    onClick = { onNavigateToComponent(item.catalogItemId.toString()) }
                                 )
                             }
                         }

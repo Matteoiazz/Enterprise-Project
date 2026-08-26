@@ -34,7 +34,7 @@ interface ItineraryApi {
     suspend fun createList(@Body request: CreateListRequest): Response<FavoriteListDto>
 
     @POST("api/v1/itinerary/{id}/items")
-    suspend fun addItem(@Path("id") id: Long, @Query("itemId") itemId: Long): Response<Unit>
+    suspend fun addItem(@Path("id") id: Long, @Body request: AddListItemRequest): Response<Unit>
 
     @PUT("api/v1/itinerary/{id}/share")
     suspend fun share(@Path("id") id: Long, @Query("userId") userId: String): Response<Unit>
@@ -47,4 +47,8 @@ interface ItineraryApi {
 
     @POST("api/v1/itinerary/{id}/booked")
     suspend fun registerBookingAttempt(@Path("id") id: Long): Response<Unit>
+
+    /** "Prenota tutto": booking-service riceve ogni componente della lista con hold su room/fare quando presenti. */
+    @POST("api/v1/itinerary/{id}/book-all")
+    suspend fun bookAll(@Path("id") id: Long): Response<BookAllResultDto>
 }

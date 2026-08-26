@@ -12,19 +12,23 @@ INSERT INTO favorite_lists (id, name, owner_id, visibility, public_token, city, 
     (4, 'Puglia Autentica', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0004-4a11-8e11-000000000004', 'Bari', 33, 9, now()),
     (5, 'Sardegna Blu', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0005-4a11-8e11-000000000005', 'Cagliari', 8, 2, now());
 
+-- roomTypeId/fareClassId/checkIn/checkOut restano NULL nei dati di esempio: "prenota
+-- tutto" su queste liste aggiunge comunque i componenti al carrello, semplicemente
+-- senza aprire un hold su una camera/posto specifico (vedi FavoriteListItem).
+
 -- Roma Express: volo Roma->Milano, volo Roma->Palermo, Hotel Roma (Via del Corso), Tour Colosseo
-INSERT INTO list_items (list_id, catalog_item_id) VALUES (1, 1), (1, 3), (1, 16), (1, 33);
+INSERT INTO list_items (list_id, catalog_item_id, quantity) VALUES (1, 1, 1), (1, 3, 1), (1, 16, 1), (1, 33, 1);
 
 -- Fuga a Venezia: volo Venezia->Bari, volo Verona->Trieste, Hotel Canal Grande, Gondola
-INSERT INTO list_items (list_id, catalog_item_id) VALUES (2, 5), (2, 12), (2, 19), (2, 34);
+INSERT INTO list_items (list_id, catalog_item_id, quantity) VALUES (2, 5, 1), (2, 12, 1), (2, 19, 1), (2, 34, 1);
 
 -- Sicilia On Fire: volo Torino->Catania, volo Roma->Palermo, Hotel Etna View, Trekking Etna
-INSERT INTO list_items (list_id, catalog_item_id) VALUES (3, 4), (3, 3), (3, 22), (3, 38);
+INSERT INTO list_items (list_id, catalog_item_id, quantity) VALUES (3, 4, 1), (3, 3, 1), (3, 22, 1), (3, 38, 1);
 
 -- Puglia Autentica: volo Venezia->Bari, volo Milano->Napoli, Masseria dei Trulli, Tour Alberobello
-INSERT INTO list_items (list_id, catalog_item_id) VALUES (4, 5), (4, 2), (4, 23), (4, 39);
+INSERT INTO list_items (list_id, catalog_item_id, quantity) VALUES (4, 5, 1), (4, 2, 1), (4, 23, 1), (4, 39, 1);
 
 -- Sardegna Blu: volo Bologna->Cagliari, volo Napoli->Barcellona, Poetto Beach Hotel, Immersione
-INSERT INTO list_items (list_id, catalog_item_id) VALUES (5, 6), (5, 9), (5, 26), (5, 40);
+INSERT INTO list_items (list_id, catalog_item_id, quantity) VALUES (5, 6, 1), (5, 9, 1), (5, 26, 1), (5, 40, 1);
 
 SELECT setval(pg_get_serial_sequence('favorite_lists','id'), (SELECT MAX(id) FROM favorite_lists));

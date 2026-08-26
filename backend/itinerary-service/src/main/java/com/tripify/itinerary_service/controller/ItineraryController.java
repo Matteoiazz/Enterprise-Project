@@ -1,5 +1,7 @@
 package com.tripify.itinerary_service.controller;
 
+import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
+import com.tripify.itinerary_service.dto.BookAllResultDTO;
 import com.tripify.itinerary_service.dto.CreateListRequestDTO;
 import com.tripify.itinerary_service.dto.UpdateVisibilityRequestDTO;
 import com.tripify.itinerary_service.entity.FavoriteList;
@@ -30,9 +32,9 @@ public class ItineraryController {
     }
 
     @PostMapping("/{id}/items")
-    public ResponseEntity<Void> addItem(@PathVariable Long id, @RequestParam Long itemId,
+    public ResponseEntity<Void> addItem(@PathVariable Long id, @Valid @RequestBody AddListItemRequestDTO request,
                                          @AuthenticationPrincipal Jwt jwt) {
-        service.addItemToList(id, itemId, jwt.getSubject());
+        service.addItemToList(id, request, jwt.getSubject());
         return ResponseEntity.ok().build();
     }
 
@@ -91,6 +93,17 @@ public class ItineraryController {
     public ResponseEntity<Void> registerBookingAttempt(@PathVariable Long id) {
         service.registerBookingAttempt(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * "Prenota tutto": aggiunge ogni componente della lista al carrello reale su
+     * booking-service, propagando il JWT dell'utente corrente (booking-service
+     * ricava l'identità solo dal token, non da un header).
+     */
+    @PostMapping("/{id}/book-all")
+    public ResponseEntity<BookAllResultDTO> bookAll(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        BookAllResultDTO result = service.bookAllItems(id, jwt.getSubject(), jwt.getTokenValue());
+        return ResponseEntity.ok(result);
     }
 
     // --- Feed pubblico e link con capabilities: nessuna autenticazione richiesta ---

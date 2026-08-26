@@ -3,16 +3,13 @@ package com.tripify.tripify_android.itinerary.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import com.tripify.tripify_android.itinerary.data.UpdateVisibilityRequest
-import com.tripify.tripify_android.itinerary.util.extractUserIdFromToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed class ItineraryFeedState {
@@ -30,7 +27,6 @@ sealed class ItineraryDetailState {
 class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     private val api = ItineraryRetrofit.create(tokenManager)
-    private val bookingApi = RetrofitClient.createBookingApi(tokenManager)
 
     private val _feedState = MutableStateFlow<ItineraryFeedState>(ItineraryFeedState.Loading)
     val feedState: StateFlow<ItineraryFeedState> = _feedState.asStateFlow()
@@ -101,32 +97,23 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
     }
 
     /**
-     * Aggiunge ogni componente della lista al carrello reale, uno per uno, tramite lo
-     * stesso endpoint già usato da CartViewModel — nessuna nuova entity nel carrello.
+     * Aggiunge ogni componente della lista al carrello reale su booking-service.
+     * Il loop e la propagazione del token avvengono lato itinerary-service (vedi
+     * ItineraryService.bookAllItems), qui c'è solo una chiamata all'endpoint dedicato.
      */
     fun bookAll(list: FavoriteListDto, onResult: (successCount: Int, total: Int) -> Unit) {
         viewModelScope.launch {
-            val token = tokenManager.tokenFlow.first()
-            val userId = token?.let { extractUserIdFromToken(it) }
-            if (userId == null) {
-                onResult(0, list.catalogItemIds.size)
-                return@launch
-            }
-            var successCount = 0
-            for (itemId in list.catalogItemIds) {
-                try {
-                    val response = bookingApi.addToCart(userId, itemId, 1)
-                    if (response.isSuccessful) successCount++
-                } catch (e: Exception) {
-                    // continua con gli altri componenti anche se uno fallisce
-                }
-            }
             try {
-                api.registerBookingAttempt(list.id)
+                val response = api.bookAll(list.id)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.successCount, body.total)
+                } else {
+                    onResult(0, list.items.size)
+                }
             } catch (e: Exception) {
-                // contatore best-effort, non blocca l'esito della prenotazione
+                onResult(0, list.items.size)
             }
-            onResult(successCount, list.catalogItemIds.size)
         }
     }
 }

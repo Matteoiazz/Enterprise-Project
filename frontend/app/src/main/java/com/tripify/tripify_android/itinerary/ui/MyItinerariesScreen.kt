@@ -216,7 +216,7 @@ private fun ItineraryListRow(list: FavoriteListDto, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(list.name, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val subtitle = if (list.catalogItemIds.size == 1) "1 tappa" else "${list.catalogItemIds.size} tappe"
+                val subtitle = if (list.items.size == 1) "1 tappa" else "${list.items.size} tappe"
                 Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted)
             }
             if (list.likedByMe) {
