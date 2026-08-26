@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.data
 
+
 import com.tripify.tripify_android.BuildConfig
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
