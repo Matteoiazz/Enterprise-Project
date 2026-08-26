@@ -3,6 +3,7 @@ package com.tripify.tripify_android.auth.viewmodel
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -65,6 +66,7 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     fun handleAuthorizationResponse(context: Context, intent: Intent?) {
         if (intent == null) {
+            Log.w("TripifyAuth", "handleAuthorizationResponse: intent nullo")
             errorMessage = "Login annullato"
             return
         }
@@ -73,20 +75,24 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
         val exception = AuthorizationException.fromIntent(intent)
 
         if (exception != null) {
-            errorMessage = "Errore durante il login: ${exception.message}"
+            Log.e("TripifyAuth", "Errore di autorizzazione: code=${exception.code} type=${exception.type} msg=${exception.errorDescription}", exception)
+            errorMessage = "Errore durante il login: ${exception.errorDescription ?: exception.message}"
             return
         }
 
         if (response != null) {
+            Log.d("TripifyAuth", "Risposta di autorizzazione ricevuta, avvio scambio del code per il token")
             isLoading = true
             val authService = AuthorizationService(context, appAuthConfig)
             authService.performTokenRequest(
                 response.createTokenExchangeRequest()
             ) { tokenResponse, tokenException ->
                 if (tokenException != null) {
-                    errorMessage = "Errore nel recupero del token"
+                    Log.e("TripifyAuth", "Errore nello scambio del token: code=${tokenException.code} type=${tokenException.type} msg=${tokenException.errorDescription}", tokenException)
+                    errorMessage = "Errore nel recupero del token: ${tokenException.errorDescription ?: tokenException.message}"
                     isLoading = false
                 } else if (tokenResponse != null) {
+                    Log.d("TripifyAuth", "Token ricevuto correttamente, salvataggio in corso")
                     viewModelScope.launch {
                         tokenManager.saveToken(tokenResponse.accessToken ?: "")
                         tokenManager.saveIdToken(tokenResponse.idToken ?: "")
@@ -96,6 +102,8 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     }
                 }
             }
+        } else {
+            Log.w("TripifyAuth", "handleAuthorizationResponse: ne' response ne' exception presenti nell'intent")
         }
     }
 }
