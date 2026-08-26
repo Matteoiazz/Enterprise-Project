@@ -2,8 +2,10 @@ package com.tripify.catalog_service.repository.spec;
 
 import com.tripify.catalog_service.entity.Activity;
 import com.tripify.catalog_service.entity.CatalogItem;
+import com.tripify.catalog_service.entity.FareClass;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
+import com.tripify.catalog_service.entity.RoomType;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -76,9 +78,33 @@ public class CatalogItemSpecification {
                 predicates.add(cb.or(cb.not(isFlight), departureMatch));
             }
 
-            // 5. Prezzo massimo
+            // 5. Prezzo massimo: confronta la tariffa/camera più economica, non il prezzo
+            // base dell'item, che è lo stesso prezzo mostrato in ricerca (vedi
+            // CatalogMapper.cheapestPrice) — altrimenti un hotel con una camera economica
+            // ma un prezzo di listino alto verrebbe escluso ingiustamente.
             if (maxPrice != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Root<Hotel> hotelRoot = cb.treat(root, Hotel.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate isHotel = cb.equal(root.type(), Hotel.class);
+
+                Subquery<BigDecimal> minFare = query.subquery(BigDecimal.class);
+                Root<Flight> fareCorrelated = minFare.correlate(flightRoot);
+                Join<Flight, FareClass> fareJoin = fareCorrelated.join("fareClasses");
+                minFare.select(cb.min(fareJoin.get("price")));
+
+                Subquery<BigDecimal> minRoom = query.subquery(BigDecimal.class);
+                Root<Hotel> roomCorrelated = minRoom.correlate(hotelRoot);
+                Join<Hotel, RoomType> roomJoin = roomCorrelated.join("roomTypes");
+                minRoom.select(cb.min(roomJoin.get("price")));
+
+                // Se non ci sono tariffe/camere (caso limite), ricadiamo sul prezzo base,
+                // stesso fallback usato da CatalogMapper.cheapestPrice().
+                Predicate flightOk = cb.and(isFlight, cb.lessThanOrEqualTo(cb.coalesce(minFare, flightRoot.get("price")), maxPrice));
+                Predicate hotelOk = cb.and(isHotel, cb.lessThanOrEqualTo(cb.coalesce(minRoom, hotelRoot.get("price")), maxPrice));
+                Predicate otherOk = cb.and(cb.not(isFlight), cb.not(isHotel), cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+
+                predicates.add(cb.or(flightOk, hotelOk, otherOk));
             }
 
             // 6. Rating minimo

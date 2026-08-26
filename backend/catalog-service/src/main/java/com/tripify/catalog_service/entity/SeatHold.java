@@ -37,8 +37,4 @@ public class SeatHold {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    public boolean isActive(LocalDateTime now) {
-        return status == HoldStatus.CONFIRMED || (status == HoldStatus.HELD && expiresAt.isAfter(now));
-    }
 }

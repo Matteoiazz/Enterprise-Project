@@ -21,7 +21,7 @@ DELETE FROM catalog_items;
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (1, 'Volo Roma - Milano', 'Volo di linea Roma Fiumicino - Milano Linate, ideale per viaggi di lavoro.', 89.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (1, 'FCO', 'LIN', 'Roma', 'Milano', '2026-09-05 07:30:00', '2026-09-05 08:45:00', 60, 0);
+    (1, 'FCO', 'LIN', 'Roma', 'Milano', CURRENT_DATE + 5 + TIME '07:30:00', CURRENT_DATE + 5 + TIME '08:45:00', 60, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (1, 1, 'Economy', 89.00, 48), (2, 1, 'Business', 205.00, 12);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -31,7 +31,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (2, 'Volo Milano - Napoli', 'Collegamento diretto tra Malpensa e Capodichino, comodo per il weekend.', 75.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (2, 'MXP', 'NAP', 'Milano', 'Napoli', '2026-08-20 09:15:00', '2026-08-20 10:45:00', 40, 0);
+    (2, 'MXP', 'NAP', 'Milano', 'Napoli', CURRENT_DATE + 8 + TIME '09:15:00', CURRENT_DATE + 8 + TIME '10:45:00', 40, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (3, 2, 'Economy', 75.00, 32), (4, 2, 'Business', 175.00, 8);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -41,7 +41,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (3, 'Volo Roma - Palermo', 'Volo diretto per la Sicilia, perfetto per esplorare Palermo e dintorni.', 68.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (3, 'FCO', 'PMO', 'Roma', 'Palermo', '2026-07-10 12:00:00', '2026-07-10 13:20:00', 55, 0);
+    (3, 'FCO', 'PMO', 'Roma', 'Palermo', CURRENT_DATE + 3 + TIME '12:00:00', CURRENT_DATE + 3 + TIME '13:20:00', 55, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (5, 3, 'Economy', 68.00, 44), (6, 3, 'Business', 160.00, 11);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -51,7 +51,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (4, 'Volo Torino - Catania', 'Volo con uno scalo, tariffa economica per raggiungere la Sicilia orientale.', 92.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 3);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (4, 'TRN', 'CTA', 'Torino', 'Catania', '2026-06-18 06:45:00', '2026-06-18 10:30:00', 35, 1);
+    (4, 'TRN', 'CTA', 'Torino', 'Catania', CURRENT_DATE + 12 + TIME '06:45:00', CURRENT_DATE + 12 + TIME '10:30:00', 35, 1);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (7, 4, 'Economy', 92.00, 28), (8, 4, 'Business', 210.00, 7);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -61,7 +61,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (5, 'Volo Venezia - Bari', 'Volo diretto dal Nord-Est alla Puglia, ottimo per il mare adriatico.', 79.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (5, 'VCE', 'BRI', 'Venezia', 'Bari', '2026-08-02 15:20:00', '2026-08-02 16:50:00', 48, 0);
+    (5, 'VCE', 'BRI', 'Venezia', 'Bari', CURRENT_DATE + 6 + TIME '15:20:00', CURRENT_DATE + 6 + TIME '16:50:00', 48, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (9, 5, 'Economy', 79.00, 38), (10, 5, 'Business', 180.00, 10);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -71,7 +71,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (6, 'Volo Bologna - Cagliari', 'Volo diretto per la Sardegna, ideale per le vacanze estive.', 85.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (6, 'BLQ', 'CAG', 'Bologna', 'Cagliari', '2026-07-25 11:10:00', '2026-07-25 12:35:00', 50, 0);
+    (6, 'BLQ', 'CAG', 'Bologna', 'Cagliari', CURRENT_DATE + 15 + TIME '11:10:00', CURRENT_DATE + 15 + TIME '12:35:00', 50, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (11, 6, 'Economy', 85.00, 40), (12, 6, 'Business', 195.00, 10);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -81,7 +81,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (7, 'Volo Roma - Londra', 'Volo di linea. Perfetto per raggiungere la conferenza internazionale di medicina d''urgenza.', 180.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 5);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (7, 'FCO', 'LHR', 'Roma', 'Londra', '2026-09-10 08:00:00', '2026-09-10 10:30:00', 30, 0);
+    (7, 'FCO', 'LHR', 'Roma', 'Londra', CURRENT_DATE + 20 + TIME '08:00:00', CURRENT_DATE + 20 + TIME '10:30:00', 30, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (13, 7, 'Economy', 180.00, 24), (14, 7, 'Business', 390.00, 6);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -91,7 +91,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (8, 'Volo Milano - Parigi', 'Volo diretto Malpensa - Charles de Gaulle, più frequenze giornaliere.', 145.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (8, 'MXP', 'CDG', 'Milano', 'Parigi', '2026-10-01 07:00:00', '2026-10-01 08:40:00', 42, 0);
+    (8, 'MXP', 'CDG', 'Milano', 'Parigi', CURRENT_DATE + 25 + TIME '07:00:00', CURRENT_DATE + 25 + TIME '08:40:00', 42, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (15, 8, 'Economy', 145.00, 34), (16, 8, 'Business', 320.00, 8);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -101,7 +101,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (9, 'Volo Napoli - Barcellona', 'Volo diretto verso la Catalogna, tariffa low-cost.', 99.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 3);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (9, 'NAP', 'BCN', 'Napoli', 'Barcellona', '2026-06-14 13:45:00', '2026-06-14 15:40:00', 38, 0);
+    (9, 'NAP', 'BCN', 'Napoli', 'Barcellona', CURRENT_DATE + 10 + TIME '13:45:00', CURRENT_DATE + 10 + TIME '15:40:00', 38, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (17, 9, 'Economy', 99.00, 30), (18, 9, 'Business', 220.00, 8);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -111,7 +111,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (10, 'Volo Roma - New York', 'Volo diretto operato da ITA Airways. Include bagaglio in stiva.', 550.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (10, 'FCO', 'JFK', 'Roma', 'New York', '2026-06-01 10:00:00', '2026-06-01 14:00:00', 120, 0);
+    (10, 'FCO', 'JFK', 'Roma', 'New York', CURRENT_DATE + 18 + TIME '10:00:00', CURRENT_DATE + 18 + TIME '14:00:00', 120, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (19, 10, 'Economy', 550.00, 96), (20, 10, 'Business', 1200.00, 24);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -121,7 +121,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (11, 'Volo Milano - Lamezia Terme', 'Volo low cost per scendere giù al sud. Solo bagaglio a mano.', 45.99, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 3);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (11, 'MXP', 'SUF', 'Milano', 'Lamezia Terme', '2026-07-15 18:30:00', '2026-07-15 20:15:00', 45, 0);
+    (11, 'MXP', 'SUF', 'Milano', 'Lamezia Terme', CURRENT_DATE + 7 + TIME '18:30:00', CURRENT_DATE + 7 + TIME '20:15:00', 45, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (21, 11, 'Economy', 45.99, 37), (22, 11, 'Business', 110.00, 8);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -131,7 +131,7 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (12, 'Volo Verona - Trieste', 'Volo regionale, comodo per collegare Nord-Est e Nord-Ovest.', 59.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 3);
 INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
-    (12, 'VRN', 'TRS', 'Verona', 'Trieste', '2026-05-20 09:00:00', '2026-05-20 09:55:00', 28, 0);
+    (12, 'VRN', 'TRS', 'Verona', 'Trieste', CURRENT_DATE + 4 + TIME '09:00:00', CURRENT_DATE + 4 + TIME '09:55:00', 28, 0);
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (23, 12, 'Economy', 59.00, 22), (24, 12, 'Business', 135.00, 6);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
@@ -564,6 +564,171 @@ INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, 
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
                                                             ('https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000&auto=format&fit=crop', 40),
                                                             ('https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?q=80&w=1000&auto=format&fit=crop', 40);
+
+-- ==========================================
+-- COMPONENTI MANCANTI PER ITINERARI MULTI-TAPPA (New York / Toronto)
+-- ==========================================
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (41, 'Tour a piedi di Manhattan', 'Cammina tra Times Square, Central Park ed Empire State Building con una guida locale.', 55.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (41, 'Tour Urbano', '3 ore', 'Times Square, angolo 7th Ave', 'New York', 15, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=1000&auto=format&fit=crop', 41);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (42, 'Hotel Fairmont Royal York Toronto', 'Hotel storico nel cuore della downtown di Toronto, a due passi dalla CN Tower.', 210.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 5);
+INSERT INTO hotel_details (id, location_lat, location_lng, address, city) VALUES
+    (42, 43.6453, -79.3806, '100 Front St W, Toronto, ON M5J 1E3', 'Toronto');
+INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max_occupancy) VALUES
+    (56, 42, 'Doppia Classic', 'Camera doppia con vista sulla città.', 210.00, 12, 2),
+    (57, 42, 'Suite Royal', 'Suite con salotto separato e vista sul lago Ontario.', 380.00, 4, 3);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1517840901100-8179e982acb7?q=80&w=1000&auto=format&fit=crop', 42);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (43, 'Tour delle Cascate del Niagara da Toronto', 'Giornata alle Cascate del Niagara con crociera Hornblower inclusa, partenza da Toronto.', 95.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (43, 'Escursione', '8 ore', 'Union Station, Toronto', 'Toronto', 20, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1489447068241-b3490214e879?q=80&w=1000&auto=format&fit=crop', 43);
+
+-- ==========================================
+-- VOLI ANDATA/RITORNO PER GLI ITINERARI DI ESEMPIO
+-- I voli one-off 1-12 sono tutti a senso unico (nessuno di essi ha un ritorno reale):
+-- un itinerario costruito con quelli non può mai essere coerente (nessun volo riporta
+-- a casa). Queste coppie dedicate rendono i 5 itinerari di esempio realmente validi:
+-- stessa città di arrivo dell'andata = città di partenza del ritorno, hotel/attività
+-- nella stessa città di quella tappa.
+-- ==========================================
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (44, 'Volo Milano - Roma', 'Andata per il weekend nella Capitale.', 82.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (44, 'LIN', 'FCO', 'Milano', 'Roma', '2026-09-03 08:00:00', '2026-09-03 09:15:00', 60, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (25, 44, 'Economy', 82.00, 48), (26, 44, 'Business', 190.00, 12);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (45, 'Volo Roma - Milano (rientro)', 'Rientro a Milano dopo il weekend romano.', 89.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (45, 'FCO', 'LIN', 'Roma', 'Milano', '2026-09-06 18:00:00', '2026-09-06 19:15:00', 60, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (27, 45, 'Economy', 89.00, 48), (28, 45, 'Business', 205.00, 12);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (46, 'Volo Roma - Venezia', 'Andata verso la Serenissima.', 76.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (46, 'FCO', 'VCE', 'Roma', 'Venezia', '2026-09-10 09:00:00', '2026-09-10 10:10:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (29, 46, 'Economy', 76.00, 44), (30, 46, 'Business', 175.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (47, 'Volo Venezia - Roma (rientro)', 'Rientro dalla Serenissima.', 78.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (47, 'VCE', 'FCO', 'Venezia', 'Roma', '2026-09-13 19:00:00', '2026-09-13 20:10:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (31, 47, 'Economy', 78.00, 44), (32, 47, 'Business', 180.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (48, 'Volo Roma - Catania', 'Andata verso l''Etna.', 84.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (48, 'FCO', 'CTA', 'Roma', 'Catania', '2026-09-17 07:30:00', '2026-09-17 09:00:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (33, 48, 'Economy', 84.00, 44), (34, 48, 'Business', 195.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (49, 'Volo Catania - Roma (rientro)', 'Rientro dalla Sicilia.', 86.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (49, 'CTA', 'FCO', 'Catania', 'Roma', '2026-09-21 20:00:00', '2026-09-21 21:30:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (35, 49, 'Economy', 86.00, 44), (36, 49, 'Business', 198.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (50, 'Volo Roma - Bari', 'Andata verso la Puglia.', 74.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (50, 'FCO', 'BRI', 'Roma', 'Bari', '2026-09-24 08:15:00', '2026-09-24 09:30:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (37, 50, 'Economy', 74.00, 44), (38, 50, 'Business', 170.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (51, 'Volo Bari - Roma (rientro)', 'Rientro dalla Puglia.', 76.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (51, 'BRI', 'FCO', 'Bari', 'Roma', '2026-09-27 18:30:00', '2026-09-27 19:45:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (39, 51, 'Economy', 76.00, 44), (40, 51, 'Business', 175.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (52, 'Volo Roma - Cagliari', 'Andata verso la Sardegna.', 80.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (52, 'FCO', 'CAG', 'Roma', 'Cagliari', '2026-10-01 09:45:00', '2026-10-01 11:00:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (41, 52, 'Economy', 80.00, 44), (42, 52, 'Business', 185.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (53, 'Volo Cagliari - Roma (rientro)', 'Rientro dalla Sardegna.', 82.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops) VALUES
+    (53, 'CAG', 'FCO', 'Cagliari', 'Roma', '2026-10-05 19:15:00', '2026-10-05 20:30:00', 55, 0);
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
+    (43, 53, 'Economy', 82.00, 44), (44, 53, 'Business', 188.00, 11);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (54, 'Tour del Centro Storico di Bari', 'Passeggiata guidata nella Bari Vecchia, tra la Basilica di San Nicola e il lungomare.', 35.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 4);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (54, 'Cultura e Storia', '2 ore e mezza', 'Basilica di San Nicola, Bari Vecchia', 'Bari', 18, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1591604466107-ec97de577aff?q=80&w=1000&auto=format&fit=crop', 54);
+
+-- ==========================================
+-- VOLI RICORRENTI (Roma<->New York, New York<->Toronto, Toronto<->Roma)
+-- Un volo al giorno per 60 giorni da oggi, così un itinerario costruito con
+-- date scelte liberamente dall'utente trova sempre un volo compatibile.
+-- Gli id vengono calcolati a partire dal MAX(id) attuale (catturato UNA sola
+-- volta in una tabella temporanea) per non collidere con i dati sopra, anche
+-- se in futuro si aggiungono altri item prima di questo blocco.
+-- ==========================================
+
+CREATE TEMP TABLE tmp_recurring_flights AS
+WITH routes(route_order, dep_airport, arr_airport, dep_city, arr_city, dep_hour, flight_duration, base_price) AS (
+    VALUES
+        (0, 'FCO', 'JFK', 'Roma',    'New York', TIME '10:00', INTERVAL '8 hours',           550.00),
+        (1, 'JFK', 'FCO', 'New York','Roma',     TIME '20:00', INTERVAL '8 hours 30 minutes', 560.00),
+        (2, 'JFK', 'YYZ', 'New York','Toronto',  TIME '09:00', INTERVAL '1 hour 30 minutes',  180.00),
+        (3, 'YYZ', 'JFK', 'Toronto', 'New York', TIME '18:00', INTERVAL '1 hour 30 minutes',  175.00),
+        (4, 'YYZ', 'FCO', 'Toronto', 'Roma',     TIME '21:00', INTERVAL '9 hours',            590.00),
+        (5, 'FCO', 'YYZ', 'Roma',    'Toronto',  TIME '11:00', INTERVAL '9 hours 30 minutes', 600.00)
+),
+days AS (
+    SELECT generate_series(CURRENT_DATE + 1, CURRENT_DATE + 60, INTERVAL '1 day')::date AS the_day
+)
+SELECT
+    (SELECT MAX(id) FROM catalog_items) + (route_order * 60)
+        + (ROW_NUMBER() OVER (PARTITION BY route_order ORDER BY the_day)) AS item_id,
+    ROW_NUMBER() OVER (ORDER BY route_order, the_day) AS seq,
+    dep_airport, arr_airport, dep_city, arr_city,
+    (the_day + dep_hour) AS dep_ts,
+    (the_day + dep_hour + flight_duration) AS arr_ts,
+    base_price
+FROM routes CROSS JOIN days;
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating)
+SELECT item_id, 'Volo ' || dep_city || ' - ' || arr_city,
+       'Volo di linea ' || dep_city || ' - ' || arr_city || '.',
+       base_price, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4
+FROM tmp_recurring_flights;
+
+INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_city, arrival_city, departure_time, arrival_time, total_seats, stops)
+SELECT item_id, dep_airport, arr_airport, dep_city, arr_city, dep_ts, arr_ts, 120, 0
+FROM tmp_recurring_flights;
+
+INSERT INTO fare_classes (id, flight_id, name, price, total_seats)
+SELECT (SELECT MAX(id) FROM fare_classes) + (seq * 2) - 1, item_id, 'Economy', base_price, 96
+FROM tmp_recurring_flights
+UNION ALL
+SELECT (SELECT MAX(id) FROM fare_classes) + (seq * 2), item_id, 'Business', round(base_price * 2.2, 2), 24
+FROM tmp_recurring_flights;
+
+DROP TABLE tmp_recurring_flights;
 
 -- ==========================================
 -- SINCRONIZZAZIONE SEQUENZE POSTGRESQL

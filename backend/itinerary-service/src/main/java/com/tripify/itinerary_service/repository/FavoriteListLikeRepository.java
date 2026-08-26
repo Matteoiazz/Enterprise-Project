@@ -15,4 +15,6 @@ public interface FavoriteListLikeRepository extends JpaRepository<FavoriteListLi
     List<FavoriteListLike> findByUserId(String userId);
 
     void deleteByListIdAndUserId(Long listId, String userId);
+
+    void deleteByListId(Long listId);
 }

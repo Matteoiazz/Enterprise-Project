@@ -3,6 +3,7 @@ package com.tripify.catalog_service.controller;
 import com.tripify.catalog_service.entity.Activity;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
+import com.tripify.catalog_service.mapper.CatalogMapper;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.dto.CatalogItemDTO;
 import jakarta.validation.Valid;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class CatalogController {
 
     private final CatalogService catalogService;
+    private final CatalogMapper catalogMapper;
 
     @GetMapping("/items")
     public ResponseEntity<List<CatalogItemDTO>> getAllItems() {
@@ -63,33 +65,43 @@ public class CatalogController {
     }
 
     @PostMapping("/items/flights")
-    public ResponseEntity<Flight> createFlight(
+    public ResponseEntity<CatalogItemDTO> createFlight(
             @Valid @RequestBody Flight flight,
             @RequestHeader("X-User-Id") String userId) {
         flight.setHostId(UUID.fromString(userId));
         flight.setUserGenerated(true);
+        flight.getFareClasses().forEach(fareClass -> fareClass.setFlight(flight));
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedFlight);
+        return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedFlight));
     }
 
     @PostMapping("/items/hotels")
-    public ResponseEntity<Hotel> createHotel(
+    public ResponseEntity<CatalogItemDTO> createHotel(
             @Valid @RequestBody Hotel hotel,
             @RequestHeader("X-User-Id") String userId) {
         hotel.setHostId(UUID.fromString(userId));
         hotel.setUserGenerated(true);
+        hotel.getRoomTypes().forEach(roomType -> roomType.setHotel(hotel));
         Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedHotel);
+        return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedHotel));
     }
 
     @PostMapping("/items/activities")
-    public ResponseEntity<Activity> createActivity(
+    public ResponseEntity<CatalogItemDTO> createActivity(
             @Valid @RequestBody Activity activity,
             @RequestHeader("X-User-Id") String userId) {
         activity.setHostId(UUID.fromString(userId));
         activity.setUserGenerated(true);
         Activity savedActivity = (Activity) catalogService.saveItem(activity);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedActivity);
+        return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedActivity));
+    }
+
+    @GetMapping("/items/mine")
+    public ResponseEntity<List<CatalogItemDTO>> getMyItems(@RequestHeader("X-User-Id") String userId) {
+        List<CatalogItemDTO> items = catalogService.getItemsByHost(UUID.fromString(userId)).stream()
+                .map(catalogMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(items);
     }
 
     @GetMapping("/cities")

@@ -1,5 +1,6 @@
 package com.tripify.booking_service.client;
 
+import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
 import com.tripify.booking_service.dto.HoldResultDTO;
 import com.tripify.booking_service.dto.RoomHoldRequestDTO;
 import com.tripify.booking_service.dto.SeatHoldRequestDTO;
@@ -15,9 +16,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient(name = "catalog-service", url = "${catalog-service.url}")
 public interface CatalogClient {
 
-    // Questo chiama l'endpoint del catalogo!
-    @GetMapping("/{itemId}/price")
-    Double getItemPrice(@PathVariable("itemId") Long itemId);
+    // Prezzo REALE dell'articolo: a differenza del vecchio /{itemId}/price (solo
+    // prezzo base), qui arrivano anche roomTypes/fareClasses così ShoppingCartService
+    // può usare il prezzo della camera/tariffa scelta invece del prezzo base.
+    @GetMapping("/items/{itemId}")
+    CatalogItemSummaryDTO getItem(@PathVariable("itemId") Long itemId);
 
     // Blocca temporaneamente delle camere su un RoomType (AvailabilityController
     // di catalog-service) per il tempo di completare carrello/checkout/pagamento.

@@ -69,7 +69,7 @@ public class CatalogServiceImpl implements CatalogService {
         if (checkIn != null && checkOut != null) {
 
             int requestedRooms = rooms == null ? 1 : rooms;
-            List<CatalogItemDTO> available = catalogItemRepository.findAll(spec).stream()
+            List<CatalogItemDTO> available = catalogItemRepository.findAll(spec, pageable.getSort()).stream()
                     .filter(item -> !(item instanceof Hotel hotel) || hasAvailableRoomType(hotel, checkIn, checkOut, requestedRooms))
                     .map(catalogMapper::toDto)
                     .toList();

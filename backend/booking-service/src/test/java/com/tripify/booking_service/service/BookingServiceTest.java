@@ -3,6 +3,7 @@ package com.tripify.booking_service.service;
 import com.tripify.booking_service.client.CatalogClient;
 import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
+import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
 import com.tripify.booking_service.dto.HoldResultDTO;
 import com.tripify.booking_service.entity.BookingStatus;
 import com.tripify.booking_service.exception.AccessDeniedException;
@@ -59,7 +60,8 @@ class BookingServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(catalogClient.getItemPrice(anyLong())).thenReturn(50.0);
+        when(catalogClient.getItem(anyLong())).thenReturn(
+                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), null, null));
     }
 
     private void addItem(String userId, AddToCartRequestDTO request) {

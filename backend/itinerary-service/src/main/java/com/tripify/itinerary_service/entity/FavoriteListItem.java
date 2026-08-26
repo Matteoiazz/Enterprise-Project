@@ -1,8 +1,10 @@
 package com.tripify.itinerary_service.entity;
 
 import jakarta.persistence.Embeddable;
+import jakarta.persistence.Transient;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -28,4 +30,17 @@ public class FavoriteListItem {
     private Long fareClassId;
     private LocalDate checkIn;
     private LocalDate checkOut;
+
+    /** Valorizzato solo per le Attività: il giorno del viaggio in cui si svolge. */
+    private LocalDate activityDate;
+
+    /**
+     * Non persistito: prezzo reale di QUESTO componente (tariffa/camera×notti scelta),
+     * valorizzato da ItineraryService.computeTotalPrice insieme al totale della lista.
+     * Serve al frontend per mostrare un prezzo per tappa senza duplicare la logica di
+     * calcolo (fareClass/roomType) lato client.
+     */
+    @Transient
+    @Builder.Default
+    private BigDecimal price = BigDecimal.ZERO;
 }

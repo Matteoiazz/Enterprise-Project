@@ -10,9 +10,9 @@ public interface AvailabilityService {
 
     HoldResultDTO holdSeats(Long fareClassId, int seats, String userId);
 
-    void confirm(String holdId);
+    void confirm(String holdId, String userId);
 
-    void release(String holdId);
+    void release(String holdId, String userId);
 
     int computeRoomAvailability(Long roomTypeId, LocalDate checkIn, LocalDate checkOut);
 

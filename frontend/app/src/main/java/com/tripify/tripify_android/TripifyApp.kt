@@ -221,6 +221,7 @@ fun TripifyApp(
             composable(Route.Bookings.path) {
                 BookingScreen(
                     viewModel = bookingViewModel,
+                    cartViewModel = cartViewModel,
                     onNavigateToCart = { navController.navigate(Route.Cart.path) }
                 )
             }
@@ -229,6 +230,7 @@ fun TripifyApp(
             composable(Route.Cart.path) {
                 CartScreen(
                     viewModel = cartViewModel,
+                    catalogViewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCheckout = { navController.navigate(Route.Checkout.path) }
                 )
@@ -238,6 +240,7 @@ fun TripifyApp(
             composable(Route.Checkout.path) {
                 CheckoutScreen(
                     viewModel = cartViewModel,
+                    catalogViewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
                         navController.navigate(Route.Bookings.path) {
@@ -258,18 +261,7 @@ fun TripifyApp(
 
                 com.tripify.tripify_android.itinerary.ui.ItineraryListScreen(
                     viewModel = itineraryViewModel,
-                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") },
-                    onNavigateToMyLists = { navController.navigate("my_itineraries") }
-                )
-            }
-
-            composable("my_itineraries") {
-                val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
-
-                com.tripify.tripify_android.itinerary.ui.MyItinerariesScreen(
                     tokenManager = tokenManager,
-                    onNavigateBack = { navController.popBackStack() },
                     onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") }
                 )
             }
@@ -314,8 +306,9 @@ fun TripifyApp(
                 DetailScreen(
                     itemId = itemId,
                     viewModel = catalogViewModel,
+                    cartViewModel = cartViewModel,
                     onNavigateBack = { navController.popBackStack() },
-                    onBookNow = { clickedItemId -> println("Inizio prenotazione per l'ID: $clickedItemId") },
+                    onBookNow = { navController.navigate(Route.Cart.path) },
                     onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
                 )
             }

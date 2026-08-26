@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,7 +23,6 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.data.TokenManager
-import com.tripify.tripify_android.itinerary.data.CreateListRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import kotlinx.coroutines.flow.first
@@ -56,7 +54,6 @@ fun MyItinerariesScreen(
     var likedCatalogItems by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isLoggedIn by remember { mutableStateOf(true) }
-    var showCreateDialog by remember { mutableStateOf(false) }
 
     fun reload() {
         scope.launch {
@@ -89,42 +86,6 @@ fun MyItinerariesScreen(
         }
     }
 
-    if (showCreateDialog) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showCreateDialog = false },
-            title = { Text("Nuovo itinerario", style = CatalogType.Section, color = CatalogColors.Ink) },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    placeholder = { Text("es. Weekend a Londra") },
-                    singleLine = true,
-                    shape = CatalogShapes.Field,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (name.isNotBlank()) {
-                        showCreateDialog = false
-                        scope.launch {
-                            try {
-                                val response = api.createList(CreateListRequest(name.trim()))
-                                if (response.isSuccessful) reload()
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("Impossibile creare la lista")
-                            }
-                        }
-                    }
-                }) { Text("Crea", color = CatalogColors.AccentDark) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) { Text("Annulla", color = CatalogColors.InkMuted) }
-            }
-        )
-    }
-
     Scaffold(
         containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -138,13 +99,6 @@ fun MyItinerariesScreen(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
             )
-        },
-        floatingActionButton = {
-            if (isLoggedIn) {
-                FloatingActionButton(onClick = { showCreateDialog = true }, containerColor = CatalogColors.AccentDark) {
-                    Icon(Icons.Filled.Add, contentDescription = "Nuovo itinerario", tint = Color.White)
-                }
-            }
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
@@ -167,7 +121,7 @@ fun MyItinerariesScreen(
                 ) {
                     Text("Nessuna lista ancora", style = CatalogType.Section, color = CatalogColors.Ink)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("Crea il tuo primo itinerario con il pulsante +", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                    Text("Crea il tuo primo itinerario dalla tab Itinerari", style = CatalogType.Body, color = CatalogColors.InkMuted)
                 }
                 else -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (lists.isNotEmpty()) {

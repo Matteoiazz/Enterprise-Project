@@ -100,15 +100,17 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
     @Override
     @Transactional
-    public void confirm(String holdId) {
+    public void confirm(String holdId, String userId) {
         if (holdId.startsWith(ROOM_PREFIX)) {
             RoomHold hold = roomHoldRepository.findById(parseId(holdId, ROOM_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
+            requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnConfirm(hold.getStatus(), hold.getExpiresAt(), holdId));
             roomHoldRepository.save(hold);
         } else if (holdId.startsWith(SEAT_PREFIX)) {
             SeatHold hold = seatHoldRepository.findById(parseId(holdId, SEAT_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
+            requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnConfirm(hold.getStatus(), hold.getExpiresAt(), holdId));
             seatHoldRepository.save(hold);
         } else {
@@ -118,18 +120,28 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
     @Override
     @Transactional
-    public void release(String holdId) {
+    public void release(String holdId, String userId) {
         if (holdId.startsWith(ROOM_PREFIX)) {
             RoomHold hold = roomHoldRepository.findById(parseId(holdId, ROOM_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
+            requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnRelease(hold.getStatus(), holdId));
             roomHoldRepository.save(hold);
         } else if (holdId.startsWith(SEAT_PREFIX)) {
             SeatHold hold = seatHoldRepository.findById(parseId(holdId, SEAT_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
+            requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnRelease(hold.getStatus(), holdId));
             seatHoldRepository.save(hold);
         } else {
+            throw new HoldNotFoundException(holdId);
+        }
+    }
+
+    // Non riveliamo se l'hold esiste a chi non ne è il proprietario: stesso
+    // errore "non trovato" usato per un id inesistente.
+    private void requireOwner(String ownerId, String requesterId, String holdId) {
+        if (!ownerId.equals(requesterId)) {
             throw new HoldNotFoundException(holdId);
         }
     }

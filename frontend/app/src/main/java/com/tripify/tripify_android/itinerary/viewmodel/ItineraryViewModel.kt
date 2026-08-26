@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.itinerary.data.CreateListRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import com.tripify.tripify_android.itinerary.data.UpdateVisibilityRequest
@@ -50,6 +51,34 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    /** "Miei itinerari": le liste possedute (+ condivise con me), riusa lo stesso feedState del feed pubblico. */
+    fun loadMine() {
+        viewModelScope.launch {
+            _feedState.value = ItineraryFeedState.Loading
+            try {
+                val response = api.getMyLists()
+                _feedState.value = if (response.isSuccessful && response.body() != null) {
+                    ItineraryFeedState.Success(response.body()!!)
+                } else {
+                    ItineraryFeedState.Error("Errore nel caricamento (${response.code()})")
+                }
+            } catch (e: Exception) {
+                _feedState.value = ItineraryFeedState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
+    fun createList(name: String, onResult: (FavoriteListDto?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.createList(CreateListRequest(name))
+                onResult(if (response.isSuccessful) response.body() else null)
+            } catch (e: Exception) {
+                onResult(null)
+            }
+        }
+    }
+
     fun loadDetail(id: Long) {
         viewModelScope.launch {
             _detailState.value = ItineraryDetailState.Loading
@@ -62,6 +91,33 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 }
             } catch (e: Exception) {
                 _detailState.value = ItineraryDetailState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Elimina l'intero itinerario. */
+    fun deleteList(listId: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.deleteList(listId)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Rimuove un componente dalla lista (per posizione) e ricarica il dettaglio. */
+    fun removeItem(listId: Long, index: Int, onResult: (success: Boolean, alsoRemoved: List<String>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.removeItem(listId, index)
+                if (response.isSuccessful) {
+                    loadDetail(listId)
+                }
+                onResult(response.isSuccessful, response.body()?.alsoRemoved ?: emptyList())
+            } catch (e: Exception) {
+                onResult(false, emptyList())
             }
         }
     }

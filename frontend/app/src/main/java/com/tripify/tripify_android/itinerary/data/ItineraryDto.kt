@@ -9,7 +9,9 @@ data class FavoriteListItemDto(
     val roomTypeId: Long? = null,
     val fareClassId: Long? = null,
     val checkIn: String? = null, // "yyyy-MM-dd"
-    val checkOut: String? = null
+    val checkOut: String? = null,
+    val activityDate: String? = null,
+    val price: java.math.BigDecimal? = null
 )
 
 data class FavoriteListDto(
@@ -24,7 +26,8 @@ data class FavoriteListDto(
     val likesCount: Int = 0,
     val bookingsCount: Int = 0,
     val createdAt: String? = null,
-    val likedByMe: Boolean = false
+    val likedByMe: Boolean = false,
+    val totalPrice: java.math.BigDecimal? = null
 )
 
 data class CreateListRequest(val name: String)
@@ -35,7 +38,8 @@ data class AddListItemRequest(
     val roomTypeId: Long? = null,
     val fareClassId: Long? = null,
     val checkIn: String? = null,
-    val checkOut: String? = null
+    val checkOut: String? = null,
+    val activityDate: String? = null
 )
 
 data class UpdateVisibilityRequest(val visibility: String, val city: String? = null)
@@ -43,3 +47,7 @@ data class UpdateVisibilityRequest(val visibility: String, val city: String? = n
 data class LikeResponse(val liked: Boolean)
 
 data class BookAllResultDto(val successCount: Int, val total: Int, val errors: List<String> = emptyList())
+
+// alsoRemoved: titoli dei componenti troncati insieme a quello richiesto perché
+// non erano più coerenti senza di esso (es. hotel rimasto senza il volo di andata).
+data class RemoveItemResultDto(val alsoRemoved: List<String> = emptyList())

@@ -3,6 +3,7 @@ package com.tripify.itinerary_service.controller;
 import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
 import com.tripify.itinerary_service.dto.BookAllResultDTO;
 import com.tripify.itinerary_service.dto.CreateListRequestDTO;
+import com.tripify.itinerary_service.dto.RemoveItemResultDTO;
 import com.tripify.itinerary_service.dto.UpdateVisibilityRequestDTO;
 import com.tripify.itinerary_service.entity.FavoriteList;
 import com.tripify.itinerary_service.service.ItineraryService;
@@ -38,6 +39,19 @@ public class ItineraryController {
         return ResponseEntity.ok().build();
     }
 
+    /** Rimuove il componente in posizione {index} (0-based, stesso ordine mostrato nel dettaglio). */
+    @DeleteMapping("/{id}/items/{index}")
+    public ResponseEntity<RemoveItemResultDTO> removeItem(@PathVariable Long id, @PathVariable int index,
+                                            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.removeItemFromList(id, index, jwt.getSubject()));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteList(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        service.deleteList(id, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{id}/share")
     public ResponseEntity<Void> share(@PathVariable Long id, @RequestParam String userId,
                                        @AuthenticationPrincipal Jwt jwt) {
@@ -47,13 +61,17 @@ public class ItineraryController {
 
     @GetMapping("/mine")
     public ResponseEntity<List<FavoriteList>> getMyLists(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(service.getUserLists(jwt.getSubject()));
+        List<FavoriteList> lists = service.getUserLists(jwt.getSubject());
+        service.applyTotalPrice(lists);
+        return ResponseEntity.ok(lists);
     }
 
     /** "Salvati": liste proprie + condivise + itinerari altrui a cui si è messo like. */
     @GetMapping("/saved")
     public ResponseEntity<List<FavoriteList>> getSavedLists(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(service.getSavedLists(jwt.getSubject()));
+        List<FavoriteList> lists = service.getSavedLists(jwt.getSubject());
+        service.applyTotalPrice(lists);
+        return ResponseEntity.ok(lists);
     }
 
     @PostMapping("/catalog-likes/{catalogItemId}")
@@ -72,6 +90,7 @@ public class ItineraryController {
     public ResponseEntity<FavoriteList> getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         FavoriteList list = service.getAccessibleById(id, jwt.getSubject());
         service.applyLikedByMe(list, jwt.getSubject());
+        service.applyTotalPrice(list);
         return ResponseEntity.ok(list);
     }
 
@@ -114,6 +133,7 @@ public class ItineraryController {
                                                               @AuthenticationPrincipal Jwt jwt) {
         List<FavoriteList> feed = service.getPublicFeed(city, sort);
         service.applyLikedByMe(feed, jwt != null ? jwt.getSubject() : null);
+        service.applyTotalPrice(feed);
         return ResponseEntity.ok(feed);
     }
 
@@ -122,6 +142,7 @@ public class ItineraryController {
                                                           @AuthenticationPrincipal Jwt jwt) {
         FavoriteList list = service.getByPublicToken(publicToken);
         service.applyLikedByMe(list, jwt != null ? jwt.getSubject() : null);
+        service.applyTotalPrice(list);
         return ResponseEntity.ok(list);
     }
 }

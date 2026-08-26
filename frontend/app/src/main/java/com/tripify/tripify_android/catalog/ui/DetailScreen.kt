@@ -45,6 +45,7 @@ import com.tripify.tripify_android.catalog.ui.components.*
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.viewmodel.HoldOutcome
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
@@ -65,6 +66,7 @@ private fun LocalDate.toEpochMillisUtc(): Long = atStartOfDay(ZoneOffset.UTC).to
 fun DetailScreen(
     itemId: String,
     viewModel: CatalogViewModel,
+    cartViewModel: CartViewModel,
     onNavigateBack: () -> Unit,
     onBookNow: (String) -> Unit,
     onChatWithOrganizer: (String) -> Unit = {}
@@ -96,6 +98,7 @@ fun DetailScreen(
     DetailContent(
         item = item!!,
         viewModel = viewModel,
+        cartViewModel = cartViewModel,
         onNavigateBack = onNavigateBack,
         onBookNow = onBookNow,
         onChatWithOrganizer = onChatWithOrganizer
@@ -107,6 +110,7 @@ fun DetailScreen(
 private fun DetailContent(
     item: CatalogItem,
     viewModel: CatalogViewModel,
+    cartViewModel: CartViewModel,
     onNavigateBack: () -> Unit,
     onBookNow: (String) -> Unit,
     onChatWithOrganizer: (String) -> Unit
@@ -165,6 +169,23 @@ private fun DetailContent(
 
     val checkInDate = checkInMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
     val checkOutDate = checkOutMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+
+    // Il massimo selezionabile segue la disponibilità vera per la tipologia/tariffa
+    // scelta, non un tetto fisso: altrimenti si può scegliere più di quanto è
+    // davvero libero e scoprirlo solo dopo aver toccato "Prenota ora".
+    val maxPassengers = selectedFareClass?.let { fareClass -> seatAvailability[fareClass.id] ?: fareClass.totalSeats } ?: 9
+    val maxRooms = selectedRoomType?.let { roomType ->
+        if (checkInDate != null && checkOutDate != null) roomAvailability[roomType.id] ?: roomType.totalRooms
+        else roomType.totalRooms
+    } ?: 9
+    LaunchedEffect(maxPassengers, maxRooms) {
+        val max = when (item) {
+            is CatalogItem.Flight -> maxPassengers
+            is CatalogItem.Hotel -> maxRooms
+            is CatalogItem.Excursion -> 9
+        }
+        if (quantity > max) quantity = maxOf(1, max)
+    }
 
     LaunchedEffect(item, checkInDate, checkOutDate) {
         if (item is CatalogItem.Hotel && checkInDate != null && checkOutDate != null && checkInDate.isBefore(checkOutDate)) {
@@ -250,15 +271,25 @@ private fun DetailContent(
                     }
                     isBooking = true
                     val outcome = viewModel.holdRoomType(roomType.id, checkInDate, checkOutDate, quantity)
-                    isBooking = false
                     when (outcome) {
                         is HoldOutcome.Success -> {
-                            snackbarHostState.showSnackbar("Camera bloccata per te: completa la prenotazione entro 15 minuti.")
-                            onBookNow(item.id.toString())
+                            cartViewModel.addItemToCart(
+                                catalogItemId = item.id.toLong(),
+                                quantity = quantity,
+                                roomTypeId = roomType.id.toLong(),
+                                checkIn = checkInDate.toString(),
+                                checkOut = checkOutDate.toString()
+                            ) { success ->
+                                isBooking = false
+                                scope.launch {
+                                    if (success) onBookNow(item.id.toString())
+                                    else snackbarHostState.showSnackbar("Camera bloccata, ma non è stato possibile aggiungerla al carrello")
+                                }
+                            }
                         }
-                        is HoldOutcome.Unavailable -> snackbarHostState.showSnackbar(outcome.message)
-                        is HoldOutcome.Error -> snackbarHostState.showSnackbar(outcome.message)
-                        is HoldOutcome.RequiresLogin -> snackbarHostState.showSnackbar("Accedi per completare la prenotazione")
+                        is HoldOutcome.Unavailable -> { isBooking = false; snackbarHostState.showSnackbar(outcome.message) }
+                        is HoldOutcome.Error -> { isBooking = false; snackbarHostState.showSnackbar(outcome.message) }
+                        is HoldOutcome.RequiresLogin -> { isBooking = false; snackbarHostState.showSnackbar("Accedi per completare la prenotazione") }
                     }
                 }
                 is CatalogItem.Flight -> {
@@ -269,18 +300,39 @@ private fun DetailContent(
                     }
                     isBooking = true
                     val outcome = viewModel.holdFareClass(fareClass.id, quantity)
-                    isBooking = false
                     when (outcome) {
                         is HoldOutcome.Success -> {
-                            snackbarHostState.showSnackbar("Posto bloccato per te: completa la prenotazione entro 15 minuti.")
-                            onBookNow(item.id.toString())
+                            cartViewModel.addItemToCart(
+                                catalogItemId = item.id.toLong(),
+                                quantity = quantity,
+                                fareClassId = fareClass.id.toLong()
+                            ) { success ->
+                                isBooking = false
+                                scope.launch {
+                                    if (success) onBookNow(item.id.toString())
+                                    else snackbarHostState.showSnackbar("Posto bloccato, ma non è stato possibile aggiungerlo al carrello")
+                                }
+                            }
                         }
-                        is HoldOutcome.Unavailable -> snackbarHostState.showSnackbar(outcome.message)
-                        is HoldOutcome.Error -> snackbarHostState.showSnackbar(outcome.message)
-                        is HoldOutcome.RequiresLogin -> snackbarHostState.showSnackbar("Accedi per completare la prenotazione")
+                        is HoldOutcome.Unavailable -> { isBooking = false; snackbarHostState.showSnackbar(outcome.message) }
+                        is HoldOutcome.Error -> { isBooking = false; snackbarHostState.showSnackbar(outcome.message) }
+                        is HoldOutcome.RequiresLogin -> { isBooking = false; snackbarHostState.showSnackbar("Accedi per completare la prenotazione") }
                     }
                 }
-                is CatalogItem.Excursion -> onBookNow(item.id.toString())
+                is CatalogItem.Excursion -> {
+                    if (!viewModel.isLoggedIn()) {
+                        snackbarHostState.showSnackbar("Accedi per completare la prenotazione")
+                        return@launch
+                    }
+                    isBooking = true
+                    cartViewModel.addItemToCart(catalogItemId = item.id.toLong(), quantity = quantity) { success ->
+                        isBooking = false
+                        scope.launch {
+                            if (success) onBookNow(item.id.toString())
+                            else snackbarHostState.showSnackbar("Impossibile aggiungere l'attività al carrello")
+                        }
+                    }
+                }
             }
         }
     }
@@ -480,7 +532,7 @@ private fun DetailContent(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        QuantityStepper(label = "Passeggeri", quantity = quantity, max = 9, onChange = { quantity = it })
+                        QuantityStepper(label = "Passeggeri", quantity = quantity, max = maxOf(1, maxPassengers), onChange = { quantity = it })
                     }
 
                     is CatalogItem.Hotel -> {
@@ -513,7 +565,7 @@ private fun DetailContent(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        QuantityStepper(label = "Camere", quantity = quantity, max = selectedRoomType?.totalRooms ?: 9, onChange = { quantity = it })
+                        QuantityStepper(label = "Camere", quantity = quantity, max = maxOf(1, maxRooms), onChange = { quantity = it })
 
                         Spacer(modifier = Modifier.height(20.dp))
                         DetailRow(icon = Icons.Filled.LocationOn, title = "Indirizzo", subtitle = "${item.address}, ${item.city}")
@@ -670,7 +722,7 @@ private fun DetailContent(
 
         if (showAddToItineraryDialog) {
             com.tripify.tripify_android.itinerary.ui.AddToItineraryDialog(
-                catalogItemId = item.id,
+                catalogItem = item,
                 onDismiss = { showAddToItineraryDialog = false },
                 onAdded = {
                     showAddToItineraryDialog = false

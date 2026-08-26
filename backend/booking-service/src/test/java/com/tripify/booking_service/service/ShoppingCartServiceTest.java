@@ -3,6 +3,7 @@ package com.tripify.booking_service.service;
 import com.tripify.booking_service.client.CatalogClient;
 import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.CartDTO;
+import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
 import com.tripify.booking_service.dto.HoldResultDTO;
 import com.tripify.booking_service.entity.CartItem;
 import com.tripify.booking_service.entity.ShoppingCart;
@@ -53,7 +54,8 @@ class ShoppingCartServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(catalogClient.getItemPrice(anyLong())).thenReturn(99.0);
+        when(catalogClient.getItem(anyLong())).thenReturn(
+                new CatalogItemSummaryDTO(1L, "Activity", java.math.BigDecimal.valueOf(99.0), null, null));
     }
 
     private void addItem(AddToCartRequestDTO request) {
@@ -86,7 +88,7 @@ class ShoppingCartServiceTest {
 
     @Test
     void rifiutaArticoloNonPresenteNelCatalogo() {
-        when(catalogClient.getItemPrice(404L)).thenReturn(null);
+        when(catalogClient.getItem(404L)).thenReturn(null);
 
         assertThatThrownBy(() -> cartService.addItem(USER_ID, new AddToCartRequestDTO(404L, 1, null, null, null, null)))
                 .isInstanceOf(CatalogItemNotFoundException.class);

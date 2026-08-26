@@ -54,7 +54,8 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
         roomTypeId: Long? = null,
         fareClassId: Long? = null,
         checkIn: String? = null,
-        checkOut: String? = null
+        checkOut: String? = null,
+        onResult: (success: Boolean) -> Unit = {}
     ) {
         viewModelScope.launch {
             try {
@@ -64,13 +65,16 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
                 if (response.isSuccessful) {
                     fetchCart()
+                    onResult(true)
                 } else {
                     // ALTRA MAGIA! Mostrerà es. "Articolo non trovato nel catalogo!"
                     val cleanError = response.parseErrorMessage()
                     _uiState.value = CartState.Error(cleanError)
+                    onResult(false)
                 }
             } catch (e: Exception) {
                 _uiState.value = CartState.Error("Nessuna connessione: ${e.message}")
+                onResult(false)
             }
         }
     }

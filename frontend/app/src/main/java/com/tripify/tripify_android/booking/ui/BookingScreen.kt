@@ -12,18 +12,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.booking.component.BookingCard
 import com.tripify.tripify_android.booking.model.BookingState
+import com.tripify.tripify_android.booking.model.CartState
 import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
+import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingScreen(
     viewModel: BookingViewModel,
+    cartViewModel: CartViewModel,
     onNavigateToCart: () -> Unit = {}
 ) {
     // 1. Ascoltiamo lo stato dal ViewModel
     val uiState by viewModel.uiState.collectAsState()
+    val cartState by cartViewModel.uiState.collectAsState()
+    val cartItemCount = (cartState as? CartState.Success)?.cart?.items?.sumOf { it.quantity } ?: 0
+
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Variabili di stato per il Pop-up degli inviti (specifiche di questa schermata)
     var showInviteDialog by remember { mutableStateOf(false) }
@@ -38,10 +47,12 @@ fun BookingScreen(
     // serve più passarlo: il backend lo ricava dal JWT (vedi BookingApi).
     LaunchedEffect(Unit) {
         viewModel.fetchUserBookings()
+        cartViewModel.fetchCart()
     }
 
     Scaffold(
         containerColor = CatalogColors.Background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -49,7 +60,13 @@ fun BookingScreen(
                 },
                 actions = {
                     IconButton(onClick = onNavigateToCart) {
-                        Icon(Icons.Filled.ShoppingCart, contentDescription = "Carrello", tint = CatalogColors.AccentDark)
+                        BadgedBox(badge = {
+                            if (cartItemCount > 0) {
+                                Badge(containerColor = CatalogColors.Alert) { Text("$cartItemCount") }
+                            }
+                        }) {
+                            Icon(Icons.Filled.ShoppingCart, contentDescription = "Carrello", tint = CatalogColors.AccentDark)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
@@ -139,7 +156,7 @@ fun BookingScreen(
                                 showInviteDialog = false
                                 friendIdInput = ""
                             },
-                            onError = { /* Gestione errore opzionale */ }
+                            onError = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
                         )
                     }
                 ) {
@@ -171,7 +188,10 @@ fun BookingScreen(
                         viewModel.cancelBooking(
                             bookingId = bookingToCancel!!,
                             onSuccess = { showCancelDialog = false },
-                            onError = { showCancelDialog = false }
+                            onError = { message ->
+                                showCancelDialog = false
+                                scope.launch { snackbarHostState.showSnackbar(message) }
+                            }
                         )
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.Alert)

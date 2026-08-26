@@ -18,4 +18,9 @@ public interface SeatHoldRepository extends JpaRepository<SeatHold, Long> {
                OR (h.status = com.tripify.catalog_service.entity.HoldStatus.HELD AND h.expiresAt > :now))
         """)
     Integer sumActiveSeats(@Param("fareClassId") Long fareClassId, @Param("now") LocalDateTime now);
+
+    // Rimuove gli hold (anche storici/scaduti) sui voli già partiti, prerequisito per
+    // poter cancellare le loro fare_classes senza violare il vincolo di chiave esterna
+    // (vedi FlightCleanupService).
+    void deleteByFareClass_Flight_DepartureTimeBefore(LocalDateTime time);
 }

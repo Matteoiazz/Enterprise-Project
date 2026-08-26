@@ -4,6 +4,7 @@ import com.tripify.booking_service.client.CatalogClient;
 import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.CartDTO;
 import com.tripify.booking_service.dto.CartItemDTO;
+import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
 import com.tripify.booking_service.dto.HoldResultDTO;
 import com.tripify.booking_service.dto.RoomHoldRequestDTO;
 import com.tripify.booking_service.dto.SeatHoldRequestDTO;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -90,23 +92,23 @@ public class ShoppingCartService {
 
         ShoppingCart cart = getCartForUser(userId);
 
-        // LA CHIAMATA DI SICUREZZA: Chiediamo il prezzo reale al microservizio Catalogo
-        // NOTA: CatalogClient.getItemPrice() restituisce ancora Double - se possibile
-        // fai in modo che anche il Catalog Service esponga il prezzo come BigDecimal,
-        // così eviti la conversione qui e resti coerente end-to-end.
-        Double realPrice = catalogClient.getItemPrice(request.catalogItemId());
+        // LA CHIAMATA DI SICUREZZA: chiediamo l'articolo completo al microservizio
+        // Catalogo (non solo il prezzo base) per poter usare il prezzo della
+        // tariffa/camera realmente scelta, e per gli hotel moltiplicarlo per le notti.
+        CatalogItemSummaryDTO catalogItem = catalogClient.getItem(request.catalogItemId());
 
-        if (realPrice == null) {
+        if (catalogItem == null) {
             throw new CatalogItemNotFoundException("Articolo non trovato nel catalogo: " + request.catalogItemId());
         }
 
-        BigDecimal price = BigDecimal.valueOf(realPrice);
+        if (request.roomTypeId() != null && (request.checkIn() == null || request.checkOut() == null)) {
+            throw new IllegalArgumentException("checkIn e checkOut sono obbligatori per prenotare una camera d'hotel.");
+        }
+
+        BigDecimal price = resolveRealPrice(catalogItem, request);
         String holdId = null;
 
         if (request.roomTypeId() != null) {
-            if (request.checkIn() == null || request.checkOut() == null) {
-                throw new IllegalArgumentException("checkIn e checkOut sono obbligatori per prenotare una camera d'hotel.");
-            }
             HoldResultDTO hold = catalogClient.holdRoom(request.roomTypeId(),
                     new RoomHoldRequestDTO(request.checkIn(), request.checkOut(), request.quantity(), userId));
             holdId = hold.holdId();
@@ -146,6 +148,34 @@ public class ShoppingCartService {
                 .holdId(holdId)
                 .build();
         itemRepository.save(newItem);
+    }
+
+    /**
+     * Prezzo reale dell'articolo da salvare in priceAtAdded: tariffa scelta per i
+     * voli, prezzo camera × numero di notti per gli hotel, prezzo base altrimenti.
+     * Prima di questo fix veniva sempre usato il prezzo base dell'item, ignorando
+     * la tariffa/camera scelta e senza mai moltiplicare per le notti.
+     */
+    private BigDecimal resolveRealPrice(CatalogItemSummaryDTO catalogItem, AddToCartRequestDTO request) {
+        BigDecimal basePrice = catalogItem.price() != null ? catalogItem.price() : BigDecimal.ZERO;
+
+        if (request.fareClassId() != null) {
+            return catalogItem.fareClasses() == null ? basePrice : catalogItem.fareClasses().stream()
+                    .filter(f -> f.id().equals(request.fareClassId()))
+                    .map(CatalogItemSummaryDTO.FareClassSummaryDTO::price)
+                    .findFirst().orElse(basePrice);
+        }
+
+        if (request.roomTypeId() != null) {
+            BigDecimal roomPrice = catalogItem.roomTypes() == null ? basePrice : catalogItem.roomTypes().stream()
+                    .filter(r -> r.id().equals(request.roomTypeId()))
+                    .map(CatalogItemSummaryDTO.RoomTypeSummaryDTO::price)
+                    .findFirst().orElse(basePrice);
+            long nights = Math.max(1, ChronoUnit.DAYS.between(request.checkIn(), request.checkOut()));
+            return roomPrice.multiply(BigDecimal.valueOf(nights));
+        }
+
+        return basePrice;
     }
 
     // 3. Svuota completamente il carrello su richiesta esplicita dell'utente:

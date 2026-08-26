@@ -16,11 +16,13 @@ import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartScreen(
     viewModel: CartViewModel,
+    catalogViewModel: CatalogViewModel,
     onNavigateBack: () -> Unit = {},
     onNavigateToCheckout: () -> Unit = {}
 ) {
@@ -102,7 +104,7 @@ fun CartScreen(
                             contentPadding = PaddingValues(vertical = 16.dp)
                         ) {
                             items(state.cart.items, key = { it.id }) { item ->
-                                CartItemCard(item = item)
+                                CartItemCard(item = item, catalogViewModel = catalogViewModel)
                             }
                         }
                     }

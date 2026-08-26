@@ -17,6 +17,9 @@ interface ItineraryApi {
     @GET("api/v1/itinerary/{id}")
     suspend fun getById(@Path("id") id: Long): Response<FavoriteListDto>
 
+    @DELETE("api/v1/itinerary/{id}")
+    suspend fun deleteList(@Path("id") id: Long): Response<Unit>
+
     @GET("api/v1/itinerary/mine")
     suspend fun getMyLists(): Response<List<FavoriteListDto>>
 
@@ -35,6 +38,10 @@ interface ItineraryApi {
 
     @POST("api/v1/itinerary/{id}/items")
     suspend fun addItem(@Path("id") id: Long, @Body request: AddListItemRequest): Response<Unit>
+
+    /** Rimuove il componente in posizione {index} (0-based, stesso ordine mostrato nel dettaglio). */
+    @DELETE("api/v1/itinerary/{id}/items/{index}")
+    suspend fun removeItem(@Path("id") id: Long, @Path("index") index: Int): Response<RemoveItemResultDto>
 
     @PUT("api/v1/itinerary/{id}/share")
     suspend fun share(@Path("id") id: Long, @Query("userId") userId: String): Response<Unit>

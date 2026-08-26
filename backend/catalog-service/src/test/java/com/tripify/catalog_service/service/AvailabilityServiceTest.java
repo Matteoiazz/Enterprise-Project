@@ -122,11 +122,11 @@ class AvailabilityServiceTest {
         LocalDate checkOut = checkIn.plusDays(2);
         HoldResultDTO hold = availabilityService.holdRoom(roomType.getId(), checkIn, checkOut, 3, "user-1");
 
-        availabilityService.confirm(hold.holdId());
+        availabilityService.confirm(hold.holdId(), "user-1");
 
         // Confermato: continua a contare, e non e' piu' rilasciabile.
         assertThat(availabilityService.computeRoomAvailability(roomType.getId(), checkIn, checkOut)).isZero();
-        assertThatThrownBy(() -> availabilityService.release(hold.holdId()))
+        assertThatThrownBy(() -> availabilityService.release(hold.holdId(), "user-1"))
                 .isInstanceOf(InvalidHoldStateException.class);
     }
 
@@ -136,7 +136,7 @@ class AvailabilityServiceTest {
         LocalDate checkOut = checkIn.plusDays(2);
         HoldResultDTO hold = availabilityService.holdRoom(roomType.getId(), checkIn, checkOut, 3, "user-1");
 
-        availabilityService.release(hold.holdId());
+        availabilityService.release(hold.holdId(), "user-1");
 
         assertThat(availabilityService.computeRoomAvailability(roomType.getId(), checkIn, checkOut)).isEqualTo(3);
     }

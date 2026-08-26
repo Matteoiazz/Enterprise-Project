@@ -1,72 +1,91 @@
 package com.tripify.tripify_android.booking.component
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.data.model.CartItemDTO
 
 @Composable
-fun CartItemCard(item: CartItemDTO) {
+fun CartItemCard(item: CartItemDTO, catalogViewModel: CatalogViewModel) {
+    var resolved by remember(item.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
+    LaunchedEffect(item.catalogItemId) {
+        resolved = catalogViewModel.getOrFetchItem(item.catalogItemId.toInt())
+    }
+
     Card(
         shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    // Nota: senza una chiamata al catalogo qui abbiamo solo l'id
-                    // dell'articolo, non il suo titolo/immagine.
-                    Text(
-                        text = "Articolo #${item.catalogItemId}",
-                        style = CatalogType.TitleCompact,
-                        color = CatalogColors.Ink
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Quantità: ${item.quantity}",
-                        style = CatalogType.Body,
-                        color = CatalogColors.InkMuted
-                    )
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            AsyncImage(
+                model = resolved?.imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp))
+            )
+            Spacer(modifier = Modifier.width(12.dp))
 
-                    if (item.checkIn != null && item.checkOut != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.CalendarMonth,
-                                contentDescription = null,
-                                tint = CatalogColors.InkMuted,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${item.checkIn} → ${item.checkOut}",
-                                style = CatalogType.Caption,
-                                color = CatalogColors.InkMuted
-                            )
-                        }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = resolved?.title ?: "Articolo #${item.catalogItemId}",
+                    style = CatalogType.TitleCompact,
+                    color = CatalogColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Quantità: ${item.quantity}",
+                    style = CatalogType.Body,
+                    color = CatalogColors.InkMuted
+                )
+
+                if (item.checkIn != null && item.checkOut != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.CalendarMonth,
+                            contentDescription = null,
+                            tint = CatalogColors.InkMuted,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${item.checkIn} → ${item.checkOut}",
+                            style = CatalogType.Caption,
+                            color = CatalogColors.InkMuted
+                        )
                     }
                 }
-
-                Text(
-                    text = "€${"%.2f".format(item.priceAtAdded * item.quantity)}",
-                    style = CatalogType.Price,
-                    color = CatalogColors.AccentDark
-                )
             }
+
+            Text(
+                text = "€${"%.2f".format(item.priceAtAdded * item.quantity)}",
+                style = CatalogType.Price,
+                color = CatalogColors.AccentDark
+            )
         }
     }
 }

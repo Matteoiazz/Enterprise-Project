@@ -27,6 +27,7 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.chat.repository.ChatRepository
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
+import com.tripify.tripify_android.itinerary.data.FavoriteListItemDto
 import com.tripify.tripify_android.itinerary.util.extractUserIdFromToken
 import com.tripify.tripify_android.itinerary.viewmodel.ItineraryDetailState
 import com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel
@@ -53,6 +54,14 @@ fun ItineraryDetailScreen(
     var isBooking by remember { mutableStateOf(false) }
     var isChatting by remember { mutableStateOf(false) }
     var showPublishDialog by remember { mutableStateOf(false) }
+    var showItemPickerDialog by remember { mutableStateOf(false) }
+    var pendingCatalogItem by remember { mutableStateOf<CatalogItem?>(null) }
+    var indexToRemove by remember { mutableStateOf<Int?>(null) }
+    var showDeleteListDialog by remember { mutableStateOf(false) }
+    var isDeletingList by remember { mutableStateOf(false) }
+
+    val currentList = (detailState as? ItineraryDetailState.Success)?.list
+    val isOwnerTopLevel = currentUserId != null && currentUserId == currentList?.ownerId
 
     LaunchedEffect(listId) {
         viewModel.loadDetail(listId)
@@ -69,6 +78,13 @@ fun ItineraryDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
+                    }
+                },
+                actions = {
+                    if (isOwnerTopLevel) {
+                        IconButton(onClick = { showDeleteListDialog = true }) {
+                            Icon(Icons.Filled.DeleteOutline, contentDescription = "Elimina itinerario", tint = CatalogColors.Alert)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
@@ -102,6 +118,58 @@ fun ItineraryDetailScreen(
                                     )
                                 }
                             }
+                        }
+                    )
+                }
+
+                if (showItemPickerDialog) {
+                    CatalogItemPickerDialog(
+                        catalogViewModel = catalogViewModel,
+                        onDismiss = { showItemPickerDialog = false },
+                        onSelect = { selected ->
+                            showItemPickerDialog = false
+                            pendingCatalogItem = selected
+                        }
+                    )
+                }
+
+                pendingCatalogItem?.let { catalogItem ->
+                    AddToItineraryDialog(
+                        catalogItem = catalogItem,
+                        fixedListId = list.id,
+                        onDismiss = { pendingCatalogItem = null },
+                        onAdded = {
+                            pendingCatalogItem = null
+                            viewModel.loadDetail(list.id)
+                            scope.launch { snackbarHostState.showSnackbar("Componente aggiunto all'itinerario") }
+                        }
+                    )
+                }
+
+                indexToRemove?.let { index ->
+                    AlertDialog(
+                        onDismissRequest = { indexToRemove = null },
+                        containerColor = CatalogColors.Surface,
+                        shape = CatalogShapes.Card,
+                        title = { Text("Rimuovere questo componente?", style = CatalogType.Section, color = CatalogColors.Ink) },
+                        text = { Text("Non potrai annullare questa azione.", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                indexToRemove = null
+                                viewModel.removeItem(list.id, index) { success, alsoRemoved ->
+                                    scope.launch {
+                                        val message = when {
+                                            !success -> "Impossibile rimuovere il componente"
+                                            alsoRemoved.isEmpty() -> "Componente rimosso"
+                                            else -> "Rimossi anche: ${alsoRemoved.joinToString(", ")} (non più raggiungibili)"
+                                        }
+                                        snackbarHostState.showSnackbar(message)
+                                    }
+                                }
+                            }) { Text("Rimuovi", style = CatalogType.LabelStrong, color = CatalogColors.Alert) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { indexToRemove = null }) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) }
                         }
                     )
                 }
@@ -163,6 +231,18 @@ fun ItineraryDetailScreen(
                             Text("${list.bookingsCount} prenotazioni", style = CatalogType.Caption, color = CatalogColors.InkMuted)
                         }
 
+                        if (list.totalPrice != null) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Euro, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Totale: €%.2f".format(list.totalPrice),
+                                    style = CatalogType.BodyStrong, color = CatalogColors.Ink
+                                )
+                            }
+                        }
+
                         if (isOwner && list.visibility != "PUBLIC") {
                             Spacer(modifier = Modifier.height(14.dp))
                             OutlinedButton(
@@ -177,15 +257,54 @@ fun ItineraryDetailScreen(
                         }
 
                         Spacer(modifier = Modifier.height(22.dp))
-                        Text("TAPPE", style = CatalogType.Overline, color = CatalogColors.InkMuted)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("TAPPE", style = CatalogType.Overline, color = CatalogColors.InkMuted)
+                            if (isOwner) {
+                                Row(
+                                    modifier = Modifier.clickable { showItemPickerDialog = true },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Filled.AddCircle, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Aggiungi", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(10.dp))
 
+                        if (isOwner) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(CatalogColors.AccentSoft, CatalogShapes.Field)
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(Icons.Filled.Info, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    if (list.items.isEmpty())
+                                        "Aggiungi i componenti in ordine di viaggio: prima il volo di andata, poi l'hotel e/o le attività nella città di arrivo, poi il volo successivo. Ogni componente deve trovarsi nella stessa città e nelle stesse date del volo che ce lo porta."
+                                    else
+                                        "Ricorda: i componenti vanno aggiunti in ordine cronologico (prima il volo, poi hotel/attività nella città di arrivo, poi il volo successivo) — l'app rifiuta un componente se città o date non tornano con l'ultimo volo aggiunto.",
+                                    style = CatalogType.Caption, color = CatalogColors.AccentDark
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            list.items.forEach { item ->
+                            list.items.forEachIndexed { index, item ->
                                 ItineraryComponentRow(
-                                    itemId = item.catalogItemId,
+                                    item = item,
                                     catalogViewModel = catalogViewModel,
-                                    onClick = { onNavigateToComponent(item.catalogItemId.toString()) }
+                                    isOwner = isOwner,
+                                    onClick = { onNavigateToComponent(item.catalogItemId.toString()) },
+                                    onRemove = { indexToRemove = index }
                                 )
                             }
                         }
@@ -209,7 +328,7 @@ fun ItineraryDetailScreen(
                                     }
                                 }
                             },
-                            enabled = !isBooking,
+                            enabled = !isBooking && list.items.isNotEmpty(),
                             colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                             shape = CatalogShapes.Field,
                             modifier = Modifier.fillMaxWidth().height(50.dp)
@@ -223,34 +342,37 @@ fun ItineraryDetailScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        // Non ha senso chattare con l'organizzatore quando l'organizzatore sei tu.
+                        if (!isOwner) {
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    val token = tokenManager.tokenFlow.first()
-                                    if (token.isNullOrBlank()) {
-                                        snackbarHostState.showSnackbar("Accedi per contattare l'organizzatore")
-                                        return@launch
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        val token = tokenManager.tokenFlow.first()
+                                        if (token.isNullOrBlank()) {
+                                            snackbarHostState.showSnackbar("Accedi per contattare l'organizzatore")
+                                            return@launch
+                                        }
+                                        isChatting = true
+                                        val chatRoom = ChatRepository.getOrCreateChatRoom(hostId = list.ownerId, authToken = token)
+                                        isChatting = false
+                                        if (chatRoom != null) {
+                                            onChatWithOrganizer(chatRoom.id)
+                                        } else {
+                                            snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                        }
                                     }
-                                    isChatting = true
-                                    val chatRoom = ChatRepository.getOrCreateChatRoom(hostId = list.ownerId, authToken = token)
-                                    isChatting = false
-                                    if (chatRoom != null) {
-                                        onChatWithOrganizer(chatRoom.id)
-                                    } else {
-                                        snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
-                                    }
-                                }
-                            },
-                            enabled = !isChatting,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            shape = CatalogShapes.Field,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
-                        ) {
-                            Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Chatta con l'organizzatore", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                                },
+                                enabled = !isChatting,
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                shape = CatalogShapes.Field,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                            ) {
+                                Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Chat", tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Chatta con l'organizzatore", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -259,21 +381,55 @@ fun ItineraryDetailScreen(
             }
         }
     }
+
+    if (showDeleteListDialog && currentList != null) {
+        AlertDialog(
+            onDismissRequest = { if (!isDeletingList) showDeleteListDialog = false },
+            containerColor = CatalogColors.Surface,
+            shape = CatalogShapes.Card,
+            title = { Text("Eliminare l'itinerario?", style = CatalogType.Section, color = CatalogColors.Ink) },
+            text = { Text("\"${currentList.name}\" e tutte le sue tappe verranno eliminati. Non potrai annullare questa azione.", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+            confirmButton = {
+                TextButton(
+                    enabled = !isDeletingList,
+                    onClick = {
+                        isDeletingList = true
+                        viewModel.deleteList(currentList.id) { success ->
+                            isDeletingList = false
+                            showDeleteListDialog = false
+                            if (success) {
+                                onNavigateBack()
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("Impossibile eliminare l'itinerario") }
+                            }
+                        }
+                    }
+                ) { Text("Elimina", style = CatalogType.LabelStrong, color = CatalogColors.Alert) }
+            },
+            dismissButton = {
+                TextButton(enabled = !isDeletingList, onClick = { showDeleteListDialog = false }) {
+                    Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun ItineraryComponentRow(
-    itemId: Long,
+    item: FavoriteListItemDto,
     catalogViewModel: CatalogViewModel,
-    onClick: () -> Unit
+    isOwner: Boolean,
+    onClick: () -> Unit,
+    onRemove: () -> Unit
 ) {
-    var item by remember(itemId) { mutableStateOf<CatalogItem?>(null) }
+    var resolvedItem by remember(item.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
 
-    LaunchedEffect(itemId) {
-        item = catalogViewModel.getOrFetchItem(itemId.toInt())
+    LaunchedEffect(item.catalogItemId) {
+        resolvedItem = catalogViewModel.getOrFetchItem(item.catalogItemId.toInt())
     }
 
-    val resolved = item
+    val resolved = resolvedItem
     Surface(
         shape = CatalogShapes.Field,
         color = CatalogColors.Surface,
@@ -304,11 +460,70 @@ private fun ItineraryComponentRow(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(label, style = CatalogType.Overline, color = CatalogColors.InkMuted)
                     }
-                    Text(resolved.title, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(resolved.title, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (item.quantity > 1) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("×${item.quantity}", style = CatalogType.Caption, color = CatalogColors.InkMuted)
+                        }
+                    }
+
+                    when (resolved) {
+                        is CatalogItem.Flight -> {
+                            Text(
+                                "${resolved.departureCity} → ${resolved.arrivalCity} · ${resolved.departureTime}",
+                                style = CatalogType.Caption, color = CatalogColors.InkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                            val fareClass = resolved.fareClasses.find { it.id.toLong() == item.fareClassId }
+                            if (fareClass != null) {
+                                Text(fareClass.name, style = CatalogType.Caption, color = CatalogColors.InkSubtle, maxLines = 1)
+                            }
+                        }
+                        is CatalogItem.Hotel -> {
+                            val nights = nightsBetween(item.checkIn, item.checkOut)
+                            if (item.checkIn != null && item.checkOut != null) {
+                                Text(
+                                    "${item.checkIn} → ${item.checkOut}" + (nights?.let { " · $it ${if (it == 1L) "notte" else "notti"}" } ?: ""),
+                                    style = CatalogType.Caption, color = CatalogColors.InkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            val roomType = resolved.roomTypes.find { it.id.toLong() == item.roomTypeId }
+                            if (roomType != null) {
+                                Text(roomType.name, style = CatalogType.Caption, color = CatalogColors.InkSubtle, maxLines = 1)
+                            }
+                        }
+                        is CatalogItem.Excursion -> {
+                            if (item.activityDate != null) {
+                                Text(item.activityDate, style = CatalogType.Caption, color = CatalogColors.InkMuted, maxLines = 1)
+                            }
+                        }
+                    }
                 }
-                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CatalogColors.InkSubtle)
+                if (item.price != null) {
+                    Text(
+                        "€%.2f".format(item.price),
+                        style = CatalogType.BodyStrong, color = CatalogColors.AccentDark,
+                        maxLines = 1, modifier = Modifier.padding(end = 6.dp)
+                    )
+                }
+                if (isOwner) {
+                    IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Filled.DeleteOutline, contentDescription = "Rimuovi", tint = CatalogColors.Alert, modifier = Modifier.size(18.dp))
+                    }
+                } else {
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CatalogColors.InkSubtle)
+                }
             }
         }
+    }
+}
+
+private fun nightsBetween(checkIn: String?, checkOut: String?): Long? {
+    if (checkIn == null || checkOut == null) return null
+    return try {
+        java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.parse(checkIn), java.time.LocalDate.parse(checkOut))
+    } catch (e: Exception) {
+        null
     }
 }
 
@@ -317,6 +532,8 @@ private fun PublishDialog(onDismiss: () -> Unit, onConfirm: (city: String) -> Un
     var city by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = CatalogColors.Surface,
+        shape = CatalogShapes.Card,
         title = { Text("Rendi pubblica la lista", style = CatalogType.Section, color = CatalogColors.Ink) },
         text = {
             Column {
@@ -328,20 +545,29 @@ private fun PublishDialog(onDismiss: () -> Unit, onConfirm: (city: String) -> Un
                 OutlinedTextField(
                     value = city,
                     onValueChange = { city = it },
-                    placeholder = { Text("es. Roma") },
+                    placeholder = { Text("es. Roma", style = CatalogType.Label, color = CatalogColors.InkSubtle) },
                     singleLine = true,
                     shape = CatalogShapes.Field,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CatalogColors.Accent,
+                        unfocusedBorderColor = CatalogColors.Hairline,
+                        focusedContainerColor = CatalogColors.Surface,
+                        unfocusedContainerColor = CatalogColors.Surface,
+                        cursorColor = CatalogColors.AccentDark,
+                        focusedTextColor = CatalogColors.Ink,
+                        unfocusedTextColor = CatalogColors.Ink
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = { if (city.isNotBlank()) onConfirm(city.trim()) }) {
-                Text("Pubblica", color = CatalogColors.AccentDark)
+                Text("Pubblica", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annulla", color = CatalogColors.InkMuted) }
+            TextButton(onClick = onDismiss) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) }
         }
     )
 }

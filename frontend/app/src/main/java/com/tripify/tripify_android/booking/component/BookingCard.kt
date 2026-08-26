@@ -11,6 +11,18 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.data.model.BookingResponseDTO
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+private val bookingDateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.ITALIAN)
+
+private fun formatBookingDate(raw: String): String =
+    try {
+        LocalDateTime.parse(raw).format(bookingDateFormatter)
+    } catch (e: Exception) {
+        raw
+    }
 
 private fun statusLabel(status: String): String = when (status) {
     "PENDING" -> "In attesa di pagamento"
@@ -51,7 +63,7 @@ fun BookingCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = "Viaggio #${booking.id}", style = CatalogType.CardTitle, color = CatalogColors.Ink)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(text = booking.bookingDate, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+                    Text(text = formatBookingDate(booking.bookingDate), style = CatalogType.Caption, color = CatalogColors.InkMuted)
                 }
 
                 Surface(color = statusBackground(booking.status), shape = CatalogShapes.Pill) {

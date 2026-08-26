@@ -53,14 +53,14 @@ public class AvailabilityController {
     }
 
     @PostMapping("/holds/{holdId}/confirm")
-    public ResponseEntity<Void> confirm(@PathVariable String holdId) {
-        availabilityService.confirm(holdId);
+    public ResponseEntity<Void> confirm(@PathVariable String holdId, @AuthenticationPrincipal Jwt jwt) {
+        availabilityService.confirm(holdId, jwt.getSubject());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/holds/{holdId}/release")
-    public ResponseEntity<Void> release(@PathVariable String holdId) {
-        availabilityService.release(holdId);
+    public ResponseEntity<Void> release(@PathVariable String holdId, @AuthenticationPrincipal Jwt jwt) {
+        availabilityService.release(holdId, jwt.getSubject());
         return ResponseEntity.ok().build();
     }
 }

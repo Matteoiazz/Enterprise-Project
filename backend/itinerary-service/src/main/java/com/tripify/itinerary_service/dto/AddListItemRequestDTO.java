@@ -13,5 +13,6 @@ public record AddListItemRequestDTO(
         Long roomTypeId,
         Long fareClassId,
         LocalDate checkIn,
-        LocalDate checkOut
+        LocalDate checkOut,
+        LocalDate activityDate
 ) {}

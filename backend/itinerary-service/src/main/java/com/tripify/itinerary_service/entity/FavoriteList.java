@@ -46,6 +46,7 @@ public class FavoriteList {
      */
     @ElementCollection
     @CollectionTable(name = "list_items", joinColumns = @JoinColumn(name = "list_id"))
+    @OrderColumn(name = "item_order")
     @Builder.Default
     private List<FavoriteListItem> items = new java.util.ArrayList<>();
 
@@ -92,4 +93,13 @@ public class FavoriteList {
     @Transient
     @Builder.Default
     private boolean likedByMe = false;
+
+    /**
+     * Non persistito: prezzo reale calcolato al volo (fareClass/roomType scelti,
+     * notti hotel incluse) ogni volta che la lista viene letta — vedi
+     * ItineraryService.computeTotalPrice.
+     */
+    @Transient
+    @Builder.Default
+    private java.math.BigDecimal totalPrice = java.math.BigDecimal.ZERO;
 }

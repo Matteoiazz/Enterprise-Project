@@ -49,8 +49,4 @@ public class RoomHold {
     public boolean coversNight(LocalDate date) {
         return !date.isBefore(checkIn) && date.isBefore(checkOut);
     }
-
-    public boolean isActive(LocalDateTime now) {
-        return status == HoldStatus.CONFIRMED || (status == HoldStatus.HELD && expiresAt.isAfter(now));
-    }
 }
