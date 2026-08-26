@@ -131,7 +131,12 @@ fun ItineraryDetailScreen(
                                 },
                                 modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.White)
                             ) {
-                                Icon(Icons.Filled.Favorite, contentDescription = "Mi piace", tint = CatalogColors.Alert, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    if (list.likedByMe) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    contentDescription = "Mi piace",
+                                    tint = CatalogColors.Alert,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }

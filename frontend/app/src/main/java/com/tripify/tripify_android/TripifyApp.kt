@@ -127,14 +127,24 @@ fun TripifyApp(
                     viewModel = catalogViewModel,
                     onNavigateToAuth = { navController.navigate(Route.Auth.path) },
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") },
-                    onNavigateToProfile = { navController.navigate(Route.Profile.path) },
+                    onNavigateToProfile = {
+                        // Stesso pattern delle tab della bottom bar: Profilo e' una di
+                        // quelle destinazioni, un navigate() semplice creerebbe una voce
+                        // duplicata nel back stack e romperebbe il ritorno a Home dalla
+                        // bottom bar.
+                        navController.navigate(Route.Profile.path) {
+                            popUpTo(Route.Home.path) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onNavigateToBookings = { navController.navigate("bookings") },
                     onNavigateToSearchResults = { navController.navigate(Route.SearchResults.path) },
                     onNavigateToChat = { navController.navigate("chat") }
                 )
             }
 
-            // ROTTA: Salvati (le liste/itinerari personali dell'utente)
+            // ROTTA: Salvati (liste proprie/condivise/con like + singoli item di catalogo con like)
             composable("saved") {
                 val context = LocalContext.current
                 val tokenManager = remember { TokenManager(context) }
@@ -142,7 +152,10 @@ fun TripifyApp(
                 com.tripify.tripify_android.itinerary.ui.MyItinerariesScreen(
                     tokenManager = tokenManager,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") }
+                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") },
+                    catalogViewModel = catalogViewModel,
+                    showSavedContent = true,
+                    onNavigateToCatalogItem = { id -> navController.navigate("detail/$id") }
                 )
             }
             // ROTTA: Inbox (Messaggi)

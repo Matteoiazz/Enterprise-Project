@@ -16,9 +16,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.time.LocalDate
@@ -115,6 +118,10 @@ class CatalogViewModel(
 
     /** L'identità reale (JWT) la legge il backend: qui serve solo per decidere se mostrare la UI di prenotazione. */
     suspend fun isLoggedIn(): Boolean = !tokenManager?.tokenFlow?.first().isNullOrBlank()
+
+    /** Versione osservabile di isLoggedIn(), per aggiornare la UI (es. il bottone Accedi) quando cambia il token. */
+    val isLoggedInState: StateFlow<Boolean> = (tokenManager?.tokenFlow?.map { !it.isNullOrBlank() } ?: MutableStateFlow(false))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
         fetchCatalogData(isUserSearch = false)

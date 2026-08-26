@@ -11,7 +11,8 @@ data class FavoriteListDto(
     val city: String?,
     val likesCount: Int = 0,
     val bookingsCount: Int = 0,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val likedByMe: Boolean = false
 )
 
 data class CreateListRequest(val name: String)

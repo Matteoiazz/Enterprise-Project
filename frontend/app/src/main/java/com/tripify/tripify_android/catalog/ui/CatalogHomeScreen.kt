@@ -66,6 +66,7 @@ fun HomeScreen(
 
     val hasSearched by viewModel.hasSearched.collectAsState()
     val recommendedItems by viewModel.recommendedItems.collectAsState()
+    val isLoggedIn by viewModel.isLoggedInState.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     var flightDeparture by rememberSaveable { mutableStateOf("") }
@@ -128,9 +129,9 @@ fun HomeScreen(
                         }
                     },
                     actions = {
-                        TextButton(onClick = onNavigateToAuth) {
+                        TextButton(onClick = if (isLoggedIn) onNavigateToProfile else onNavigateToAuth) {
                             Text(
-                                text = "ACCEDI",
+                                text = if (isLoggedIn) "PROFILO" else "ACCEDI",
                                 style = CatalogType.Overline,
                                 color = CatalogColors.AccentDark
                             )
