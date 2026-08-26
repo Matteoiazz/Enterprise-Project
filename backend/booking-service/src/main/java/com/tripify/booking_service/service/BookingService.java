@@ -1,13 +1,20 @@
 package com.tripify.booking_service.service;
 
+import com.tripify.booking_service.client.CatalogClient;
 import com.tripify.booking_service.dto.AuditLogEntryDTO;
+import com.tripify.booking_service.dto.BookingLineDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.PassengerRequestDTO;
 import com.tripify.booking_service.entity.*;
 import com.tripify.booking_service.exception.AccessDeniedException;
+import com.tripify.booking_service.exception.EmptyCartException;
+import com.tripify.booking_service.exception.InvalidBookingStateException;
+import com.tripify.booking_service.exception.PaymentValidationException;
 import com.tripify.booking_service.exception.ResourceNotFoundException;
 import com.tripify.booking_service.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,18 +33,17 @@ public class BookingService {
     private final PassengerRepository passengerRepository;
     private final ShoppingCartService cartService;
     private final BookingAuditService auditService;
-
-    // Iniettiamo il client Feign o i dati per popolare le righe
-    // (In futuro qui chiamerai Matteo per i dettagli del volo)
+    private final CatalogClient catalogClient;
+    private final PaymentService paymentService;
 
     // 1. Processo di Checkout: converte il carrello in una Booking confermata
     @Transactional
-    public Booking checkout(String userId) {
+    public BookingResponseDTO checkout(String userId) {
         // Recuperiamo il carrello dell'utente
         ShoppingCart cart = cartService.getCartForUser(userId);
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
-            throw new RuntimeException("Impossibile fare il checkout: il carrello è vuoto!");
+            throw new EmptyCartException("Impossibile fare il checkout: il carrello è vuoto!");
         }
 
         // Calcoliamo il totale complessivo degli elementi nel carrello (BigDecimal, niente errori di arrotondamento)
@@ -57,13 +63,23 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
 
-        // Trasformiamo i CartItem in BookingLine
+        // Trasformiamo i CartItem in BookingLine, portando avanti anche
+        // quantity e l'eventuale hold aperto su catalog-service: da qui in poi
+        // è la Booking (non più il carrello) a "possedere" quell'hold, che
+        // verrà confermato o rilasciato in base all'esito del pagamento
+        // (vedi confirmPayment/cancelBooking).
         List<BookingLine> lines = new ArrayList<>();
         for (CartItem item : cart.getItems()) {
             BookingLine line = BookingLine.builder()
                     .booking(savedBooking)
                     .catalogItemId(item.getCatalogItemId())
                     .price(item.getPriceAtAdded())
+                    .quantity(item.getQuantity())
+                    .roomTypeId(item.getRoomTypeId())
+                    .fareClassId(item.getFareClassId())
+                    .checkIn(item.getCheckIn())
+                    .checkOut(item.getCheckOut())
+                    .holdId(item.getHoldId())
                     .passengers(new ArrayList<>())
                     .build();
 
@@ -82,33 +98,18 @@ public class BookingService {
         auditService.log(savedBooking, userId, AuditAction.CREATED,
                 "Prenotazione creata con " + lines.size() + " elemento/i, totale " + totalAmount + "€");
 
-        // Checkout andato a buon fine -> Svuotiamo il carrello dell'utente
-        cartService.clearCart(userId);
+        // Checkout andato a buon fine -> Svuotiamo il carrello dell'utente (gli
+        // eventuali hold sono già stati trasferiti alle BookingLine sopra, quindi
+        // qui NON vanno rilasciati: vedi clearCartAfterCheckout).
+        cartService.clearCartAfterCheckout(userId);
 
-        return savedBooking;
+        return toResponseDTO(savedBooking, userId);
     }
 
-    // 2. AGGIORNATO: Recupera lo storico calcolando i permessi Leader vs Partecipante
-    public List<BookingResponseDTO> getUserHistory(String userId) {
-
-        // Pesca i viaggi dove l'utente è leader o è stato invitato tra i partecipanti
-        List<Booking> bookings = bookingRepository.findAllByUserIdOrParticipantIdsContaining(userId, userId);
-
-        // Mappiamo le entità del database nei DTO per Android
-        return bookings.stream().map(booking -> {
-
-            // Logica magica: sei il leader solo se il tuo ID coincide con quello di chi ha prenotato
-            boolean isLeader = booking.getUserId().equals(userId);
-
-            return BookingResponseDTO.builder()
-                    .id(booking.getId())
-                    .totalAmount(booking.getTotalAmount())
-                    .bookingDate(booking.getBookingDate())
-                    .status(booking.getStatus())
-                    .isLeader(isLeader) // Passiamo il flag al frontend
-                    .build();
-
-        }).collect(Collectors.toList());
+    // 2. Recupera lo storico calcolando i permessi Leader vs Partecipante, paginato
+    public Page<BookingResponseDTO> getUserHistory(String userId, Pageable pageable) {
+        Page<Booking> bookings = bookingRepository.findAllByUserIdOrParticipantIdsContaining(userId, userId, pageable);
+        return bookings.map(booking -> toResponseDTO(booking, userId));
     }
 
     // 3. Permette al Leader di invitare gli amici
@@ -124,6 +125,16 @@ public class BookingService {
             throw new AccessDeniedException("Accesso negato: solo il creatore del viaggio può invitare amici.");
         }
 
+        if (friendId == null || friendId.isBlank()) {
+            throw new IllegalArgumentException("L'id dell'amico da invitare è obbligatorio.");
+        }
+        if (friendId.equals(leaderId)) {
+            throw new IllegalArgumentException("Non puoi invitare te stesso al viaggio.");
+        }
+        if (booking.getParticipantIds().contains(friendId)) {
+            throw new InvalidBookingStateException("Questo utente è già stato invitato al viaggio.");
+        }
+
         // Aggiunge l'amico alla lista e salva nel database
         booking.getParticipantIds().add(friendId);
         bookingRepository.save(booking);
@@ -134,13 +145,7 @@ public class BookingService {
                 "Invitato partecipante con id " + friendId);
 
         // Restituisce il viaggio aggiornato (con isLeader = true, dato che l'ha chiamato il leader)
-        return BookingResponseDTO.builder()
-                .id(booking.getId())
-                .totalAmount(booking.getTotalAmount())
-                .bookingDate(booking.getBookingDate())
-                .status(booking.getStatus())
-                .isLeader(true)
-                .build();
+        return toResponseDTO(booking, leaderId);
     }
 
     // 4. Storico eventi di una prenotazione.
@@ -165,7 +170,7 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
-    // 5. NUOVO: Associa un passeggero (con documento congelato) a una riga di prenotazione.
+    // 5. Associa un passeggero (con documento congelato) a una riga di prenotazione.
     // I dati arrivano già risolti da Android (autocompilati leggendo da user-auth-service,
     // o inseriti a mano) - qui li salviamo così come sono, senza richiamare altri servizi.
     // Autorizzazione: solo il leader della Booking a cui appartiene la riga può farlo,
@@ -178,6 +183,14 @@ public class BookingService {
         Booking booking = line.getBooking();
         if (!booking.getUserId().equals(requesterId)) {
             throw new AccessDeniedException("Accesso negato: solo il creatore del viaggio può aggiungere passeggeri.");
+        }
+
+        // quantity può essere null su righe create prima di questa modifica
+        // (colonna aggiunta senza NOT NULL, vedi BookingLine): in quel caso
+        // non abbiamo un limite noto, quindi non blocchiamo l'inserimento.
+        if (line.getQuantity() != null && line.getPassengers().size() >= line.getQuantity()) {
+            throw new InvalidBookingStateException(
+                    "Questa riga di prenotazione ha già il numero massimo di passeggeri (" + line.getQuantity() + ").");
         }
 
         Passenger passenger = Passenger.builder()
@@ -197,5 +210,116 @@ public class BookingService {
         auditService.log(booking, requesterId, AuditAction.PASSENGER_ADDED,
                 "Aggiunto passeggero " + request.firstName() + " " + request.lastName()
                         + " alla riga " + bookingLineId);
+    }
+
+    // 6. Conferma una prenotazione dopo un pagamento riuscito: verifica che il
+    // chiamante sia il proprietario, che la Booking sia ancora in attesa e che
+    // l'importo pagato corrisponda esattamente al totale, poi conferma
+    // definitivamente ogni hold aperto su catalog-service e passa lo stato a CONFIRMED.
+    @Transactional
+    public Booking confirmPayment(Long bookingId, String userId, BigDecimal amount) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prenotazione non trovata!"));
+
+        if (!booking.getUserId().equals(userId)) {
+            throw new AccessDeniedException("Accesso negato: solo il creatore del viaggio può pagare questa prenotazione.");
+        }
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new InvalidBookingStateException(
+                    "La prenotazione non è in attesa di pagamento (stato attuale: " + booking.getStatus() + ").");
+        }
+        if (amount == null || amount.compareTo(booking.getTotalAmount()) != 0) {
+            throw new PaymentValidationException(
+                    "L'importo del pagamento non corrisponde al totale della prenotazione (" + booking.getTotalAmount() + "€).");
+        }
+
+        // Confermiamo prima tutti gli hold su catalog-service: se uno fallisce (es.
+        // scaduto), l'eccezione risale prima che lo stato PENDING venga toccato.
+        // Nota: gli hold già confermati con successo in questo stesso ciclo NON
+        // possono più essere rilasciati da catalog-service (un hold CONFIRMED
+        // rifiuta la release), quindi un fallimento a metà lista può lasciare
+        // qualche riga "confermata" lato catalogo anche se la Booking resta PENDING:
+        // è un limite del modello di hold di catalog-service, non risolvibile da qui.
+        for (BookingLine line : booking.getLines()) {
+            if (line.getHoldId() != null) {
+                catalogClient.confirmHold(line.getHoldId());
+            }
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        bookingRepository.save(booking);
+
+        auditService.log(booking, userId, AuditAction.STATUS_CHANGED,
+                "Pagamento di " + amount + "€ approvato, stato aggiornato a CONFIRMED");
+
+        return booking;
+    }
+
+    // 7. Annulla una prenotazione: solo il leader può farlo. Se non era ancora
+    // confermata, rilascia gli eventuali hold ancora aperti (erano HELD, non
+    // CONFIRMED). Se era già CONFIRMED, avvia il rimborso tramite PaymentService
+    // (gli hold restano confermati lato catalog-service: vedi nota in confirmPayment).
+    @Transactional
+    public BookingResponseDTO cancelBooking(Long bookingId, String requesterId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prenotazione non trovata!"));
+
+        if (!booking.getUserId().equals(requesterId)) {
+            throw new AccessDeniedException("Accesso negato: solo il creatore del viaggio può annullare la prenotazione.");
+        }
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new InvalidBookingStateException("La prenotazione è già annullata.");
+        }
+
+        boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
+
+        if (!wasConfirmed) {
+            for (BookingLine line : booking.getLines()) {
+                if (line.getHoldId() != null) {
+                    catalogClient.releaseHold(line.getHoldId());
+                }
+            }
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        bookingRepository.save(booking);
+
+        if (wasConfirmed) {
+            paymentService.refund(bookingId, booking.getTotalAmount());
+        }
+
+        auditService.log(booking, requesterId, AuditAction.STATUS_CHANGED,
+                "Prenotazione annullata" + (wasConfirmed ? " e rimborso avviato" : ""));
+
+        return toResponseDTO(booking, requesterId);
+    }
+
+    // Mappa una Booking nel suo DTO pubblico, calcolando isLeader rispetto a chi
+    // sta guardando (viewerId): lo stesso viaggio appare con isLeader diverso
+    // a seconda che lo richieda il leader o uno dei partecipanti invitati.
+    private BookingResponseDTO toResponseDTO(Booking booking, String viewerId) {
+        boolean isLeader = booking.getUserId().equals(viewerId);
+
+        List<BookingLineDTO> lines = booking.getLines().stream()
+                .map(line -> new BookingLineDTO(
+                        line.getId(),
+                        line.getCatalogItemId(),
+                        line.getPrice(),
+                        line.getQuantity(),
+                        line.getRoomTypeId(),
+                        line.getFareClassId(),
+                        line.getCheckIn(),
+                        line.getCheckOut(),
+                        line.getPassengers().size()))
+                .collect(Collectors.toList());
+
+        return new BookingResponseDTO(
+                booking.getId(),
+                booking.getTotalAmount(),
+                booking.getBookingDate(),
+                booking.getStatus(),
+                isLeader,
+                new ArrayList<>(booking.getParticipantIds()),
+                lines);
     }
 }

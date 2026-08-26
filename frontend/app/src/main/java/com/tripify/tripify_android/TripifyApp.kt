@@ -28,13 +28,17 @@ import androidx.navigation.compose.rememberNavController
 // Import delle schermate e dei ViewModel
 import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
-import com.tripify.tripify_android.booking.ui.BookingsScreen
+import com.tripify.tripify_android.booking.ui.BookingScreen
+import com.tripify.tripify_android.booking.ui.CartScreen
+import com.tripify.tripify_android.booking.ui.CheckoutScreen
+import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
+import com.tripify.tripify_android.booking.viewmodel.CartViewModel
+import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.catalog.ui.DetailScreen
 import com.tripify.tripify_android.catalog.ui.HomeScreen
 import com.tripify.tripify_android.catalog.ui.SearchResultsScreen
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.core.navigation.Route
-import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
 import com.tripify.tripify_android.profile.ui.PaymentMethodsScreen
 import com.tripify.tripify_android.profile.ui.ProfileScreen
@@ -65,11 +69,20 @@ fun TripifyApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // ViewModel di booking: costruiti qui (non in MainActivity) perché TokenManager
+    // è solo un wrapper leggero su DataStore, sempre lo stesso store su disco
+    // indipendentemente da quale Context/istanza lo crea - nessun bisogno di
+    // farlo attraversare tutta la gerarchia di parametri di TripifyApp.
+    val bookingContext = LocalContext.current
+    val bookingTokenManager = remember { TokenManager(bookingContext) }
+    val cartViewModel = remember { CartViewModel(bookingTokenManager) }
+    val bookingViewModel = remember { BookingViewModel(bookingTokenManager) }
+
     val bottomNavItems = listOf(
         BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home),
         BottomNavItem("saved", "Salvati", Icons.Filled.FavoriteBorder),
         BottomNavItem("itineraries", "Itinerari", Icons.Filled.Map),
-        BottomNavItem("bookings", "Prenotazioni", Icons.Filled.ConfirmationNumber),
+        BottomNavItem(Route.Bookings.path, "Prenotazioni", Icons.Filled.ConfirmationNumber),
         BottomNavItem(Route.Profile.path, "Profilo", Icons.Filled.PersonOutline)
     )
 
@@ -139,7 +152,7 @@ fun TripifyApp(
                             restoreState = true
                         }
                     },
-                    onNavigateToBookings = { navController.navigate("bookings") },
+                    onNavigateToBookings = { navController.navigate(Route.Bookings.path) },
                     onNavigateToSearchResults = { navController.navigate(Route.SearchResults.path) },
                     onNavigateToChat = { navController.navigate("chat")},
                     onNavigateToNotifications = { navController.navigate("notifications") }
@@ -205,9 +218,32 @@ fun TripifyApp(
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("bookings") {
-                BookingsScreen(
-                    onNavigateBack = { navController.popBackStack() }
+            composable(Route.Bookings.path) {
+                BookingScreen(
+                    viewModel = bookingViewModel,
+                    onNavigateToCart = { navController.navigate(Route.Cart.path) }
+                )
+            }
+
+            // ROTTA: Carrello
+            composable(Route.Cart.path) {
+                CartScreen(
+                    viewModel = cartViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCheckout = { navController.navigate(Route.Checkout.path) }
+                )
+            }
+
+            // ROTTA: Pagamento
+            composable(Route.Checkout.path) {
+                CheckoutScreen(
+                    viewModel = cartViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onPaymentSuccess = {
+                        navController.navigate(Route.Bookings.path) {
+                            popUpTo(Route.Cart.path) { inclusive = true }
+                        }
+                    }
                 )
             }
 

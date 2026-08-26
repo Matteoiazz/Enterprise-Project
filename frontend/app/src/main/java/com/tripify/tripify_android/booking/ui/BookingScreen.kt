@@ -3,6 +3,8 @@ package com.tripify.tripify_android.booking.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,74 +13,107 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.booking.component.BookingCard
 import com.tripify.tripify_android.booking.model.BookingState
 import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingScreen(
     viewModel: BookingViewModel,
-    userId: String // Ci serve per sapere di chi è lo storico
+    onNavigateToCart: () -> Unit = {}
 ) {
     // 1. Ascoltiamo lo stato dal ViewModel
     val uiState by viewModel.uiState.collectAsState()
 
     // Variabili di stato per il Pop-up degli inviti (specifiche di questa schermata)
-    var showDialog by remember { mutableStateOf(false) }
+    var showInviteDialog by remember { mutableStateOf(false) }
     var selectedBookingId by remember { mutableStateOf<Long?>(null) }
     var friendIdInput by remember { mutableStateOf("") }
 
-    // 2. Appena si apre la schermata, chiediamo i dati al server
-    LaunchedEffect(key1 = userId) {
-        viewModel.fetchUserBookings(userId)
+    // Variabili di stato per la conferma di annullamento
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var bookingToCancel by remember { mutableStateOf<Long?>(null) }
+
+    // 2. Appena si apre la schermata, chiediamo i dati al server. L'utente non
+    // serve più passarlo: il backend lo ricava dal JWT (vedi BookingApi).
+    LaunchedEffect(Unit) {
+        viewModel.fetchUserBookings()
     }
 
-    // 3. Disegniamo l'interfaccia in base allo stato
-    Box(modifier = Modifier.fillMaxSize()) {
-        when (val state = uiState) {
-            is BookingState.Loading -> {
-                // Mostriamo la rotellina di caricamento al centro
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
+    Scaffold(
+        containerColor = CatalogColors.Background,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text("Le mie prenotazioni", style = CatalogType.TitleCompact, color = CatalogColors.Ink)
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToCart) {
+                        Icon(Icons.Filled.ShoppingCart, contentDescription = "Carrello", tint = CatalogColors.AccentDark)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
+            )
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            when (val state = uiState) {
+                is BookingState.Loading -> {
+                    CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
+                }
 
-            is BookingState.Success -> {
-                if (state.bookings.isEmpty()) {
-                    Text(
-                        text = "Non hai ancora effettuato nessun viaggio",
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                } else {
-                    // Creiamo una lista scorrevole (come una RecyclerView)
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 16.dp)
-                    ) {
-                        items(state.bookings) { booking ->
-                            BookingCard(
-                                booking = booking,
-                                onInviteClick = { bookingId ->
-                                    selectedBookingId = bookingId
-                                    showDialog = true
-                                }
+                is BookingState.Success -> {
+                    if (state.bookings.isEmpty()) {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Non hai ancora effettuato nessun viaggio", style = CatalogType.Section, color = CatalogColors.Ink)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                "Le prenotazioni che completi dal carrello appariranno qui",
+                                style = CatalogType.Body,
+                                color = CatalogColors.InkMuted
                             )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            items(state.bookings, key = { it.id }) { booking ->
+                                BookingCard(
+                                    booking = booking,
+                                    onInviteClick = { bookingId ->
+                                        selectedBookingId = bookingId
+                                        showInviteDialog = true
+                                    },
+                                    onCancelClick = { bookingId ->
+                                        bookingToCancel = bookingId
+                                        showCancelDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            is BookingState.Error -> {
-                // Mostriamo il messaggio di errore in rosso
-                Text(
-                    text = state.message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
-                )
+                is BookingState.Error -> {
+                    Text(
+                        text = state.message,
+                        color = CatalogColors.Alert,
+                        modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                    )
+                }
             }
         }
     }
 
-    // 4. Disegniamo il Pop-up in sovrimpressione se serve
-    if (showDialog && selectedBookingId != null) {
+    // Pop-up per invitare un amico
+    if (showInviteDialog && selectedBookingId != null) {
         AlertDialog(
             onDismissRequest = {
-                showDialog = false
+                showInviteDialog = false
                 friendIdInput = ""
             },
             title = { Text("Invita un amico") },
@@ -99,10 +134,9 @@ fun BookingScreen(
                     onClick = {
                         viewModel.inviteFriend(
                             bookingId = selectedBookingId!!,
-                            leaderId = userId,
                             friendId = friendIdInput,
                             onSuccess = {
-                                showDialog = false
+                                showInviteDialog = false
                                 friendIdInput = ""
                             },
                             onError = { /* Gestione errore opzionale */ }
@@ -115,11 +149,39 @@ fun BookingScreen(
             dismissButton = {
                 TextButton(
                     onClick = {
-                        showDialog = false
+                        showInviteDialog = false
                         friendIdInput = ""
                     }
                 ) {
                     Text("Annulla")
+                }
+            }
+        )
+    }
+
+    // Pop-up di conferma annullamento prenotazione
+    if (showCancelDialog && bookingToCancel != null) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Annullare la prenotazione?") },
+            text = { Text("Se era già confermata e pagata, verrà avviato anche il rimborso.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.cancelBooking(
+                            bookingId = bookingToCancel!!,
+                            onSuccess = { showCancelDialog = false },
+                            onError = { showCancelDialog = false }
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.Alert)
+                ) {
+                    Text("Sì, annulla")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("Torna indietro")
                 }
             }
         )
