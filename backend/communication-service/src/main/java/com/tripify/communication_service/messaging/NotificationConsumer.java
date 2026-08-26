@@ -16,13 +16,16 @@ public class NotificationConsumer {
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
     public void consumeNotification(NotificationEvent event) {
 
-        // Salviamo la notifica nel database tramite il service creato prima
+        // Estraiamo e puliamo l'ID utente assegnandolo alla variabile
+        String userId = event.getUserId() != null ? event.getUserId() : "anonymous";
+
+        // Salviamo la notifica nel database usando la variabile pulita
         notificationService.createNotification(
-                event.getUserId() != null ? event.getUserId().toString() : "anonymous",
+                userId,
                 event.getTitle(),
                 event.getMessage()
         );
 
-        System.out.println("Nuova notifica salvata per l'utente " + event.getUserId() + ": " + event.getTitle());
+        System.out.println("Nuova notifica salvata per l'utente " + userId + ": " + event.getTitle());
     }
 }
