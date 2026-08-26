@@ -82,4 +82,13 @@ public class FavoriteList {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    /**
+     * Non persistito: valorizzato a runtime in base a chi sta chiedendo la lista,
+     * cosi' il frontend sa se mostrare il cuore pieno o vuoto senza dover tenere
+     * uno stato locale separato.
+     */
+    @Transient
+    @Builder.Default
+    private boolean likedByMe = false;
 }
