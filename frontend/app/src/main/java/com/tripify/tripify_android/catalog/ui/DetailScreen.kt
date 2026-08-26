@@ -4,7 +4,10 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +25,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +47,7 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.viewmodel.HoldOutcome
+import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import kotlinx.coroutines.launch
 import com.tripify.tripify_android.BuildConfig
 import kotlinx.coroutines.flow.first
@@ -113,6 +119,18 @@ private fun DetailContent(
     var isDescriptionExpanded by remember { mutableStateOf(false) }
     var isFavorite by remember { mutableStateOf(false) }
     var showAddToItineraryDialog by remember { mutableStateOf(false) }
+
+    val itineraryApi = remember { ItineraryRetrofit.create(com.tripify.tripify_android.data.TokenManager(context)) }
+    LaunchedEffect(item.id) {
+        try {
+            val response = itineraryApi.getLikedCatalogItemIds()
+            if (response.isSuccessful) {
+                isFavorite = response.body()?.contains(item.id.toLong()) == true
+            }
+        } catch (e: Exception) {
+            // stato iniziale del cuore non essenziale: se fallisce resta non selezionato
+        }
+    }
 
     var selectedRoomType by remember(item) {
         mutableStateOf((item as? CatalogItem.Hotel)?.roomTypes?.minByOrNull { it.price })
@@ -330,18 +348,51 @@ private fun DetailContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onNavigateBack, modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.3f))) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
                     IconButton(
-                        onClick = { isFavorite = !isFavorite },
-                        modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.White)
+                        onClick = onNavigateBack,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .shadow(elevation = 3.dp, shape = CircleShape, ambientColor = Color.Black)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.38f))
+                            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    ) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                    val heartScale by animateFloatAsState(
+                        targetValue = if (isFavorite) 1f else 0.92f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                        label = "heartScale"
+                    )
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                val token = com.tripify.tripify_android.data.TokenManager(context).tokenFlow.first()
+                                if (token.isNullOrBlank()) {
+                                    snackbarHostState.showSnackbar("Accedi per salvare tra i preferiti")
+                                    return@launch
+                                }
+                                try {
+                                    val response = itineraryApi.toggleCatalogItemLike(item.id.toLong())
+                                    if (response.isSuccessful) {
+                                        isFavorite = response.body()?.liked == true
+                                    }
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("Impossibile salvare tra i preferiti")
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .size(42.dp)
+                            .shadow(elevation = if (isFavorite) 6.dp else 2.dp, shape = CircleShape, ambientColor = CatalogColors.Alert)
+                            .clip(CircleShape)
+                            .background(Color.White)
                     ) {
                         Icon(
                             if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                             contentDescription = "Preferito",
                             tint = if (isFavorite) CatalogColors.Alert else CatalogColors.AccentDark,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp).scale(heartScale)
                         )
                     }
                 }

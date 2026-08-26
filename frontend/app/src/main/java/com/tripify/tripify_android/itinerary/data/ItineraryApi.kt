@@ -20,6 +20,16 @@ interface ItineraryApi {
     @GET("api/v1/itinerary/mine")
     suspend fun getMyLists(): Response<List<FavoriteListDto>>
 
+    /** "Salvati": liste proprie + condivise + itinerari altrui a cui si è messo like. */
+    @GET("api/v1/itinerary/saved")
+    suspend fun getSavedLists(): Response<List<FavoriteListDto>>
+
+    @POST("api/v1/itinerary/catalog-likes/{catalogItemId}")
+    suspend fun toggleCatalogItemLike(@Path("catalogItemId") catalogItemId: Long): Response<LikeResponse>
+
+    @GET("api/v1/itinerary/catalog-likes/mine")
+    suspend fun getLikedCatalogItemIds(): Response<List<Long>>
+
     @POST("api/v1/itinerary")
     suspend fun createList(@Body request: CreateListRequest): Response<FavoriteListDto>
 
