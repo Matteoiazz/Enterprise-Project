@@ -2,6 +2,7 @@ package com.tripify.tripify_android.data
 
 
 import com.tripify.tripify_android.BuildConfig
+import com.tripify.tripify_android.notification.data.NotificationApi
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -63,5 +64,19 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(com.tripify.tripify_android.profile.api.ProfileApiService::class.java)
+    }
+
+    // --- LA FUNZIONE PER LE NOTIFICHE ---
+    fun createNotificationApi(tokenManager: TokenManager): NotificationApi {
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor(tokenManager))
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(NotificationApi::class.java)
     }
 }

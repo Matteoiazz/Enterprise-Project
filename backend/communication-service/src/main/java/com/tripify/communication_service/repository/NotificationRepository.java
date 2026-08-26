@@ -10,5 +10,9 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     // Spring Data JPA capirà automaticamente di ordinare per data decrescente
-    List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
+    // Trova tutte le notifiche di un determinato utente, ordinate da quella più recente
+    List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
+
+    // Conta quante notifiche non lette ha un utente
+    long countByUserIdAndIsReadFalse(String userId);
 }

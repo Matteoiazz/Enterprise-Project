@@ -53,6 +53,19 @@ services:
     networks:
       - travel-network
 
+  # Database per il servizio Itinerary
+  db-itinerary:
+    image: postgres:15
+    container_name: db-itinerary
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_DB: db_itinerary
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    networks:
+      - travel-network
+
   # Database persistente per Keycloak
   db-keycloak:
     image: postgres:15

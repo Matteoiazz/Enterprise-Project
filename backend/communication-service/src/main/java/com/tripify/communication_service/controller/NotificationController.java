@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -13,18 +14,30 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NotificationController {
 
-    private final NotificationService service;
+    private final NotificationService notificationService;
 
-    // GET http://localhost:8084/api/notifications/user/10
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Notification>> getUserNotifications(@PathVariable Long userId) {
-        return ResponseEntity.ok(service.getUserNotifications(userId));
+    // 1. Ottieni tutte le notifiche dell'utente loggato
+    @GetMapping
+    public ResponseEntity<List<Notification>> getMyNotifications(Principal principal) {
+        // Estrae l'ID utente dalla sessione/token JWT (esattamente come fatto per la chat)
+        String userId = principal != null ? principal.getName() : "anonymous";
+        List<Notification> notifications = notificationService.getUserNotifications(userId);
+        return ResponseEntity.ok(notifications);
     }
 
-    // PUT http://localhost:8084/api/notifications/5/read
-    @PutMapping("/{id}/read")
-    public ResponseEntity<Void> markAsRead(@PathVariable Long id) {
-        service.markAsRead(id);
-        return ResponseEntity.ok().build();
+    // 2. Segna una specifica notifica come letta
+    @PatchMapping("/{id}/read")
+    public ResponseEntity<Notification> markAsRead(@PathVariable Long id, Principal principal) {
+        String userId = principal != null ? principal.getName() : "anonymous";
+        Notification updated = notificationService.markAsRead(id, userId);
+        return ResponseEntity.ok(updated);
+    }
+
+    // 3. Ottieni il conteggio delle notifiche non lette (utile per la campanella)
+    @GetMapping("/unread-count")
+    public ResponseEntity<Long> getUnreadCount(Principal principal) {
+        String userId = principal != null ? principal.getName() : "anonymous";
+        long count = notificationService.getUnreadCount(userId);
+        return ResponseEntity.ok(count);
     }
 }

@@ -18,7 +18,7 @@ public class NotificationConsumer {
 
         // Salviamo la notifica nel database tramite il service creato prima
         notificationService.createNotification(
-                event.getUserId(),
+                event.getUserId() != null ? event.getUserId().toString() : "anonymous",
                 event.getTitle(),
                 event.getMessage()
         );
