@@ -47,9 +47,25 @@ private class CardNumberVisualTransformation : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val digits = text.text
         val formatted = digits.chunked(4).joinToString(" ")
+
+        // Niente formula arbitraria: chunked(4) non aggiunge uno spazio finale
+        // quando la lunghezza è multipla di 4 (es. 4, 8, 12, 16 cifre), quindi
+        // una formula fissa "offset + offset/4" può restituire una posizione
+        // oltre la fine del testo formattato in quei casi - Compose la considera
+        // un mapping invalido e l'app crasha. Contare gli spazi realmente
+        // presenti è sempre corretto, qualunque sia la lunghezza.
         val offsetMapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int = offset + offset / 4
-            override fun transformedToOriginal(offset: Int): Int = offset - (offset / 5).coerceAtMost(digits.length / 4)
+            override fun originalToTransformed(offset: Int): Int {
+                if (offset <= 0) return 0
+                val groupsBefore = (offset - 1) / 4
+                return (offset + groupsBefore).coerceIn(0, formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                if (offset <= 0) return 0
+                val spacesBefore = formatted.take(offset).count { it == ' ' }
+                return (offset - spacesBefore).coerceIn(0, digits.length)
+            }
         }
         return TransformedText(AnnotatedString(formatted), offsetMapping)
     }
