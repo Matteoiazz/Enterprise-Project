@@ -40,4 +40,12 @@ public class ShoppingCartController {
         cartService.clearCart(jwt.getSubject());
         return ResponseEntity.ok(new ActionResultDTO(true, "Carrello svuotato con successo"));
     }
+
+    @DeleteMapping("/items/{itemId}")
+    public ResponseEntity<ActionResultDTO> removeItem(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long itemId) {
+        cartService.removeItem(jwt.getSubject(), itemId);
+        return ResponseEntity.ok(new ActionResultDTO(true, "Articolo rimosso dal carrello"));
+    }
 }

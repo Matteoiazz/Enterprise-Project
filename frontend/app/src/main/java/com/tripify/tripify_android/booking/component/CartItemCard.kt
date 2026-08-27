@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,7 +27,16 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.data.model.CartItemDTO
 
 @Composable
-fun CartItemCard(item: CartItemDTO, catalogViewModel: CatalogViewModel) {
+fun CartItemCard(
+    item: CartItemDTO,
+    catalogViewModel: CatalogViewModel,
+    selected: Boolean = true,
+    onToggleSelected: () -> Unit = {},
+    onRemoveClick: () -> Unit = {},
+    // false nel riepilogo di sola lettura del checkout: lì la selezione è già
+    // stata fatta in CartScreen, non ha senso poterla cambiare o rimuovere articoli.
+    showControls: Boolean = true
+) {
     var resolved by remember(item.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
     LaunchedEffect(item.catalogItemId) {
         resolved = catalogViewModel.getOrFetchItem(item.catalogItemId.toInt())
@@ -38,7 +48,15 @@ fun CartItemCard(item: CartItemDTO, catalogViewModel: CatalogViewModel) {
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+            if (showControls) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggleSelected() },
+                    colors = CheckboxDefaults.colors(checkedColor = CatalogColors.AccentDark)
+                )
+            }
+
             AsyncImage(
                 model = resolved?.imageUrl,
                 contentDescription = null,
@@ -81,11 +99,23 @@ fun CartItemCard(item: CartItemDTO, catalogViewModel: CatalogViewModel) {
                 }
             }
 
-            Text(
-                text = "€${"%.2f".format(item.priceAtAdded * item.quantity)}",
-                style = CatalogType.Price,
-                color = CatalogColors.AccentDark
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "€${"%.2f".format(item.priceAtAdded * item.quantity)}",
+                    style = CatalogType.Price,
+                    color = CatalogColors.AccentDark
+                )
+                if (showControls) {
+                    IconButton(onClick = onRemoveClick, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Filled.DeleteOutline,
+                            contentDescription = "Rimuovi dal carrello",
+                            tint = CatalogColors.Alert,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

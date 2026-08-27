@@ -56,6 +56,14 @@ public class GlobalExceptionHandler {
     // invece di far risalire un 500 generico che nasconderebbe la causa reale.
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<Map<String, Object>> handleFeignException(FeignException ex) {
+        // Logghiamo sempre chi era il destinatario della chiamata (ex.request()) e
+        // il body della risposta d'errore: senza, un fallimento verso un altro
+        // microservizio non lascia alcuna traccia utile per capire quale servizio
+        // è irraggiungibile o cosa ha risposto.
+        log.warn("Chiamata verso un altro microservizio fallita: {} {} -> HTTP {} - {}",
+                ex.request() != null ? ex.request().httpMethod() : "?",
+                ex.request() != null ? ex.request().url() : "?",
+                ex.status(), ex.contentUTF8());
         HttpStatus status = HttpStatus.resolve(ex.status());
         if (status == null || status == HttpStatus.INTERNAL_SERVER_ERROR) {
             status = HttpStatus.BAD_GATEWAY;

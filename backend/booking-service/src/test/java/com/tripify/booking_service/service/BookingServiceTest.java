@@ -90,6 +90,27 @@ class BookingServiceTest {
     }
 
     @Test
+    void ilCheckoutSelettivoPrenotaSoloGliArticoliScelti() {
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, null, null, null)); // 50.0
+        when(catalogClient.getItem(2L)).thenReturn(
+                new CatalogItemSummaryDTO(2L, "Activity", BigDecimal.valueOf(30.0), null, null));
+        addItem(LEADER_ID, new AddToCartRequestDTO(2L, 1, null, null, null, null)); // 30.0, riga separata
+
+        Long secondItemId = cartService.getCartDTOForUser(LEADER_ID).items().stream()
+                .filter(i -> i.catalogItemId().equals(2L)).findFirst().get().id();
+
+        BookingResponseDTO booking = bookingService.checkout(LEADER_ID, java.util.List.of(secondItemId));
+
+        assertThat(booking.totalAmount()).isEqualByComparingTo("30.0");
+        assertThat(booking.lines()).hasSize(1);
+        assertThat(booking.lines().get(0).catalogItemId()).isEqualTo(2L);
+
+        var remainingCart = cartService.getCartDTOForUser(LEADER_ID);
+        assertThat(remainingCart.items()).hasSize(1);
+        assertThat(remainingCart.items().get(0).catalogItemId()).isEqualTo(1L);
+    }
+
+    @Test
     void ilCheckoutConCarrelloVuotoLanciaEmptyCartException() {
         assertThatThrownBy(() -> bookingService.checkout("utente-senza-carrello"))
                 .isInstanceOf(EmptyCartException.class);

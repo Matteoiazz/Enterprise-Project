@@ -40,9 +40,19 @@ public class BookingService {
     private final PaymentService paymentService;
     private final BookingEventPublisher eventPublisher;
 
-    // 1. Processo di Checkout: converte il carrello in una Booking confermata
+    // Comodità per i chiamanti (tra cui i test) che vogliono sempre l'intero
+    // carrello: la vera logica sta nell'overload con la selezione esplicita.
     @Transactional
     public BookingResponseDTO checkout(String userId) {
+        return checkout(userId, null);
+    }
+
+    // 1. Processo di Checkout: converte il carrello (o solo gli articoli
+    // selezionati) in una Booking confermata. selectedCartItemIds nullo o
+    // vuoto = tutto il carrello; altrimenti solo quegli articoli, lasciando
+    // gli altri nel carrello per un checkout successivo.
+    @Transactional
+    public BookingResponseDTO checkout(String userId, List<Long> selectedCartItemIds) {
         // Recuperiamo il carrello dell'utente
         ShoppingCart cart = cartService.getCartForUser(userId);
 
@@ -50,8 +60,18 @@ public class BookingService {
             throw new EmptyCartException("Impossibile fare il checkout: il carrello è vuoto!");
         }
 
-        // Calcoliamo il totale complessivo degli elementi nel carrello (BigDecimal, niente errori di arrotondamento)
-        BigDecimal totalAmount = cart.getItems().stream()
+        List<CartItem> itemsToCheckout = (selectedCartItemIds == null || selectedCartItemIds.isEmpty())
+                ? new ArrayList<>(cart.getItems())
+                : cart.getItems().stream()
+                        .filter(item -> selectedCartItemIds.contains(item.getId()))
+                        .collect(Collectors.toList());
+
+        if (itemsToCheckout.isEmpty()) {
+            throw new EmptyCartException("Nessuno degli articoli selezionati è presente nel carrello.");
+        }
+
+        // Calcoliamo il totale complessivo degli elementi selezionati (BigDecimal, niente errori di arrotondamento)
+        BigDecimal totalAmount = itemsToCheckout.stream()
                 .map(item -> item.getPriceAtAdded().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -73,7 +93,7 @@ public class BookingService {
         // verrà confermato o rilasciato in base all'esito del pagamento
         // (vedi confirmPayment/cancelBooking).
         List<BookingLine> lines = new ArrayList<>();
-        for (CartItem item : cart.getItems()) {
+        for (CartItem item : itemsToCheckout) {
             BookingLine line = BookingLine.builder()
                     .booking(savedBooking)
                     .catalogItemId(item.getCatalogItemId())
@@ -93,14 +113,17 @@ public class BookingService {
             lines.add(line);
         }
 
-        // Salviamo le righe direttamente (non richiamando bookingRepository.save
-        // su un'entità già salvata in precedenza): savedBooking ha già un id
-        // assegnato, quindi un secondo save() passerebbe per entityManager.merge()
-        // invece di persist(), e nel cascade verso le nuove BookingLine può
-        // finire per non collegarle correttamente alla riga già inserita in
-        // "bookings", violando la foreign key (visto in produzione: "Key
-        // (booking_id)=(N) is not present in table bookings").
-        savedBooking.setLines(lines);
+        // savedBooking.getLines().addAll(...) e non setLines(...): "lines" ha
+        // orphanRemoval=true, e Hibernate traccia già quella collection (vuota,
+        // creata dal builder) da quando l'entità è diventata gestita col save()
+        // sopra - sostituirla con una lista nuova fa perdere quel collegamento
+        // e Hibernate rifiuta il flush ("A collection with orphan deletion was
+        // no longer referenced by the owning entity instance").
+        // bookingLineRepository.saveAll(...) (non un secondo bookingRepository.save
+        // sulla Booking) evita di richiamare save() su un'entità già salvata in
+        // precedenza: essendo ormai "non nuova", passerebbe per entityManager.merge()
+        // invece di persist(), inutilmente più complesso per questo caso.
+        savedBooking.getLines().addAll(lines);
         bookingLineRepository.saveAll(lines);
 
         // Evento di audit: creazione della prenotazione. Stessa transazione del
@@ -109,10 +132,11 @@ public class BookingService {
         auditService.log(savedBooking, userId, AuditAction.CREATED,
                 "Prenotazione creata con " + lines.size() + " elemento/i, totale " + totalAmount + "€");
 
-        // Checkout andato a buon fine -> Svuotiamo il carrello dell'utente (gli
-        // eventuali hold sono già stati trasferiti alle BookingLine sopra, quindi
-        // qui NON vanno rilasciati: vedi clearCartAfterCheckout).
-        cartService.clearCartAfterCheckout(userId);
+        // Checkout andato a buon fine -> rimuoviamo dal carrello solo gli
+        // articoli appena acquistati (gli altri, se non selezionati, restano
+        // per un checkout successivo). I loro hold sono già stati trasferiti
+        // alle BookingLine sopra, quindi qui NON vanno rilasciati.
+        cartService.removeCheckedOutItems(userId, itemsToCheckout.stream().map(CartItem::getId).toList());
 
         eventPublisher.publishBookingConfirmed(savedBooking);
 

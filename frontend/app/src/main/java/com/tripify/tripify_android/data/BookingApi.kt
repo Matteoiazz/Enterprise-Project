@@ -3,6 +3,7 @@ package com.tripify.tripify_android.data
 import com.tripify.tripify_android.data.model.AddToCartRequestDTO
 import com.tripify.tripify_android.data.model.BookingResponseDTO
 import com.tripify.tripify_android.data.model.CartDTO
+import com.tripify.tripify_android.data.model.CheckoutRequestDTO
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
@@ -36,9 +37,14 @@ interface BookingApi {
     @DELETE("api/v1/cart/clear")
     suspend fun clearCart(): Response<Unit>
 
-    // Trasforma il carrello dell'utente autenticato in una prenotazione PENDING.
+    // Rimuove un singolo articolo dal carrello (rilascia il suo eventuale hold).
+    @DELETE("api/v1/cart/items/{itemId}")
+    suspend fun removeCartItem(@Path("itemId") itemId: Long): Response<Unit>
+
+    // Trasforma il carrello (o solo gli articoli selezionati) dell'utente
+    // autenticato in una prenotazione PENDING.
     @POST("api/v1/bookings/checkout")
-    suspend fun checkout(): Response<BookingResponseDTO>
+    suspend fun checkout(@Body request: CheckoutRequestDTO = CheckoutRequestDTO()): Response<BookingResponseDTO>
 
     // Storico dei viaggi, ora paginato lato server.
     @GET("api/v1/bookings/user")
