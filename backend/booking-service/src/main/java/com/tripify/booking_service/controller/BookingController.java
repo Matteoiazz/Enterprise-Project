@@ -3,6 +3,7 @@ package com.tripify.booking_service.controller;
 import com.tripify.booking_service.dto.AuditLogEntryDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.PassengerRequestDTO;
+import com.tripify.booking_service.dto.ReceivedBookingLineDTO;
 import com.tripify.booking_service.service.BookingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,15 @@ public class BookingController {
             @PageableDefault(size = 20, sort = "bookingDate", direction = Sort.Direction.DESC) Pageable pageable) {
         String userId = jwt.getSubject();
         return ResponseEntity.ok(bookingService.getUserHistory(userId, pageable));
+    }
+
+    // Prenotazioni fatte da altri utenti sugli annunci pubblicati da chi chiama
+    // (es. l'host di un hotel vuole vedere chi ha prenotato le sue camere).
+    // L'identità di chi chiama non serve qui come parametro esplicito: viaggia
+    // dentro il token JWT già inoltrato a catalog-service da FeignClientConfig.
+    @GetMapping("/received")
+    public ResponseEntity<List<ReceivedBookingLineDTO>> getReceivedBookings() {
+        return ResponseEntity.ok(bookingService.getReceivedBookings());
     }
 
     // friendId resta un dato in ingresso legittimo (chi il chiamante autenticato

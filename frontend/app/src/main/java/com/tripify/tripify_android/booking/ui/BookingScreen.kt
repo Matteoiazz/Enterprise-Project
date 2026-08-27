@@ -24,7 +24,8 @@ import kotlinx.coroutines.launch
 fun BookingScreen(
     viewModel: BookingViewModel,
     cartViewModel: CartViewModel,
-    onNavigateToCart: () -> Unit = {}
+    onNavigateToCart: () -> Unit = {},
+    onAddPassengersClick: (bookingId: Long) -> Unit = {}
 ) {
     // 1. Ascoltiamo lo stato dal ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -108,7 +109,8 @@ fun BookingScreen(
                                     onCancelClick = { bookingId ->
                                         bookingToCancel = bookingId
                                         showCancelDialog = true
-                                    }
+                                    },
+                                    onAddPassengersClick = onAddPassengersClick
                                 )
                             }
                         }

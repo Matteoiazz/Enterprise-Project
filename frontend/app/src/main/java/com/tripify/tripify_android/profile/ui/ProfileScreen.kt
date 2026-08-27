@@ -11,7 +11,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.CameraAlt
@@ -20,25 +19,29 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.itinerary.util.extractRolesFromToken
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,10 +53,17 @@ fun ProfileScreen(
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToOrganizer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    var isOrganizer by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val token = TokenManager(context).tokenFlow.first()
+        isOrganizer = token?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true
+    }
 
     val logoutLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -76,7 +86,7 @@ fun ProfileScreen(
     val isLoggedIn = viewModel.name.isNotEmpty()
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -84,14 +94,14 @@ fun ProfileScreen(
                         Text(
                             text = "PROFILO",
                             style = CatalogType.Wordmark,
-                            color = TripifyDarkGreen
+                            color = CatalogColors.Ink
                         )
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.White
+                        containerColor = CatalogColors.Surface
                     )
                 )
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline)
             }
         }
     ) { innerPadding ->
@@ -102,7 +112,7 @@ fun ProfileScreen(
         ) {
             if (viewModel.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = TripifyDarkGreen, strokeWidth = 3.dp)
+                    CircularProgressIndicator(color = CatalogColors.AccentDark, strokeWidth = 3.dp)
                 }
             } else if (!isLoggedIn) {
                 GuestProfileView(onNavigateToLogin)
@@ -114,6 +124,8 @@ fun ProfileScreen(
                     onNavigateToTravelDocuments = onNavigateToTravelDocuments,
                     onNavigateToPaymentMethods = onNavigateToPaymentMethods,
                     onNavigateToSettings = onNavigateToSettings,
+                    isOrganizer = isOrganizer,
+                    onNavigateToOrganizer = onNavigateToOrganizer,
                     onLogoutClick = {
                         coroutineScope.launch {
                             val idToken = viewModel.getIdToken()
@@ -137,14 +149,14 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = CatalogSpacing.Section),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .size(120.dp)
-                .background(TripifyGreen.copy(alpha = 0.08f), CircleShape)
+                .size(100.dp)
+                .background(CatalogColors.AccentSoft, CircleShape)
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -152,14 +164,14 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
                 imageVector = Icons.Outlined.LockPerson,
                 contentDescription = "Lock",
                 modifier = Modifier.fillMaxSize(),
-                tint = TripifyDarkGreen
+                tint = CatalogColors.AccentDark
             )
         }
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = "Accedi al tuo mondo",
             style = CatalogType.DetailTitle,
-            color = TripifyDarkGreen,
+            color = CatalogColors.Ink,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -167,19 +179,19 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
             text = "Gestisci i documenti, i compagni di viaggio e velocizza i pagamenti in un unico posto.",
             style = CatalogType.Body,
             textAlign = TextAlign.Center,
-            color = Color.Gray
+            color = CatalogColors.InkMuted
         )
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(40.dp))
         Button(
             onClick = onNavigateToLogin,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = TripifyDarkGreen),
-            shape = RoundedCornerShape(16.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp, pressedElevation = 2.dp)
+            colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+            shape = CatalogShapes.Pill,
+            elevation = ButtonDefaults.buttonElevation(0.dp)
         ) {
-            Text("ACCEDI O REGISTRATI", style = CatalogType.Button, color = Color.White)
+            Text("ACCEDI O REGISTRATI", style = CatalogType.Button, color = CatalogColors.Surface)
         }
     }
 }
@@ -192,6 +204,8 @@ fun LoggedProfileContent(
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    isOrganizer: Boolean = false,
+    onNavigateToOrganizer: () -> Unit = {},
     onLogoutClick: () -> Unit
 ) {
     val cardOverlap = 32.dp
@@ -212,24 +226,18 @@ fun LoggedProfileContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(240.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(TripifyDarkGreen, Color(0xFF0B3023))
-                        )
-                    ),
+                    .background(CatalogColors.AccentDark),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.offset(y = (-16).dp)
                 ) {
-                    Box(
-                        modifier = Modifier.size(90.dp)
-                    ) {
+                    Box(modifier = Modifier.size(90.dp)) {
                         Box(
                             modifier = Modifier
                                 .size(90.dp)
-                                .background(Color.White, CircleShape)
+                                .background(CatalogColors.Surface, CircleShape)
                                 .clickable { imagePickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
@@ -242,13 +250,13 @@ fun LoggedProfileContent(
                                 )
                             } else {
                                 Box(
-                                    modifier = Modifier.size(82.dp).clip(CircleShape).background(TripifyGreen.copy(alpha = 0.15f)),
+                                    modifier = Modifier.size(82.dp).clip(CircleShape).background(CatalogColors.AccentSoft),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = viewModel.name.take(1).uppercase() + viewModel.surname.take(1).uppercase(),
                                         style = CatalogType.DetailTitle,
-                                        color = TripifyDarkGreen
+                                        color = CatalogColors.AccentDark
                                     )
                                 }
                             }
@@ -258,7 +266,7 @@ fun LoggedProfileContent(
                                     modifier = Modifier.size(82.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(color = CatalogColors.Surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                 }
                             }
                         }
@@ -268,11 +276,11 @@ fun LoggedProfileContent(
                                 .align(Alignment.BottomEnd)
                                 .offset(x = (-4).dp, y = (-4).dp)
                                 .size(28.dp)
-                                .background(TripifyDarkGreen, CircleShape)
-                                .border(2.dp, Color.White, CircleShape),
+                                .background(CatalogColors.Accent, CircleShape)
+                                .border(2.dp, CatalogColors.Surface, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = CatalogColors.Surface, modifier = Modifier.size(14.dp))
                         }
                     }
 
@@ -280,13 +288,13 @@ fun LoggedProfileContent(
                     Text(
                         text = "${viewModel.name} ${viewModel.surname}".trim().ifEmpty { "Utente Tripify" },
                         style = CatalogType.DetailTitle,
-                        color = Color.White
+                        color = CatalogColors.Surface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = viewModel.email,
                         style = CatalogType.BodyStrong,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = CatalogColors.Surface.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -296,11 +304,11 @@ fun LoggedProfileContent(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = CatalogSpacing.Gutter)
                     .offset(y = -cardOverlap),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                shape = CatalogShapes.Card,
+                colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(modifier = Modifier.padding(vertical = 12.dp)) {
                     ProfileMenuRow(
@@ -324,9 +332,17 @@ fun LoggedProfileContent(
                     ProfileMenuRow(
                         icon = Icons.Outlined.Settings,
                         text = "Impostazioni App",
-                        hasDivider = false,
+                        hasDivider = isOrganizer,
                         onClick = onNavigateToSettings
                     )
+                    if (isOrganizer) {
+                        ProfileMenuRow(
+                            icon = Icons.Outlined.Storefront,
+                            text = "Modalità organizzatore",
+                            hasDivider = false,
+                            onClick = onNavigateToOrganizer
+                        )
+                    }
                 }
             }
         }
@@ -336,13 +352,13 @@ fun LoggedProfileContent(
                 onClick = onLogoutClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .offset(y = -cardOverlap + 24.dp)
+                    .padding(horizontal = CatalogSpacing.Gutter)
+                    .offset(y = -cardOverlap + 16.dp)
                     .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = CatalogShapes.Card,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFFF0F0),
-                    contentColor = Color(0xFFD14343)
+                    containerColor = CatalogColors.AlertSoft,
+                    contentColor = CatalogColors.Alert
                 ),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
@@ -378,35 +394,35 @@ fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .background(TripifyGreen.copy(alpha = 0.1f), CircleShape),
+                    .size(40.dp)
+                    .background(CatalogColors.SurfaceMuted, CatalogShapes.Badge),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = TripifyDarkGreen,
-                    modifier = Modifier.size(22.dp)
+                    tint = CatalogColors.AccentDark,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = text,
                 style = CatalogType.LabelStrong,
-                color = TripifyDarkGreen,
+                color = CatalogColors.Ink,
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "Vai",
-                tint = Color.LightGray,
-                modifier = Modifier.size(24.dp)
+                tint = CatalogColors.InkSubtle,
+                modifier = Modifier.size(22.dp)
             )
         }
         if (hasDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(start = 80.dp, end = 20.dp),
-                color = Color.LightGray.copy(alpha = 0.25f),
+                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                color = CatalogColors.Hairline,
                 thickness = 1.dp
             )
         }

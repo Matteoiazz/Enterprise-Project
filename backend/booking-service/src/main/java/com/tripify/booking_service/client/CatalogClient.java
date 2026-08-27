@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.List;
+
 // L'URL non è più scritto qui a mano: viene letto da application.properties
 // (chiave catalog-service.url), così basta cambiare quella riga quando si passa
 // a Docker, senza toccare questo file.
@@ -38,4 +40,10 @@ public interface CatalogClient {
     // Rilascia un hold non più necessario (carrello svuotato, prenotazione annullata).
     @PostMapping("/holds/{holdId}/release")
     void releaseHold(@PathVariable("holdId") String holdId);
+
+    // Gli annunci pubblicati dall'utente corrente (identificato dall'header
+    // X-User-Id aggiunto in FeignClientConfig): serve a sapere quali catalogItemId
+    // sono "suoi", per poter cercare le prenotazioni ricevute su quegli annunci.
+    @GetMapping("/items/mine")
+    List<CatalogItemSummaryDTO> getMyItems();
 }

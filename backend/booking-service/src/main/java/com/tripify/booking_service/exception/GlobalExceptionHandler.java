@@ -1,6 +1,7 @@
 package com.tripify.booking_service.exception;
 
 import feign.FeignException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     // 404: la risorsa richiesta (es. una Booking con un certo id) non esiste
@@ -64,8 +66,12 @@ public class GlobalExceptionHandler {
     // Fallback finale: qualunque altra eccezione non prevista è un vero errore
     // interno (bug, NPE, ecc.), non un 400 "colpa del client" come accadeva
     // prima intercettando genericamente RuntimeException.
+    // Loggata per intero: un @ExceptionHandler che la cattura impedisce a Spring
+    // di stampare lo stack trace di default, quindi senza questo log un 500
+    // non lascia alcuna traccia in console.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        log.error("Errore interno non gestito", ex);
         return buildError("Si è verificato un errore imprevisto.", HttpStatus.INTERNAL_SERVER_ERROR, "Errore interno");
     }
 

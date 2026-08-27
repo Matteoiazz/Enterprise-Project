@@ -28,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 // Import delle schermate e dei ViewModel
 import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
+import com.tripify.tripify_android.booking.ui.AddPassengersScreen
 import com.tripify.tripify_android.booking.ui.BookingScreen
 import com.tripify.tripify_android.booking.ui.CartScreen
 import com.tripify.tripify_android.booking.ui.CheckoutScreen
@@ -222,7 +223,19 @@ fun TripifyApp(
                 BookingScreen(
                     viewModel = bookingViewModel,
                     cartViewModel = cartViewModel,
-                    onNavigateToCart = { navController.navigate(Route.Cart.path) }
+                    onNavigateToCart = { navController.navigate(Route.Cart.path) },
+                    onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) }
+                )
+            }
+
+            // ROTTA: Aggiungi passeggeri a una prenotazione
+            composable(Route.AddPassengers.path) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
+                AddPassengersScreen(
+                    viewModel = bookingViewModel,
+                    catalogViewModel = catalogViewModel,
+                    bookingId = bookingId,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -313,6 +326,23 @@ fun TripifyApp(
                 )
             }
 
+            // ROTTA: Zona organizzatore (annunci propri + prenotazioni ricevute)
+            composable("organizer") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val organizerViewModel: com.tripify.tripify_android.organizer.viewmodel.OrganizerViewModel =
+                    androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = com.tripify.tripify_android.organizer.viewmodel.OrganizerViewModelFactory(tokenManager)
+                    )
+
+                com.tripify.tripify_android.organizer.ui.OrganizerScreen(
+                    viewModel = organizerViewModel,
+                    catalogViewModel = catalogViewModel,
+                    tokenManager = tokenManager,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
             // ROTTA 4: Profilo Utente Unificato e suoi sottomenu
             composable(Route.Profile.path) {
                 ProfileScreen(
@@ -327,7 +357,8 @@ fun TripifyApp(
                     onNavigateToCompanions = { navController.navigate(Route.Companions.path) },
                     onNavigateToTravelDocuments = { navController.navigate(Route.TravelDocuments.path) },
                     onNavigateToPaymentMethods = { navController.navigate(Route.PaymentMethods.path) },
-                    onNavigateToSettings = { navController.navigate(Route.Settings.path) }
+                    onNavigateToSettings = { navController.navigate(Route.Settings.path) },
+                    onNavigateToOrganizer = { navController.navigate("organizer") }
                 )
             }
 

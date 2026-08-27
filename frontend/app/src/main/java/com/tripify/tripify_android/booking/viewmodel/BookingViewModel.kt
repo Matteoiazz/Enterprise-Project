@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.booking.model.BookingState
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.data.model.PassengerRequestDTO
+import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.data.parseErrorMessage // AGGIUNTO L'IMPORT PER LA MAGIA!
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +18,48 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     private val _uiState = MutableStateFlow<BookingState>(BookingState.Loading)
     val uiState: StateFlow<BookingState> = _uiState
+
+    // Documenti di viaggio già salvati in Impostazioni Profilo, mostrati nella
+    // schermata "Aggiungi passeggero" per evitare di doverli reinserire a mano.
+    private val _savedTravelDocuments = MutableStateFlow<List<TravelDocumentDto>>(emptyList())
+    val savedTravelDocuments: StateFlow<List<TravelDocumentDto>> = _savedTravelDocuments
+
+    fun fetchSavedTravelDocuments() {
+        viewModelScope.launch {
+            try {
+                val response = api.getSavedTravelDocuments()
+                if (response.isSuccessful) {
+                    _savedTravelDocuments.value = response.body().orEmpty()
+                }
+            } catch (e: Exception) {
+                // silenzioso: l'utente può comunque inserire il documento a mano
+            }
+        }
+    }
+
+    // Associa un passeggero a una riga di prenotazione (solo il leader può farlo,
+    // controllo lato server). Dopo il successo ricarica lo storico per aggiornare
+    // il conteggio passeggeri mostrato sulla riga.
+    fun addPassenger(
+        bookingLineId: Long,
+        request: PassengerRequestDTO,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val response = api.addPassenger(bookingLineId, request)
+                if (response.isSuccessful) {
+                    fetchUserBookings()
+                    onSuccess()
+                } else {
+                    onError(response.parseErrorMessage())
+                }
+            } catch (e: Exception) {
+                onError("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
 
     // 1. Recupera lo storico dei viaggi dell'utente autenticato (non serve più
     // passare l'userId: il backend lo ricava dal JWT). Lo storico ora arriva

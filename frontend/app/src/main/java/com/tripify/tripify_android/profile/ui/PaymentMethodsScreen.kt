@@ -20,16 +20,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -61,7 +60,7 @@ fun PaymentMethodsScreen(
     }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
@@ -70,25 +69,25 @@ fun PaymentMethodsScreen(
                         Text(
                             text = "METODI DI PAGAMENTO",
                             style = CatalogType.Wordmark,
-                            color = TripifyDarkGreen
+                            color = CatalogColors.Ink
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = TripifyDarkGreen)
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline)
             }
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showBottomSheet = true },
-                containerColor = TripifyDarkGreen,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp),
+                containerColor = CatalogColors.AccentDark,
+                contentColor = CatalogColors.Surface,
+                shape = CatalogShapes.Card,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Aggiungi Carta", modifier = Modifier.size(28.dp))
@@ -97,13 +96,13 @@ fun PaymentMethodsScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (isLoading && methods.isEmpty()) {
-                CircularProgressIndicator(color = TripifyDarkGreen, modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
             } else if (methods.isEmpty()) {
                 EmptyPaymentState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 24.dp, start = 20.dp, end = 20.dp, bottom = 100.dp),
+                    contentPadding = PaddingValues(top = 24.dp, start = CatalogSpacing.Gutter, end = CatalogSpacing.Gutter, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(methods) { card ->
@@ -120,7 +119,7 @@ fun PaymentMethodsScreen(
             if (isLoading && methods.isNotEmpty()) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                    color = TripifyGreen,
+                    color = CatalogColors.Accent,
                     trackColor = Color.Transparent
                 )
             }
@@ -158,19 +157,19 @@ fun EmptyPaymentState(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(TripifyGreen.copy(alpha = 0.1f), CircleShape),
+                .background(CatalogColors.SurfaceMuted, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Outlined.CreditCardOff, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
+            Icon(Icons.Outlined.CreditCardOff, contentDescription = null, modifier = Modifier.size(40.dp), tint = CatalogColors.InkSubtle)
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Nessuna carta", style = CatalogType.Section, color = TripifyDarkGreen)
+        Text("Nessuna carta", style = CatalogType.Section, color = CatalogColors.Ink)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Aggiungi il tuo metodo di pagamento principale per prenotazioni veloci e sicure in 1 click.",
             style = CatalogType.Body,
             textAlign = TextAlign.Center,
-            color = Color.Gray
+            color = CatalogColors.InkMuted
         )
     }
 }
@@ -181,14 +180,14 @@ fun CreditCardPremium(
     onDeleteClick: () -> Unit
 ) {
     val brush = Brush.linearGradient(
-        colors = listOf(TripifyDarkGreen, Color(0xFF0B3023)),
+        colors = listOf(CatalogColors.AccentDark, CatalogColors.Ink),
         start = Offset.Zero,
         end = Offset.Infinite
     )
 
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = CatalogShapes.Card,
         modifier = Modifier.fillMaxWidth().height(200.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize().background(brush).padding(24.dp)) {
@@ -201,20 +200,20 @@ fun CreditCardPremium(
                 Text(
                     text = card.cardProvider.uppercase(),
                     style = CatalogType.CardTitle.copy(fontStyle = FontStyle.Italic, letterSpacing = 2.sp),
-                    color = Color.White
+                    color = CatalogColors.Surface
                 )
 
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                        .background(CatalogColors.Surface.copy(alpha = 0.15f), CircleShape)
                         .clickable { onDeleteClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.DeleteOutline,
                         contentDescription = "Elimina Carta",
-                        tint = Color.White,
+                        tint = CatalogColors.Surface,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -227,14 +226,14 @@ fun CreditCardPremium(
                 Box(
                     modifier = Modifier
                         .size(42.dp, 32.dp)
-                        .background(Color(0xFFFFD700).copy(alpha = 0.8f), RoundedCornerShape(6.dp))
+                        .background(CatalogColors.Gold.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
                         .padding(horizontal = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Memory,
                         contentDescription = "Chip",
-                        tint = TripifyDarkGreen,
+                        tint = CatalogColors.Ink,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -242,7 +241,7 @@ fun CreditCardPremium(
                 Icon(
                     imageVector = Icons.Filled.Wifi,
                     contentDescription = "Contactless",
-                    tint = Color.White.copy(alpha = 0.7f),
+                    tint = CatalogColors.Surface.copy(alpha = 0.7f),
                     modifier = Modifier.size(24.dp).offset(y = 2.dp)
                 )
             }
@@ -250,14 +249,14 @@ fun CreditCardPremium(
             Text(
                 text = "•••• •••• •••• ${card.lastFourDigits ?: "0000"}",
                 style = CatalogType.CardTitle.copy(letterSpacing = 2.sp),
-                color = Color.White,
+                color = CatalogColors.Surface,
                 maxLines = 1,
                 modifier = Modifier.align(Alignment.BottomStart).offset(y = (-30).dp)
             )
 
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
-                Text("SCAD.", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.6f))
-                Text(card.expirationMonthYear, style = CatalogType.BodyStrong, color = Color.White)
+                Text("SCAD.", style = CatalogType.Overline, color = CatalogColors.Surface.copy(alpha = 0.6f))
+                Text(card.expirationMonthYear, style = CatalogType.BodyStrong, color = CatalogColors.Surface)
             }
         }
     }
@@ -282,7 +281,7 @@ fun AddPaymentForm(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
+            .padding(horizontal = CatalogSpacing.Gutter, vertical = 24.dp)
     ) {
         LivePremiumCard(provider = provider, cardNumber = cardNumber, expiration = expiration)
 
@@ -290,8 +289,8 @@ fun AddPaymentForm(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = CatalogShapes.Sheet,
+            colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
@@ -302,7 +301,7 @@ fun AddPaymentForm(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
                 ) {
-                    PremiumTextField(
+                    PaymentOutlinedTextField(
                         value = provider,
                         label = "Circuito",
                         onValueChange = {},
@@ -313,11 +312,11 @@ fun AddPaymentForm(
                     ExposedDropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false },
-                        modifier = Modifier.background(Color.White)
+                        modifier = Modifier.background(CatalogColors.Surface)
                     ) {
                         providerOptions.forEach { selectionOption ->
                             DropdownMenuItem(
-                                text = { Text(selectionOption, style = CatalogType.LabelStrong, color = TripifyDarkGreen) },
+                                text = { Text(selectionOption, style = CatalogType.LabelStrong, color = CatalogColors.Ink) },
                                 onClick = {
                                     provider = selectionOption
                                     expanded = false
@@ -327,7 +326,7 @@ fun AddPaymentForm(
                     }
                 }
 
-                PremiumTextField(
+                PaymentOutlinedTextField(
                     value = cardNumber,
                     label = "Numero Carta",
                     placeholder = "0000 0000 0000 0000",
@@ -338,7 +337,7 @@ fun AddPaymentForm(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
-                PremiumTextField(
+                PaymentOutlinedTextField(
                     value = expiration,
                     label = "Scadenza (MMAA)",
                     placeholder = "1228",
@@ -382,10 +381,11 @@ fun AddPaymentForm(
                     onClick = { onSave(provider, cardNumber, expiration) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TripifyGreen,
-                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                        containerColor = CatalogColors.AccentDark,
+                        disabledContainerColor = CatalogColors.SurfaceMuted,
+                        disabledContentColor = CatalogColors.InkSubtle
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = CatalogShapes.Pill,
                     enabled = isFormValid
                 ) {
                     Text("AGGIUNGI CARTA", style = CatalogType.Button)
@@ -395,7 +395,7 @@ fun AddPaymentForm(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("ANNULLA", style = CatalogType.Button, color = Color.Gray)
+                    Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted)
                 }
             }
         }
@@ -403,7 +403,7 @@ fun AddPaymentForm(
 }
 
 @Composable
-fun PremiumTextField(
+fun PaymentOutlinedTextField(
     value: String,
     label: String,
     onValueChange: (String) -> Unit,
@@ -416,35 +416,35 @@ fun PremiumTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     modifier: Modifier = Modifier
 ) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         readOnly = readOnly,
         enabled = enabled,
-        label = { Text(label, style = CatalogType.LabelStrong, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
-        placeholder = { Text(placeholder, style = CatalogType.Body, color = Color.LightGray) },
+        label = { Text(label, style = CatalogType.Label) },
+        placeholder = { Text(placeholder, style = CatalogType.Body, color = CatalogColors.InkSubtle) },
         trailingIcon = trailingIcon,
         isError = isError,
-        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption, color = MaterialTheme.colorScheme.error) } },
+        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption) } },
         keyboardOptions = keyboardOptions,
         modifier = modifier.fillMaxWidth(),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFFF4F7F5),
-            unfocusedContainerColor = Color(0xFFF4F7F5),
-            disabledContainerColor = if (isError) Color(0xFFFFF0F0) else Color(0xFFF4F7F5),
-            errorContainerColor = Color(0xFFFFF0F0),
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            errorIndicatorColor = Color.Transparent,
-            focusedTextColor = TripifyDarkGreen,
-            unfocusedTextColor = TripifyDarkGreen,
-            disabledTextColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
-            disabledLabelColor = if (isError) MaterialTheme.colorScheme.error else Color.Gray,
-            disabledTrailingIconColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = CatalogColors.Surface,
+            unfocusedContainerColor = CatalogColors.Surface,
+            disabledContainerColor = CatalogColors.SurfaceMuted,
+            errorContainerColor = CatalogColors.AlertSoft,
+            focusedBorderColor = CatalogColors.Accent,
+            unfocusedBorderColor = CatalogColors.Hairline,
+            errorBorderColor = CatalogColors.Alert,
+            focusedTextColor = CatalogColors.Ink,
+            unfocusedTextColor = CatalogColors.Ink,
+            disabledTextColor = CatalogColors.InkSubtle,
+            focusedLabelColor = CatalogColors.Accent,
+            unfocusedLabelColor = CatalogColors.InkMuted,
+            cursorColor = CatalogColors.Accent
         ),
         textStyle = CatalogType.BodyStrong,
-        shape = RoundedCornerShape(12.dp),
+        shape = CatalogShapes.Field,
         singleLine = true
     )
 }
@@ -468,7 +468,7 @@ fun LivePremiumCard(provider: String, cardNumber: String, expiration: String) {
 
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = CatalogShapes.Card,
         modifier = Modifier.fillMaxWidth().height(200.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize().background(brush).padding(24.dp)) {
@@ -476,7 +476,7 @@ fun LivePremiumCard(provider: String, cardNumber: String, expiration: String) {
             Text(
                 text = if (provider.isEmpty()) "CIRCUITO" else provider.uppercase(),
                 style = CatalogType.CardTitle.copy(fontStyle = FontStyle.Italic, letterSpacing = 2.sp),
-                color = Color.White,
+                color = CatalogColors.Surface,
                 modifier = Modifier.align(Alignment.TopEnd)
             )
 
@@ -495,14 +495,14 @@ fun LivePremiumCard(provider: String, cardNumber: String, expiration: String) {
             Text(
                 text = formattedNumber,
                 style = CatalogType.CardTitle.copy(letterSpacing = 2.sp),
-                color = Color.White,
+                color = CatalogColors.Surface,
                 maxLines = 1,
                 modifier = Modifier.align(Alignment.BottomStart).offset(y = (-30).dp)
             )
 
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
-                Text("SCAD.", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.6f))
-                Text(displayExp, style = CatalogType.BodyStrong, color = Color.White)
+                Text("SCAD.", style = CatalogType.Overline, color = CatalogColors.Surface.copy(alpha = 0.6f))
+                Text(displayExp, style = CatalogType.BodyStrong, color = CatalogColors.Surface)
             }
         }
     }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -15,15 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
 import com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +40,7 @@ fun SettingsScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -50,17 +48,17 @@ fun SettingsScreen(
                         Text(
                             text = "IMPOSTAZIONI",
                             style = CatalogType.Wordmark,
-                            color = TripifyDarkGreen
+                            color = CatalogColors.Ink
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = TripifyDarkGreen)
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline)
             }
         }
     ) { padding ->
@@ -75,11 +73,11 @@ fun SettingsScreen(
             }
 
             item(key = "settings_card") {
-                Box(modifier = Modifier.offset(y = (-32).dp).padding(horizontal = 20.dp)) {
+                Box(modifier = Modifier.offset(y = (-32).dp).padding(horizontal = CatalogSpacing.Gutter)) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = CatalogShapes.Card,
+                        colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
                         Column(modifier = Modifier.padding(vertical = 12.dp)) {
@@ -134,14 +132,14 @@ fun SettingsScreen(
                 Button(
                     onClick = { showDeleteDialog = true },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFF0F0),
-                        contentColor = Color(0xFFD14343)
+                        containerColor = CatalogColors.AlertSoft,
+                        contentColor = CatalogColors.Alert
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = CatalogShapes.Card,
                     elevation = ButtonDefaults.buttonElevation(0.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
+                        .padding(horizontal = CatalogSpacing.Gutter)
                         .offset(y = (-8).dp)
                         .height(56.dp)
                 ) {
@@ -155,19 +153,19 @@ fun SettingsScreen(
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
-                containerColor = Color.White,
-                shape = RoundedCornerShape(28.dp),
+                containerColor = CatalogColors.Surface,
+                shape = CatalogShapes.Card,
                 icon = {
                     Box(
                         modifier = Modifier
                             .size(64.dp)
-                            .background(Color(0xFFFFF0F0), CircleShape),
+                            .background(CatalogColors.AlertSoft, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.WarningAmber,
                             contentDescription = null,
-                            tint = Color(0xFFD14343),
+                            tint = CatalogColors.Alert,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -176,7 +174,7 @@ fun SettingsScreen(
                     Text(
                         text = "Elimina Account",
                         style = CatalogType.CardTitle,
-                        color = TripifyDarkGreen,
+                        color = CatalogColors.Ink,
                         textAlign = TextAlign.Center
                     )
                 },
@@ -184,7 +182,7 @@ fun SettingsScreen(
                     Text(
                         text = "Sei sicuro di voler eliminare definitivamente il tuo account? Questa azione è irreversibile. Perderai l'accesso a tutte le tue prenotazioni, metodi di pagamento e storico dei viaggi.",
                         style = CatalogType.Body,
-                        color = Color.Gray,
+                        color = CatalogColors.InkMuted,
                         textAlign = TextAlign.Center
                     )
                 },
@@ -194,11 +192,11 @@ fun SettingsScreen(
                             showDeleteDialog = false
                             viewModel.deleteAccount(onSuccess = { onAccountDeleted() })
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD14343)),
-                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.Alert),
+                        shape = CatalogShapes.Field,
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
-                        Text("Sì, Elimina Definitivamente", style = CatalogType.Button, color = Color.White)
+                        Text("Sì, Elimina Definitivamente", style = CatalogType.Button, color = CatalogColors.Surface)
                     }
                 },
                 dismissButton = {
@@ -206,7 +204,7 @@ fun SettingsScreen(
                         onClick = { showDeleteDialog = false },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                     ) {
-                        Text("Annulla", style = CatalogType.Button, color = TripifyDarkGreen)
+                        Text("Annulla", style = CatalogType.Button, color = CatalogColors.InkMuted)
                     }
                 }
             )
@@ -220,11 +218,7 @@ private fun SettingsHeroHeader() {
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(TripifyDarkGreen, Color(0xFF0B3023))
-                )
-            ),
+            .background(CatalogColors.AccentDark),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -234,13 +228,13 @@ private fun SettingsHeroHeader() {
             Text(
                 text = "PERSONALIZZA LA TUA APP",
                 style = CatalogType.Overline,
-                color = Color.White.copy(alpha = 0.7f)
+                color = CatalogColors.Surface.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Le tue preferenze",
                 style = CatalogType.Hero,
-                color = Color.White,
+                color = CatalogColors.Surface,
                 textAlign = TextAlign.Center
             )
         }
@@ -252,7 +246,7 @@ fun SettingsSectionTitle(title: String) {
     Text(
         text = title.uppercase(),
         style = CatalogType.Overline,
-        color = Color.Gray.copy(alpha = 0.8f),
+        color = CatalogColors.InkSubtle,
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp, start = 24.dp)
     )
 }
@@ -274,35 +268,35 @@ fun SettingsSwitchRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .background(TripifyGreen.copy(alpha = 0.12f), CircleShape),
+                    .size(40.dp)
+                    .background(CatalogColors.SurfaceMuted, CatalogShapes.Badge),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = icon, contentDescription = null, tint = TripifyDarkGreen, modifier = Modifier.size(22.dp))
+                Icon(imageVector = icon, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = title,
                 style = CatalogType.LabelStrong,
-                color = TripifyDarkGreen,
+                color = CatalogColors.Ink,
                 modifier = Modifier.weight(1f)
             )
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = TripifyGreen,
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color.LightGray,
+                    checkedThumbColor = CatalogColors.Surface,
+                    checkedTrackColor = CatalogColors.Accent,
+                    uncheckedThumbColor = CatalogColors.Surface,
+                    uncheckedTrackColor = CatalogColors.InkSubtle,
                     uncheckedBorderColor = Color.Transparent
                 )
             )
         }
         if (hasDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(start = 82.dp, end = 24.dp),
-                color = Color.LightGray.copy(alpha = 0.25f),
+                modifier = Modifier.padding(start = 80.dp, end = 24.dp),
+                color = CatalogColors.Hairline,
                 thickness = 1.dp
             )
         }
@@ -331,38 +325,38 @@ fun SettingsActionRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .background(TripifyGreen.copy(alpha = 0.12f), CircleShape),
+                    .size(40.dp)
+                    .background(CatalogColors.SurfaceMuted, CatalogShapes.Badge),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = icon, contentDescription = null, tint = TripifyDarkGreen, modifier = Modifier.size(22.dp))
+                Icon(imageVector = icon, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = title,
                 style = CatalogType.LabelStrong,
-                color = TripifyDarkGreen,
+                color = CatalogColors.Ink,
                 modifier = Modifier.weight(1f)
             )
             if (value.isNotEmpty()) {
                 Text(
                     text = value,
                     style = CatalogType.LabelStrong,
-                    color = Color.Gray,
+                    color = CatalogColors.InkMuted,
                     modifier = Modifier.padding(end = 12.dp)
                 )
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color.LightGray,
+                tint = CatalogColors.InkSubtle,
                 modifier = Modifier.size(22.dp)
             )
         }
         if (hasDivider) {
             HorizontalDivider(
-                modifier = Modifier.padding(start = 82.dp, end = 24.dp),
-                color = Color.LightGray.copy(alpha = 0.25f),
+                modifier = Modifier.padding(start = 80.dp, end = 24.dp),
+                color = CatalogColors.Hairline,
                 thickness = 1.dp
             )
         }

@@ -38,5 +38,12 @@ public interface CatalogService {
     List<CatalogItem> getItemsByHost(UUID hostId);
 
     CatalogItem saveItem(CatalogItem item);
+
+    /** Entità grezza (non mappata a DTO): serve per i controlli di proprietà e per l'update. */
+    CatalogItem getRawItemById(Long id);
+
+    /** Disattiva l'item (soft delete: vedi @SQLDelete/@SQLRestriction su CatalogItem). */
+    void deactivateItem(Long id);
+
     List<String> getCitySuggestions(String query);
 }

@@ -25,16 +25,16 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
-import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +63,7 @@ fun CompanionsScreen(
     }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
@@ -72,25 +72,25 @@ fun CompanionsScreen(
                         Text(
                             text = "COMPAGNI DI VIAGGIO",
                             style = CatalogType.Wordmark,
-                            color = TripifyDarkGreen
+                            color = CatalogColors.Ink
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = TripifyDarkGreen)
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline)
             }
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddSheet = true },
-                containerColor = TripifyDarkGreen,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp),
+                containerColor = CatalogColors.AccentDark,
+                contentColor = CatalogColors.Surface,
+                shape = CatalogShapes.Card,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(28.dp))
@@ -99,12 +99,12 @@ fun CompanionsScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (isLoading && companions.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = TripifyDarkGreen)
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = CatalogColors.AccentDark)
             } else if (companions.isEmpty()) {
                 EmptyCompanionsState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(top = 24.dp, start = 20.dp, end = 20.dp, bottom = 100.dp),
+                    contentPadding = PaddingValues(top = 24.dp, start = CatalogSpacing.Gutter, end = CatalogSpacing.Gutter, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(companions) { companion ->
@@ -123,7 +123,7 @@ fun CompanionsScreen(
             if (isLoading && companions.isNotEmpty()) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                    color = TripifyGreen,
+                    color = CatalogColors.Accent,
                     trackColor = Color.Transparent
                 )
             }
@@ -159,23 +159,23 @@ fun EmptyCompanionsState(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(TripifyGreen.copy(alpha = 0.1f), CircleShape),
+                .background(CatalogColors.SurfaceMuted, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Outlined.GroupAdd, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
+            Icon(Icons.Outlined.GroupAdd, contentDescription = null, modifier = Modifier.size(40.dp), tint = CatalogColors.InkSubtle)
         }
         Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = "Porta chi vuoi",
             style = CatalogType.Section,
-            color = TripifyDarkGreen
+            color = CatalogColors.Ink
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Aggiungi amici o familiari (solo maggiorenni) per velocizzare le prenotazioni.",
             style = CatalogType.Body,
             textAlign = TextAlign.Center,
-            color = Color.Gray
+            color = CatalogColors.InkMuted
         )
     }
 }
@@ -184,44 +184,44 @@ fun EmptyCompanionsState(modifier: Modifier = Modifier) {
 fun CompanionTicketCard(firstName: String, lastName: String, dob: String, onDeleteClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        shape = CatalogShapes.Card,
+        colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(TripifyGreen))
+            Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(CatalogColors.Accent))
 
             Column(modifier = Modifier.weight(1f).padding(20.dp)) {
                 Text(
                     text = "NOME PASSEGGERO",
                     style = CatalogType.Overline,
-                    color = Color.Gray
+                    color = CatalogColors.InkSubtle
                 )
                 Text(
                     text = "$firstName $lastName".uppercase(),
                     style = CatalogType.CardTitle,
-                    color = TripifyDarkGreen,
+                    color = CatalogColors.Ink,
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = "DATA DI NASCITA",
                     style = CatalogType.Overline,
-                    color = Color.Gray
+                    color = CatalogColors.InkSubtle
                 )
                 Text(
                     text = dob,
                     style = CatalogType.BodyStrong,
-                    color = TripifyDarkGreen
+                    color = CatalogColors.Ink
                 )
             }
 
             Canvas(modifier = Modifier.width(1.dp).fillMaxHeight().padding(vertical = 12.dp)) {
                 drawLine(
-                    color = Color.LightGray,
+                    color = CatalogColors.Hairline,
                     start = Offset(0f, 0f),
                     end = Offset(0f, size.height),
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
@@ -235,8 +235,8 @@ fun CompanionTicketCard(firstName: String, lastName: String, dob: String, onDele
                 Icon(
                     imageVector = Icons.Filled.DeleteOutline,
                     contentDescription = "Elimina",
-                    tint = Color(0xFFD14343),
-                    modifier = Modifier.size(28.dp)
+                    tint = CatalogColors.Alert,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -283,83 +283,70 @@ fun BoardingPassFormSheet(
                         }
                         showDatePicker = false
                     }
-                ) { Text("CONFERMA", style = CatalogType.Button, color = TripifyDarkGreen) }
+                ) { Text("CONFERMA", style = CatalogType.Button, color = CatalogColors.AccentDark) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", style = CatalogType.Button, color = Color.Gray) }
+                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted) }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color.White)
+            colors = DatePickerDefaults.colors(containerColor = CatalogColors.Surface)
         ) {
             DatePicker(
                 state = datePickerState,
                 colors = DatePickerDefaults.colors(
-                    selectedDayContainerColor = TripifyDarkGreen,
-                    todayDateBorderColor = TripifyGreen,
-                    todayContentColor = TripifyDarkGreen
+                    selectedDayContainerColor = CatalogColors.AccentDark,
+                    todayDateBorderColor = CatalogColors.Accent,
+                    todayContentColor = CatalogColors.AccentDark
                 )
             )
         }
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = CatalogSpacing.Gutter, vertical = 24.dp)
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(TripifyDarkGreen).padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().background(CatalogColors.AccentDark).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = "TRIPIFY TRAVEL ID",
                         style = CatalogType.Overline,
-                        color = Color.White
+                        color = CatalogColors.Surface
                     )
-                    Icon(Icons.Outlined.FlightTakeoff, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Outlined.FlightTakeoff, contentDescription = null, tint = CatalogColors.Surface)
                 }
 
                 Column(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    PremiumTextField(value = nome, label = "Nome", onValueChange = { nome = it })
-                    PremiumTextField(value = cognome, label = "Cognome", onValueChange = { cognome = it })
+                    CompanionOutlinedTextField(value = nome, label = "Nome", onValueChange = { nome = it })
+                    CompanionOutlinedTextField(value = cognome, label = "Cognome", onValueChange = { cognome = it })
 
                     Box(modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }) {
-                        TextField(
+                        CompanionOutlinedTextField(
                             value = dataNascita,
                             onValueChange = {},
                             readOnly = true,
                             enabled = false,
-                            label = { Text("Data di Nascita", style = CatalogType.LabelStrong, color = if (isDateError) MaterialTheme.colorScheme.error else Color.Gray) },
-                            placeholder = { Text("Seleziona dal calendario", style = CatalogType.Body, color = Color.LightGray) },
+                            label = "Data di Nascita",
                             isError = isDateError,
-                            supportingText = if (isDateError) { { Text(dateErrorMsg, style = CatalogType.Caption, color = MaterialTheme.colorScheme.error) } } else null,
+                            supportingText = if (isDateError) dateErrorMsg else null,
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.CalendarMonth,
                                     contentDescription = "Calendario",
-                                    tint = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+                                    tint = if (isDateError) CatalogColors.Alert else CatalogColors.InkMuted
                                 )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = TextFieldDefaults.colors(
-                                disabledContainerColor = if (isDateError) Color(0xFFFFF0F0) else Color(0xFFF4F7F5),
-                                disabledIndicatorColor = Color.Transparent,
-                                disabledTextColor = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
-                                disabledLabelColor = if (isDateError) MaterialTheme.colorScheme.error else Color.Gray,
-                                disabledTrailingIconColor = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
-                                errorContainerColor = Color(0xFFFFF0F0),
-                                errorIndicatorColor = Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            singleLine = true
+                            }
                         )
                     }
                 }
@@ -372,7 +359,7 @@ fun BoardingPassFormSheet(
         ) {
             Canvas(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 drawLine(
-                    color = Color.DarkGray,
+                    color = CatalogColors.InkSubtle,
                     start = Offset(0f, size.height / 2),
                     end = Offset(size.width, size.height / 2),
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f),
@@ -384,7 +371,7 @@ fun BoardingPassFormSheet(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
@@ -396,10 +383,11 @@ fun BoardingPassFormSheet(
                     onClick = { onConfirm(nome, cognome, dataNascita) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TripifyGreen,
-                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                        containerColor = CatalogColors.AccentDark,
+                        disabledContainerColor = CatalogColors.SurfaceMuted,
+                        disabledContentColor = CatalogColors.InkSubtle
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = CatalogShapes.Pill,
                     enabled = isFormValid
                 ) {
                     Text("EMETTI TRAVEL ID", style = CatalogType.Button)
@@ -407,7 +395,7 @@ fun BoardingPassFormSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("ANNULLA", style = CatalogType.Button, color = Color.Gray)
+                    Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -418,26 +406,44 @@ fun BoardingPassFormSheet(
 }
 
 @Composable
-fun PremiumTextField(
+fun CompanionOutlinedTextField(
     value: String,
     label: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    readOnly: Boolean = false,
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, style = CatalogType.LabelStrong, color = Color.Gray) },
+        readOnly = readOnly,
+        enabled = enabled,
+        label = { Text(label, style = CatalogType.Label) },
+        trailingIcon = trailingIcon,
+        isError = isError,
+        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption) } },
         modifier = Modifier.fillMaxWidth(),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFFF4F7F5),
-            unfocusedContainerColor = Color(0xFFF4F7F5),
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedTextColor = TripifyDarkGreen,
-            unfocusedTextColor = TripifyDarkGreen
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = CatalogColors.Surface,
+            unfocusedContainerColor = CatalogColors.Surface,
+            disabledContainerColor = CatalogColors.SurfaceMuted,
+            errorContainerColor = CatalogColors.AlertSoft,
+            focusedBorderColor = CatalogColors.Accent,
+            unfocusedBorderColor = CatalogColors.Hairline,
+            errorBorderColor = CatalogColors.Alert,
+            focusedTextColor = CatalogColors.Ink,
+            unfocusedTextColor = CatalogColors.Ink,
+            disabledTextColor = CatalogColors.InkSubtle,
+            focusedLabelColor = CatalogColors.Accent,
+            unfocusedLabelColor = CatalogColors.InkMuted,
+            disabledLabelColor = if (isError) CatalogColors.Alert else CatalogColors.InkMuted,
+            cursorColor = CatalogColors.Accent
         ),
         textStyle = CatalogType.BodyStrong,
-        shape = RoundedCornerShape(12.dp),
+        shape = CatalogShapes.Field,
         singleLine = true
     )
 }
@@ -451,7 +457,7 @@ fun BarcodeVisual() {
     ) {
         val pattern = listOf(2, 4, 1, 3, 2, 1, 5, 2, 1, 3, 4, 1, 2, 2, 1, 3, 1, 4, 2)
         pattern.forEach { width ->
-            Box(modifier = Modifier.width(width.dp).fillMaxHeight().background(Color.Black))
+            Box(modifier = Modifier.width(width.dp).fillMaxHeight().background(CatalogColors.Ink))
             Spacer(modifier = Modifier.width(2.dp))
         }
     }

@@ -9,6 +9,9 @@ sealed class Route(val path: String) {
     object Bookings : Route("bookings")
     object Cart : Route("cart")
     object Checkout : Route("checkout")
+    object AddPassengers : Route("add_passengers/{bookingId}") {
+        fun path(bookingId: Long) = "add_passengers/$bookingId"
+    }
     object Companions : Route("companions")
     object TravelDocuments : Route("travel_documents")
     object PaymentMethods : Route("payment_methods")
