@@ -93,8 +93,15 @@ public class BookingService {
             lines.add(line);
         }
 
+        // Salviamo le righe direttamente (non richiamando bookingRepository.save
+        // su un'entità già salvata in precedenza): savedBooking ha già un id
+        // assegnato, quindi un secondo save() passerebbe per entityManager.merge()
+        // invece di persist(), e nel cascade verso le nuove BookingLine può
+        // finire per non collegarle correttamente alla riga già inserita in
+        // "bookings", violando la foreign key (visto in produzione: "Key
+        // (booking_id)=(N) is not present in table bookings").
         savedBooking.setLines(lines);
-        bookingRepository.save(savedBooking);
+        bookingLineRepository.saveAll(lines);
 
         // Evento di audit: creazione della prenotazione. Stessa transazione del
         // salvataggio sopra, quindi se qualcosa fallisce dopo, anche il log
