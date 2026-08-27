@@ -23,8 +23,6 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    // Nota: password e role li lasciamo per non rompere il database,
-    // anche se ormai per il login vero e proprio ci pensa Keycloak.
     @Column(nullable = false)
     private String password;
 
@@ -48,6 +46,15 @@ public class User {
 
     @Column
     private String profilePictureUrl;
+
+    @Column
+    private String companyName;
+
+    @Column
+    private String vatNumber;
+
+    @Column
+    private String pec;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

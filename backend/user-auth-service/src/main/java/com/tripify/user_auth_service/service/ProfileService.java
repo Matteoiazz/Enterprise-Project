@@ -6,6 +6,7 @@ import com.tripify.user_auth_service.dto.request.PaymentMethodDto;
 import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
 import com.tripify.user_auth_service.entity.Companion;
 import com.tripify.user_auth_service.entity.PaymentMethod;
+import com.tripify.user_auth_service.entity.Role;
 import com.tripify.user_auth_service.entity.TravelDocument;
 import com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO;
 import com.tripify.user_auth_service.entity.User;
@@ -14,8 +15,12 @@ import com.tripify.user_auth_service.repository.PaymentMethodRepository;
 import com.tripify.user_auth_service.repository.TravelDocumentRepository;
 import com.tripify.user_auth_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProfileService {
 
     private final UserRepository userRepository;
@@ -36,15 +42,65 @@ public class ProfileService {
 
     public User getUser(String email) {
         return userRepository.findByEmail(email)
-                .orElseGet(() -> {
-                    User newUser = User.builder()
-                            .email(email)
-                            .password("MANAGED_BY_KEYCLOAK")
-                            .role(com.tripify.user_auth_service.entity.Role.ROLE_TRAVELER)
-                            .build();
+                .orElseGet(() -> createAndSyncUserFromKeycloak(email));
+    }
 
-                    return userRepository.save(newUser);
-                });
+    private User createAndSyncUserFromKeycloak(String email) {
+        User.UserBuilder userBuilder = User.builder()
+                .email(email)
+                .password("MANAGED_BY_KEYCLOAK")
+                .role(Role.ROLE_TRAVELER);
+
+        try {
+            Keycloak keycloak = KeycloakBuilder.builder()
+                    .serverUrl("http://localhost:8180")
+                    .realm("master")
+                    .clientId("admin-cli")
+                    .grantType(org.keycloak.OAuth2Constants.PASSWORD)
+                    .username("admin")
+                    .password("admin")
+                    .build();
+
+            List<UserRepresentation> matches = keycloak.realm("tripify").users().searchByEmail(email, true);
+
+            if (!matches.isEmpty()) {
+                UserRepresentation kcUser = matches.get(0);
+                userBuilder.name(kcUser.getFirstName());
+                userBuilder.surname(kcUser.getLastName());
+
+                if (kcUser.getAttributes() != null) {
+                    List<String> phoneList = kcUser.getAttributes().get("phoneNumber");
+                    if (phoneList != null && !phoneList.isEmpty()) {
+                        userBuilder.phone(phoneList.get(0));
+                    }
+
+                    List<String> userType = kcUser.getAttributes().get("userType");
+                    if (userType != null && userType.contains("organizer")) {
+                        userBuilder.role(Role.ROLE_ORGANIZER);
+
+                        List<String> companyList = kcUser.getAttributes().get("companyName");
+                        if (companyList != null && !companyList.isEmpty()) userBuilder.companyName(companyList.get(0));
+
+                        List<String> vatList = kcUser.getAttributes().get("vatNumber");
+                        if (vatList != null && !vatList.isEmpty()) userBuilder.vatNumber(vatList.get(0));
+
+                        List<String> pecList = kcUser.getAttributes().get("pec");
+                        if (pecList != null && !pecList.isEmpty()) userBuilder.pec(pecList.get(0));
+
+                        try {
+                            RoleRepresentation organizerRole = keycloak.realm("tripify").roles().get("ROLE_ORGANIZER").toRepresentation();
+                            keycloak.realm("tripify").users().get(kcUser.getId()).roles().realmLevel().add(List.of(organizerRole));
+                        } catch (Exception roleAssignmentFailed) {
+                            log.warn("Impossibile assegnare il ruolo realm ROLE_ORGANIZER a {}: {}", email, roleAssignmentFailed.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossibile contattare Keycloak per l'utente {}, uso i valori di default: {}", email, e.getMessage());
+        }
+
+        return userRepository.save(userBuilder.build());
     }
 
     public List<CompanionDto> getCompanions(String userEmail) {
