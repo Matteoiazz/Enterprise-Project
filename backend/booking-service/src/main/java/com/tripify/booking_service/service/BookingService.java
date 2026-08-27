@@ -65,13 +65,7 @@ public class BookingService {
                 .lines(new ArrayList<>())
                 .build();
 
-        // saveAndFlush (non save): con Hibernate 7 gli insert su colonne IDENTITY
-        // possono essere raggruppati in batch insieme a quelli di altre entità,
-        // e senza un flush esplicito qui l'insert della Booking può arrivare al
-        // database DOPO quello delle sue BookingLine nello stesso batch,
-        // violando la foreign key (visto in produzione: "Key (booking_id)=(N)
-        // is not present in table bookings"). Il flush forza l'insert subito.
-        Booking savedBooking = bookingRepository.saveAndFlush(booking);
+        Booking savedBooking = bookingRepository.save(booking);
 
         // Trasformiamo i CartItem in BookingLine, portando avanti anche
         // quantity e l'eventuale hold aperto su catalog-service: da qui in poi
@@ -100,14 +94,15 @@ public class BookingService {
         }
 
         // savedBooking.getLines().addAll(...) e non setLines(...): "lines" ha
-        // orphanRemoval=true, e Hibernate sta già tracciando la collection
-        // (vuota) creata dal builder dopo il saveAndFlush sopra - sostituirla
-        // con una lista nuova fa perdere quel collegamento e Hibernate rifiuta
-        // il flush successivo ("A collection with orphan deletion was no
-        // longer referenced by the owning entity instance").
-        // bookingLineRepository.saveAll(...) resta comunque necessario: senza
-        // un salvataggio esplicito qui, gli id delle righe non sarebbero
-        // ancora assegnati quando costruiamo il DTO di risposta più sotto.
+        // orphanRemoval=true, e Hibernate traccia già quella collection (vuota,
+        // creata dal builder) da quando l'entità è diventata gestita col save()
+        // sopra - sostituirla con una lista nuova fa perdere quel collegamento
+        // e Hibernate rifiuta il flush ("A collection with orphan deletion was
+        // no longer referenced by the owning entity instance").
+        // bookingLineRepository.saveAll(...) (non un secondo bookingRepository.save
+        // sulla Booking) evita di richiamare save() su un'entità già salvata in
+        // precedenza: essendo ormai "non nuova", passerebbe per entityManager.merge()
+        // invece di persist(), inutilmente più complesso per questo caso.
         savedBooking.getLines().addAll(lines);
         bookingLineRepository.saveAll(lines);
 
