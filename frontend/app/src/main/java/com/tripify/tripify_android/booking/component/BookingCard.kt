@@ -47,7 +47,8 @@ private fun statusBackground(status: String): androidx.compose.ui.graphics.Color
 fun BookingCard(
     booking: BookingResponseDTO,
     onInviteClick: (Long) -> Unit,
-    onCancelClick: (Long) -> Unit = {}
+    onCancelClick: (Long) -> Unit = {},
+    onAddPassengersClick: (Long) -> Unit = {}
 ) {
     Card(
         shape = CatalogShapes.Card,
@@ -125,6 +126,19 @@ fun BookingCard(
                         shape = CatalogShapes.Field
                     ) {
                         Text("Invita", style = CatalogType.Button)
+                    }
+                }
+
+                if (booking.status != "CANCELLED" && booking.lines.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { onAddPassengersClick(booking.id) },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CatalogColors.AccentDark),
+                        border = BorderStroke(1.dp, CatalogColors.AccentDark.copy(alpha = 0.4f)),
+                        shape = CatalogShapes.Field
+                    ) {
+                        Text("Aggiungi passeggeri", style = CatalogType.Button)
                     }
                 }
             } else {

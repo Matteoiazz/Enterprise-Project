@@ -4,8 +4,6 @@ import android.util.Patterns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,20 +20,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,7 +61,7 @@ fun EditProfileScreen(
     val cardOverlap = 32.dp
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -75,22 +69,24 @@ fun EditProfileScreen(
                         Text(
                             text = "MODIFICA PROFILO",
                             style = CatalogType.Wordmark,
-                            color = TripifyDarkGreen
+                            color = CatalogColors.Ink
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = TripifyDarkGreen)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline)
             }
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 40.dp)
         ) {
             item(key = "hero") {
@@ -98,24 +94,24 @@ fun EditProfileScreen(
             }
 
             item(key = "personal_data") {
-                Box(modifier = Modifier.offset(y = -cardOverlap).padding(horizontal = 20.dp)) {
-                    PremiumCard {
+                Box(modifier = Modifier.offset(y = -cardOverlap).padding(horizontal = CatalogSpacing.Gutter)) {
+                    ProfileContentCard {
                         Column(modifier = Modifier.padding(24.dp)) {
-                            SectionHeader("Dati Personali")
+                            ProfileSectionHeader("Dati Personali")
 
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = name,
                                 label = "Nome",
                                 icon = Icons.Default.Person,
                                 onValueChange = { name = it }
                             )
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = surname,
                                 label = "Cognome",
                                 icon = Icons.Default.Person,
                                 onValueChange = { surname = it }
                             )
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = email,
                                 label = "Email",
                                 icon = Icons.Default.Mail,
@@ -124,14 +120,14 @@ fun EditProfileScreen(
                                 keyboardType = KeyboardType.Email,
                                 onValueChange = { email = it }
                             )
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = phone,
                                 label = "Telefono",
                                 icon = Icons.Default.Phone,
                                 keyboardType = KeyboardType.Phone,
                                 onValueChange = { phone = it }
                             )
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = address,
                                 label = "Indirizzo di Residenza",
                                 icon = Icons.Default.LocationOn,
@@ -144,12 +140,12 @@ fun EditProfileScreen(
             }
 
             item(key = "security") {
-                Box(modifier = Modifier.offset(y = -cardOverlap + 16.dp).padding(horizontal = 20.dp)) {
-                    PremiumCard {
+                Box(modifier = Modifier.offset(y = -cardOverlap + 16.dp).padding(horizontal = CatalogSpacing.Gutter)) {
+                    ProfileContentCard {
                         Column(modifier = Modifier.padding(24.dp)) {
-                            SectionHeader("Sicurezza")
+                            ProfileSectionHeader("Sicurezza")
 
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = newPassword,
                                 label = "Nuova Password (Opzionale)",
                                 icon = Icons.Default.Lock,
@@ -164,10 +160,10 @@ fun EditProfileScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFFF4F7F5), RoundedCornerShape(12.dp))
+                                        .background(CatalogColors.SurfaceMuted, CatalogShapes.Field)
                                         .padding(16.dp)
                                 ) {
-                                    Text("La password deve avere:", style = CatalogType.LabelStrong, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                                    Text("La password deve avere:", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted, modifier = Modifier.padding(bottom = 8.dp))
                                     PasswordRequirement("Almeno 8 caratteri", hasMinLength)
                                     PasswordRequirement("Almeno una lettera maiuscola", hasUpper)
                                     PasswordRequirement("Almeno un numero", hasDigit)
@@ -176,7 +172,7 @@ fun EditProfileScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
 
-                            PremiumTextField(
+                            ProfileOutlinedTextField(
                                 value = confirmPassword,
                                 label = "Conferma Nuova Password",
                                 icon = Icons.Default.Lock,
@@ -201,23 +197,23 @@ fun EditProfileScreen(
                     enabled = isFormValid,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
+                        .padding(horizontal = CatalogSpacing.Gutter)
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TripifyDarkGreen,
-                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                        containerColor = CatalogColors.AccentDark,
+                        disabledContainerColor = CatalogColors.SurfaceMuted,
+                        disabledContentColor = CatalogColors.InkSubtle
                     ),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp, pressedElevation = 2.dp)
+                    shape = CatalogShapes.Pill,
+                    elevation = ButtonDefaults.buttonElevation(0.dp)
                 ) {
                     if (isFormValid) {
-                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = CatalogColors.Surface)
                         Spacer(modifier = Modifier.width(12.dp))
                     }
                     Text(
                         text = "SALVA MODIFICHE",
-                        style = CatalogType.Button,
-                        color = if (isFormValid) Color.White else Color.Gray
+                        style = CatalogType.Button
                     )
                 }
             }
@@ -231,11 +227,7 @@ private fun EditProfileHeroHeader() {
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(TripifyDarkGreen, Color(0xFF0B3023))
-                )
-            ),
+            .background(CatalogColors.AccentDark),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -245,13 +237,13 @@ private fun EditProfileHeroHeader() {
             Text(
                 text = "AGGIORNA IL TUO PROFILO",
                 style = CatalogType.Overline,
-                color = Color.White.copy(alpha = 0.7f)
+                color = CatalogColors.Surface.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Dati e Sicurezza",
                 style = CatalogType.Hero,
-                color = Color.White,
+                color = CatalogColors.Surface,
                 textAlign = TextAlign.Center
             )
         }
@@ -259,29 +251,29 @@ private fun EditProfileHeroHeader() {
 }
 
 @Composable
-fun SectionHeader(title: String) {
+fun ProfileSectionHeader(title: String) {
     Text(
         text = title.uppercase(),
         style = CatalogType.Overline,
-        color = Color.Gray,
+        color = CatalogColors.InkMuted,
         modifier = Modifier.padding(bottom = 20.dp)
     )
 }
 
 @Composable
-fun PremiumCard(content: @Composable ColumnScope.() -> Unit) {
+fun ProfileContentCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        shape = CatalogShapes.Card,
+        colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(content = content)
     }
 }
 
 @Composable
-fun PremiumTextField(
+fun ProfileOutlinedTextField(
     value: String,
     label: String,
     icon: ImageVector,
@@ -294,21 +286,21 @@ fun PremiumTextField(
     onVisibilityToggle: () -> Unit = {},
     onValueChange: (String) -> Unit
 ) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, style = CatalogType.LabelStrong) },
+        label = { Text(label, style = CatalogType.Label) },
         leadingIcon = {
-            Icon(imageVector = icon, contentDescription = null, tint = TripifyDarkGreen, modifier = Modifier.size(20.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(20.dp))
         },
         trailingIcon = {
             if (isPassword && value.isNotEmpty()) {
                 val image = if (isVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = onVisibilityToggle) {
-                    Icon(image, contentDescription = "Mostra/Nascondi password", tint = TripifyGreen)
+                    Icon(image, contentDescription = "Mostra/Nascondi password", tint = CatalogColors.Accent)
                 }
             } else if (isError) {
-                Icon(Icons.Filled.Cancel, contentDescription = "Errore", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Filled.Cancel, contentDescription = "Errore", tint = CatalogColors.Alert)
             }
         },
         isError = isError,
@@ -317,31 +309,32 @@ fun PremiumTextField(
         },
         visualTransformation = if (isPassword && !isVisible) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFFF4F7F5),
-            unfocusedContainerColor = Color(0xFFF4F7F5),
-            disabledContainerColor = Color(0xFFF4F7F5),
-            errorContainerColor = Color(0xFFFFF0F0),
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            errorIndicatorColor = Color.Transparent,
-            focusedTextColor = TripifyDarkGreen,
-            unfocusedTextColor = TripifyDarkGreen,
-            focusedLabelColor = TripifyGreen,
-            unfocusedLabelColor = Color.Gray,
-            cursorColor = TripifyGreen
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = CatalogColors.Surface,
+            unfocusedContainerColor = CatalogColors.Surface,
+            disabledContainerColor = CatalogColors.SurfaceMuted,
+            errorContainerColor = CatalogColors.AlertSoft,
+            focusedBorderColor = CatalogColors.Accent,
+            unfocusedBorderColor = CatalogColors.Hairline,
+            errorBorderColor = CatalogColors.Alert,
+            focusedTextColor = CatalogColors.Ink,
+            unfocusedTextColor = CatalogColors.Ink,
+            focusedLabelColor = CatalogColors.Accent,
+            unfocusedLabelColor = CatalogColors.InkMuted,
+            cursorColor = CatalogColors.Accent
         ),
         textStyle = CatalogType.BodyStrong,
-        shape = RoundedCornerShape(12.dp),
+        shape = CatalogShapes.Field,
         singleLine = singleLine
     )
 }
 
 @Composable
 fun PasswordRequirement(text: String, isMet: Boolean) {
-    val color = if (isMet) TripifyGreen else Color.Gray.copy(alpha = 0.6f)
+    val color = if (isMet) CatalogColors.Accent else CatalogColors.InkSubtle
     val icon = if (isMet) Icons.Filled.CheckCircle else Icons.Filled.Cancel
 
     Row(

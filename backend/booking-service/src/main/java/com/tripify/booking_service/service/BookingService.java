@@ -5,6 +5,8 @@ import com.tripify.booking_service.dto.AuditLogEntryDTO;
 import com.tripify.booking_service.dto.BookingLineDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.PassengerRequestDTO;
+import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
+import com.tripify.booking_service.dto.ReceivedBookingLineDTO;
 import com.tripify.booking_service.entity.*;
 import com.tripify.booking_service.exception.AccessDeniedException;
 import com.tripify.booking_service.exception.EmptyCartException;
@@ -91,8 +93,15 @@ public class BookingService {
             lines.add(line);
         }
 
+        // Salviamo le righe direttamente (non richiamando bookingRepository.save
+        // su un'entità già salvata in precedenza): savedBooking ha già un id
+        // assegnato, quindi un secondo save() passerebbe per entityManager.merge()
+        // invece di persist(), e nel cascade verso le nuove BookingLine può
+        // finire per non collegarle correttamente alla riga già inserita in
+        // "bookings", violando la foreign key (visto in produzione: "Key
+        // (booking_id)=(N) is not present in table bookings").
         savedBooking.setLines(lines);
-        bookingRepository.save(savedBooking);
+        bookingLineRepository.saveAll(lines);
 
         // Evento di audit: creazione della prenotazione. Stessa transazione del
         // salvataggio sopra, quindi se qualcosa fallisce dopo, anche il log
@@ -298,6 +307,40 @@ public class BookingService {
                 "Prenotazione annullata" + (wasConfirmed ? " e rimborso avviato" : ""));
 
         return toResponseDTO(booking, requesterId);
+    }
+
+    // 8. Prenotazioni fatte da ALTRI utenti sugli annunci pubblicati da chi chiama:
+    // prima chiediamo a catalog-service quali item sono suoi (getMyItems), poi
+    // cerchiamo tra tutte le Booking quelle con almeno una riga su quegli item.
+    // Filtriamo di nuovo per catalogItemId dentro il ciclo perché una Booking può
+    // contenere anche righe su annunci di ALTRI host, che non vanno restituite.
+    public List<ReceivedBookingLineDTO> getReceivedBookings() {
+        List<Long> myItemIds = catalogClient.getMyItems().stream()
+                .map(CatalogItemSummaryDTO::id)
+                .toList();
+
+        if (myItemIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<ReceivedBookingLineDTO> result = new ArrayList<>();
+        for (Booking booking : bookingRepository.findDistinctByLines_CatalogItemIdIn(myItemIds)) {
+            for (BookingLine line : booking.getLines()) {
+                if (myItemIds.contains(line.getCatalogItemId())) {
+                    result.add(new ReceivedBookingLineDTO(
+                            booking.getId(),
+                            booking.getUserId(),
+                            line.getCatalogItemId(),
+                            line.getQuantity(),
+                            line.getPrice(),
+                            line.getCheckIn(),
+                            line.getCheckOut(),
+                            booking.getStatus(),
+                            booking.getBookingDate()));
+                }
+            }
+        }
+        return result;
     }
 
     // Mappa una Booking nel suo DTO pubblico, calcolando isLeader rispetto a chi

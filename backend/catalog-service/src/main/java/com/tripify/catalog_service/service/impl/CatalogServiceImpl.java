@@ -103,6 +103,18 @@ public class CatalogServiceImpl implements CatalogService {
     public CatalogItem saveItem(CatalogItem item) {
         return catalogItemRepository.save(item);
     }
+
+    @Override
+    public CatalogItem getRawItemById(Long id) {
+        return catalogItemRepository.findById(id)
+                .orElseThrow(() -> new CatalogItemNotFoundException(id));
+    }
+
+    @Override
+    public void deactivateItem(Long id) {
+        catalogItemRepository.delete(getRawItemById(id));
+    }
+
     @Override
     public List<String> getCitySuggestions(String query) {
         return catalogItemRepository.findCitySuggestions(query);

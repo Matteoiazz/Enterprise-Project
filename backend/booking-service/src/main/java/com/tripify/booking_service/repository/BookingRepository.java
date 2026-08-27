@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long>{
 
@@ -13,4 +15,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long>{
     // dei partecipanti, paginato per non far crescere la risposta senza limiti
     // man mano che l'utente accumula prenotazioni.
     Page<Booking> findAllByUserIdOrParticipantIdsContaining(String userId, String participantId, Pageable pageable);
+
+    // Prenotazioni che contengono almeno una riga su uno degli annunci passati
+    // (vedi BookingService.getReceivedBookings): distinct perché una Booking con
+    // più righe sullo stesso annunciante andrebbe altrimenti duplicata dal join.
+    List<Booking> findDistinctByLines_CatalogItemIdIn(List<Long> catalogItemIds);
 }

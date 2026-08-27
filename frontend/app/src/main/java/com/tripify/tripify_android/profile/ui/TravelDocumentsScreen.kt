@@ -25,15 +25,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import com.tripify.tripify_android.core.theme.SfondoPremium
-import com.tripify.tripify_android.core.theme.TripifyDarkGreen
-import com.tripify.tripify_android.core.theme.TripifyGreen
-import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +63,7 @@ fun TravelDocumentsScreen(
     }
 
     Scaffold(
-        containerColor = SfondoPremium,
+        containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
@@ -72,25 +72,25 @@ fun TravelDocumentsScreen(
                         Text(
                             text = "DOCUMENTI",
                             style = CatalogType.Wordmark,
-                            color = TripifyDarkGreen
+                            color = CatalogColors.Ink
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = TripifyDarkGreen)
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 1.dp)
+                HorizontalDivider(color = CatalogColors.Hairline)
             }
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showBottomSheet = true },
-                containerColor = TripifyDarkGreen,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp),
+                containerColor = CatalogColors.AccentDark,
+                contentColor = CatalogColors.Surface,
+                shape = CatalogShapes.Card,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Aggiungi Documento", modifier = Modifier.size(28.dp))
@@ -99,13 +99,13 @@ fun TravelDocumentsScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (isLoading && documents.isEmpty()) {
-                CircularProgressIndicator(color = TripifyDarkGreen, modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
             } else if (documents.isEmpty()) {
                 EmptyDocumentsState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 24.dp, start = 20.dp, end = 20.dp, bottom = 100.dp),
+                    contentPadding = PaddingValues(top = 24.dp, start = CatalogSpacing.Gutter, end = CatalogSpacing.Gutter, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(documents, key = { it.id ?: it.hashCode() }) { doc ->
@@ -122,7 +122,7 @@ fun TravelDocumentsScreen(
             if (isLoading && documents.isNotEmpty()) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                    color = TripifyGreen,
+                    color = CatalogColors.Accent,
                     trackColor = Color.Transparent
                 )
             }
@@ -159,19 +159,19 @@ fun EmptyDocumentsState(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(TripifyGreen.copy(alpha = 0.1f), CircleShape),
+                .background(CatalogColors.SurfaceMuted, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Outlined.Badge, contentDescription = null, modifier = Modifier.size(50.dp), tint = TripifyDarkGreen)
+            Icon(Icons.Outlined.Badge, contentDescription = null, modifier = Modifier.size(40.dp), tint = CatalogColors.InkSubtle)
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Nessun documento", style = CatalogType.Section, color = TripifyDarkGreen)
+        Text("Nessun documento", style = CatalogType.Section, color = CatalogColors.Ink)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Aggiungi il tuo passaporto o carta d'identità in corso di validità per averli sempre a portata di mano.",
             style = CatalogType.Body,
             textAlign = TextAlign.Center,
-            color = Color.Gray
+            color = CatalogColors.InkMuted
         )
     }
 }
@@ -179,39 +179,39 @@ fun EmptyDocumentsState(modifier: Modifier = Modifier) {
 @Composable
 fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
     Card(
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = CatalogShapes.Card,
+        colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val sideColor = if (doc.documentType.contains("Passaporto", true)) Color(0xFF1A365D) else TripifyGreen
+            val sideColor = if (doc.documentType.contains("Passaporto", true)) CatalogColors.AccentDark else CatalogColors.Accent
             Box(modifier = Modifier.width(8.dp).fillMaxHeight().background(sideColor))
 
             Column(modifier = Modifier.weight(1f).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Filled.Public, contentDescription = null, tint = sideColor, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = doc.documentType.uppercase(), style = CatalogType.Overline, color = Color.Gray)
+                    Text(text = doc.documentType.uppercase(), style = CatalogType.Overline, color = CatalogColors.InkSubtle)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = doc.documentNumber, style = CatalogType.CardTitle, color = TripifyDarkGreen)
+                Text(text = doc.documentNumber, style = CatalogType.CardTitle, color = CatalogColors.Ink)
 
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Event, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.Event, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Scade: ${doc.expirationDate}", style = CatalogType.BodyStrong, color = TripifyDarkGreen)
+                    Text(text = "Scade: ${doc.expirationDate}", style = CatalogType.BodyStrong, color = CatalogColors.InkMuted)
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    Icon(Icons.Filled.Flag, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.Flag, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = doc.issuingCountry, style = CatalogType.BodyStrong, color = TripifyDarkGreen)
+                    Text(text = doc.issuingCountry, style = CatalogType.BodyStrong, color = CatalogColors.InkMuted)
                 }
             }
 
@@ -219,7 +219,7 @@ fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
                 modifier = Modifier.width(60.dp).fillMaxHeight().clickable { onDeleteClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.DeleteOutline, contentDescription = "Elimina", tint = Color(0xFFD14343), modifier = Modifier.size(24.dp))
+                Icon(Icons.Outlined.DeleteOutline, contentDescription = "Elimina", tint = CatalogColors.Alert, modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -267,19 +267,19 @@ fun AddDocumentForm(
                         }
                         showDatePicker = false
                     }
-                ) { Text("CONFERMA", style = CatalogType.Button, color = TripifyDarkGreen) }
+                ) { Text("CONFERMA", style = CatalogType.Button, color = CatalogColors.AccentDark) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", style = CatalogType.Button, color = Color.Gray) }
+                TextButton(onClick = { showDatePicker = false }) { Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted) }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color.White)
+            colors = DatePickerDefaults.colors(containerColor = CatalogColors.Surface)
         ) {
             DatePicker(
                 state = datePickerState,
                 colors = DatePickerDefaults.colors(
-                    selectedDayContainerColor = TripifyDarkGreen,
-                    todayDateBorderColor = TripifyGreen,
-                    todayContentColor = TripifyDarkGreen
+                    selectedDayContainerColor = CatalogColors.AccentDark,
+                    todayDateBorderColor = CatalogColors.Accent,
+                    todayContentColor = CatalogColors.AccentDark
                 )
             )
         }
@@ -288,7 +288,7 @@ fun AddDocumentForm(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
+            .padding(horizontal = CatalogSpacing.Gutter, vertical = 24.dp)
     ) {
         LiveIDCard(type = docType, number = docNumber, expiration = expirationDate, country = issuingCountry)
 
@@ -296,8 +296,8 @@ fun AddDocumentForm(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = CatalogShapes.Sheet,
+            colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
@@ -305,32 +305,32 @@ fun AddDocumentForm(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 ExposedDropdownMenuBox(expanded = expandedType, onExpandedChange = { expandedType = !expandedType }) {
-                    PremiumTextField(
+                    DocumentOutlinedTextField(
                         value = docType, label = "Tipo Documento", onValueChange = {}, readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
                         modifier = Modifier.menuAnchor()
                     )
-                    ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }, modifier = Modifier.background(Color.White)) {
+                    ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }, modifier = Modifier.background(CatalogColors.Surface)) {
                         docTypes.forEach { type ->
-                            DropdownMenuItem(text = { Text(type, style = CatalogType.LabelStrong, color = TripifyDarkGreen) }, onClick = { docType = type; expandedType = false })
+                            DropdownMenuItem(text = { Text(type, style = CatalogType.LabelStrong, color = CatalogColors.Ink) }, onClick = { docType = type; expandedType = false })
                         }
                     }
                 }
 
                 ExposedDropdownMenuBox(expanded = expandedCountry, onExpandedChange = { expandedCountry = !expandedCountry }) {
-                    PremiumTextField(
+                    DocumentOutlinedTextField(
                         value = issuingCountry, label = "Nazione Emittente", onValueChange = {}, readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCountry) },
                         modifier = Modifier.menuAnchor()
                     )
-                    ExposedDropdownMenu(expanded = expandedCountry, onDismissRequest = { expandedCountry = false }, modifier = Modifier.background(Color.White)) {
+                    ExposedDropdownMenu(expanded = expandedCountry, onDismissRequest = { expandedCountry = false }, modifier = Modifier.background(CatalogColors.Surface)) {
                         countries.forEach { c ->
-                            DropdownMenuItem(text = { Text(c, style = CatalogType.LabelStrong, color = TripifyDarkGreen) }, onClick = { issuingCountry = c; expandedCountry = false })
+                            DropdownMenuItem(text = { Text(c, style = CatalogType.LabelStrong, color = CatalogColors.Ink) }, onClick = { issuingCountry = c; expandedCountry = false })
                         }
                     }
                 }
 
-                PremiumTextField(
+                DocumentOutlinedTextField(
                     value = docNumber,
                     label = "Numero Documento",
                     onValueChange = { docNumber = it.uppercase() },
@@ -338,7 +338,7 @@ fun AddDocumentForm(
                 )
 
                 Box(modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }) {
-                    PremiumTextField(
+                    DocumentOutlinedTextField(
                         value = expirationDate,
                         label = "Data di Scadenza",
                         onValueChange = {},
@@ -350,7 +350,7 @@ fun AddDocumentForm(
                             Icon(
                                 Icons.Default.CalendarMonth,
                                 contentDescription = null,
-                                tint = if (isDateError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+                                tint = if (isDateError) CatalogColors.Alert else CatalogColors.InkMuted
                             )
                         }
                     )
@@ -363,17 +363,18 @@ fun AddDocumentForm(
                     onClick = { onSave(docType, docNumber, expirationDate, issuingCountry) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TripifyGreen,
-                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f)
+                        containerColor = CatalogColors.AccentDark,
+                        disabledContainerColor = CatalogColors.SurfaceMuted,
+                        disabledContentColor = CatalogColors.InkSubtle
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = CatalogShapes.Pill,
                     enabled = isFormValid
                 ) {
                     Text("SALVA DOCUMENTO", style = CatalogType.Button)
                 }
 
                 TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-                    Text("ANNULLA", style = CatalogType.Button, color = Color.Gray)
+                    Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted)
                 }
             }
         }
@@ -381,7 +382,7 @@ fun AddDocumentForm(
 }
 
 @Composable
-fun PremiumTextField(
+fun DocumentOutlinedTextField(
     value: String,
     label: String,
     onValueChange: (String) -> Unit,
@@ -393,34 +394,35 @@ fun PremiumTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     modifier: Modifier = Modifier
 ) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         readOnly = readOnly,
         enabled = enabled,
-        label = { Text(label, style = CatalogType.LabelStrong, color = if (isError) MaterialTheme.colorScheme.error else Color.Gray) },
+        label = { Text(label, style = CatalogType.Label) },
         trailingIcon = trailingIcon,
         isError = isError,
-        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption, color = MaterialTheme.colorScheme.error) } },
+        supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption) } },
         keyboardOptions = keyboardOptions,
         modifier = modifier.fillMaxWidth(),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFFF4F7F5),
-            unfocusedContainerColor = Color(0xFFF4F7F5),
-            disabledContainerColor = if (isError) Color(0xFFFFF0F0) else Color(0xFFF4F7F5),
-            errorContainerColor = Color(0xFFFFF0F0),
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            errorIndicatorColor = Color.Transparent,
-            focusedTextColor = TripifyDarkGreen,
-            unfocusedTextColor = TripifyDarkGreen,
-            disabledTextColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen,
-            disabledLabelColor = if (isError) MaterialTheme.colorScheme.error else Color.Gray,
-            disabledTrailingIconColor = if (isError) MaterialTheme.colorScheme.error else TripifyDarkGreen
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = CatalogColors.Surface,
+            unfocusedContainerColor = CatalogColors.Surface,
+            disabledContainerColor = CatalogColors.SurfaceMuted,
+            errorContainerColor = CatalogColors.AlertSoft,
+            focusedBorderColor = CatalogColors.Accent,
+            unfocusedBorderColor = CatalogColors.Hairline,
+            errorBorderColor = CatalogColors.Alert,
+            focusedTextColor = CatalogColors.Ink,
+            unfocusedTextColor = CatalogColors.Ink,
+            disabledTextColor = CatalogColors.InkSubtle,
+            focusedLabelColor = CatalogColors.Accent,
+            unfocusedLabelColor = CatalogColors.InkMuted,
+            disabledLabelColor = if (isError) CatalogColors.Alert else CatalogColors.InkMuted,
+            cursorColor = CatalogColors.Accent
         ),
         textStyle = CatalogType.BodyStrong,
-        shape = RoundedCornerShape(12.dp),
+        shape = CatalogShapes.Field,
         singleLine = true
     )
 }
@@ -430,9 +432,9 @@ fun LiveIDCard(type: String, number: String, expiration: String, country: String
     val isPassport = type.contains("Passaporto", true)
 
     val gradientColors = if (isPassport) {
-        listOf(Color(0xFF101C38), Color(0xFF1A365D))
+        listOf(CatalogColors.Ink, CatalogColors.AccentDark)
     } else {
-        listOf(TripifyDarkGreen, Color(0xFF0B3023))
+        listOf(CatalogColors.AccentDark, CatalogColors.Accent)
     }
 
     val displayNum = number.ifBlank { "AB1234567" }
@@ -440,20 +442,20 @@ fun LiveIDCard(type: String, number: String, expiration: String, country: String
 
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = CatalogShapes.Card,
         modifier = Modifier.fillMaxWidth().height(200.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize().background(Brush.linearGradient(gradientColors)).padding(24.dp)) {
             Row(modifier = Modifier.align(Alignment.TopStart), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Public, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Public, contentDescription = null, tint = CatalogColors.Surface.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(country.uppercase(), style = CatalogType.CardTitle.copy(letterSpacing = 2.sp), color = Color.White.copy(alpha = 0.8f))
+                Text(country.uppercase(), style = CatalogType.CardTitle.copy(letterSpacing = 2.sp), color = CatalogColors.Surface.copy(alpha = 0.8f))
             }
 
             Text(
                 text = type.uppercase(),
                 style = CatalogType.Overline,
-                color = Color.White,
+                color = CatalogColors.Surface,
                 modifier = Modifier.align(Alignment.TopEnd)
             )
 
@@ -462,20 +464,20 @@ fun LiveIDCard(type: String, number: String, expiration: String, country: String
                     .align(Alignment.CenterEnd)
                     .offset(y = (-10).dp)
                     .size(40.dp)
-                    .background(Color(0xFFFFD700).copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                    .background(CatalogColors.Gold.copy(alpha = 0.2f), CatalogShapes.Badge),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Fingerprint, contentDescription = "Biometric", tint = Color(0xFFFFD700).copy(alpha = 0.8f), modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.Fingerprint, contentDescription = "Biometric", tint = CatalogColors.Gold.copy(alpha = 0.8f), modifier = Modifier.size(24.dp))
             }
 
             Column(modifier = Modifier.align(Alignment.BottomStart)) {
-                Text("DOCUMENT NO.", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.5f))
-                Text(displayNum, style = CatalogType.Hero.copy(fontSize = 22.sp, letterSpacing = 2.sp), color = Color.White, maxLines = 1)
+                Text("DOCUMENT NO.", style = CatalogType.Overline, color = CatalogColors.Surface.copy(alpha = 0.5f))
+                Text(displayNum, style = CatalogType.Hero.copy(fontSize = 22.sp, letterSpacing = 2.sp), color = CatalogColors.Surface, maxLines = 1)
             }
 
             Column(modifier = Modifier.align(Alignment.BottomEnd)) {
-                Text("EXPIRY DATE", style = CatalogType.Overline, color = Color.White.copy(alpha = 0.5f))
-                Text(displayExp, style = CatalogType.BodyStrong, color = Color.White)
+                Text("EXPIRY DATE", style = CatalogType.Overline, color = CatalogColors.Surface.copy(alpha = 0.5f))
+                Text(displayExp, style = CatalogType.BodyStrong, color = CatalogColors.Surface)
             }
         }
     }

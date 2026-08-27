@@ -4,8 +4,12 @@ import com.tripify.tripify_android.data.model.AddToCartRequestDTO
 import com.tripify.tripify_android.data.model.BookingResponseDTO
 import com.tripify.tripify_android.data.model.CartDTO
 import com.tripify.tripify_android.data.model.PagedResponse
+import com.tripify.tripify_android.data.model.PassengerRequestDTO
+import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.PaymentRequestDTO
 import com.tripify.tripify_android.data.model.PaymentResultDTO
+import com.tripify.tripify_android.data.model.ReceivedBookingLineDto
+import com.tripify.tripify_android.data.model.TravelDocumentDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -62,4 +66,23 @@ interface BookingApi {
     suspend fun processPayment(
         @Body request: PaymentRequestDTO
     ): Response<PaymentResultDTO>
+
+    // Prenotazioni ricevute sugli annunci di cui il chiamante è organizzatore.
+    @GET("api/v1/bookings/received")
+    suspend fun getReceivedBookings(): Response<List<ReceivedBookingLineDto>>
+
+    // Proxy verso user-auth-service (già pronto lato booking-service): mostra i
+    // metodi/documenti salvati in Impostazioni Profilo senza uscire dal checkout.
+    @GET("api/v1/checkout/payment-methods")
+    suspend fun getSavedPaymentMethods(): Response<List<PaymentMethodDto>>
+
+    @GET("api/v1/checkout/travel-documents")
+    suspend fun getSavedTravelDocuments(): Response<List<TravelDocumentDto>>
+
+    // Associa un passeggero (con documento già scelto/inserito) a una riga di prenotazione.
+    @POST("api/v1/bookings/lines/{bookingLineId}/passengers")
+    suspend fun addPassenger(
+        @Path("bookingLineId") bookingLineId: Long,
+        @Body request: PassengerRequestDTO
+    ): Response<Unit>
 }

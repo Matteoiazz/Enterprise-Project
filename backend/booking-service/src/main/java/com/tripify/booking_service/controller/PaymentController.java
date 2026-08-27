@@ -3,6 +3,7 @@ package com.tripify.booking_service.controller;
 import com.tripify.booking_service.dto.PaymentRequestDTO;
 import com.tripify.booking_service.dto.PaymentResultDTO;
 import com.tripify.booking_service.entity.Booking;
+import com.tripify.booking_service.exception.PaymentValidationException;
 import com.tripify.booking_service.service.BookingService;
 import com.tripify.booking_service.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +30,14 @@ public class PaymentController {
 
         String userId = jwt.getSubject();
 
+        boolean hasCardNumber = request.cardNumber() != null && !request.cardNumber().isBlank();
+        boolean hasPaymentMethodId = request.paymentMethodId() != null && !request.paymentMethodId().isBlank();
+        if (!hasCardNumber && !hasPaymentMethodId) {
+            throw new PaymentValidationException("Specificare un numero di carta o un metodo di pagamento salvato.");
+        }
+
         boolean approved = paymentService.executePayment(
-                userId, request.bookingId(), request.cardNumber(), request.amount());
+                userId, request.bookingId(), request.cardNumber(), request.paymentMethodId(), request.amount());
 
         if (!approved) {
             return ResponseEntity.badRequest().body(

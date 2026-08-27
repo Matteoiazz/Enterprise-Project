@@ -1,10 +1,13 @@
 package com.tripify.tripify_android.booking.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material3.*
@@ -26,6 +29,17 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.data.model.PaymentMethodDto
+
+// Indovina il circuito dalla prima cifra, solo per precompilare il campo
+// "cardProvider" richiesto quando si salva una carta nuova in Impostazioni
+// (l'utente non lo sceglie da un menu qui, per non appesantire il checkout).
+private fun detectCardProvider(cardNumber: String): String = when {
+    cardNumber.startsWith("34") || cardNumber.startsWith("37") -> "American Express"
+    cardNumber.startsWith("4") -> "Visa"
+    cardNumber.startsWith("5") -> "Mastercard"
+    else -> "Carta"
+}
 
 // Raggruppa il numero carta a blocchi di 4 solo per la visualizzazione: il valore
 // memorizzato resta la sequenza di sole cifre inviata al backend.
@@ -33,9 +47,25 @@ private class CardNumberVisualTransformation : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val digits = text.text
         val formatted = digits.chunked(4).joinToString(" ")
+
+        // Niente formula arbitraria: chunked(4) non aggiunge uno spazio finale
+        // quando la lunghezza è multipla di 4 (es. 4, 8, 12, 16 cifre), quindi
+        // una formula fissa "offset + offset/4" può restituire una posizione
+        // oltre la fine del testo formattato in quei casi - Compose la considera
+        // un mapping invalido e l'app crasha. Contare gli spazi realmente
+        // presenti è sempre corretto, qualunque sia la lunghezza.
         val offsetMapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int = offset + offset / 4
-            override fun transformedToOriginal(offset: Int): Int = offset - (offset / 5).coerceAtMost(digits.length / 4)
+            override fun originalToTransformed(offset: Int): Int {
+                if (offset <= 0) return 0
+                val groupsBefore = (offset - 1) / 4
+                return (offset + groupsBefore).coerceIn(0, formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                if (offset <= 0) return 0
+                val spacesBefore = formatted.take(offset).count { it == ' ' }
+                return (offset - spacesBefore).coerceIn(0, digits.length)
+            }
         }
         return TransformedText(AnnotatedString(formatted), offsetMapping)
     }
@@ -55,19 +85,37 @@ fun CheckoutScreen(
 ) {
     val cartState by viewModel.uiState.collectAsState()
     val paymentState by viewModel.paymentState.collectAsState()
+    val savedMethods by viewModel.savedPaymentMethods.collectAsState()
+
+    // null = "nuova carta" selezionata (o nessun metodo salvato ancora scelto);
+    // altrimenti è l'id del metodo salvato scelto dall'utente.
+    var selectedSavedMethodId by remember { mutableStateOf<String?>(null) }
+    var hasAutoSelected by remember { mutableStateOf(false) }
 
     var cardNumber by remember { mutableStateOf("") }
     var cardholderName by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
     var cvv by remember { mutableStateOf("") }
+    var saveNewCard by remember { mutableStateOf(false) }
 
     val expiryMonth = expiry.take(2).toIntOrNull()
     val expiryValid = expiry.length == 4 && expiryMonth != null && expiryMonth in 1..12
-    val formValid = cardNumber.length in 12..19 && cardholderName.isNotBlank() && expiryValid && cvv.length in 3..4
+    val newCardValid = cardNumber.length in 12..19 && cardholderName.isNotBlank() && expiryValid && cvv.length in 3..4
+    val formValid = if (selectedSavedMethodId != null) true else newCardValid
 
     LaunchedEffect(Unit) {
         viewModel.fetchCart()
+        viewModel.fetchSavedPaymentMethods()
         viewModel.resetPaymentState()
+    }
+
+    // Appena arriva la lista, se l'utente non ha ancora scelto nulla preseleziona
+    // il primo metodo salvato (se esiste), invece di partire sempre dal form manuale.
+    LaunchedEffect(savedMethods) {
+        if (!hasAutoSelected && savedMethods.isNotEmpty()) {
+            selectedSavedMethodId = savedMethods.first().id
+            hasAutoSelected = true
+        }
     }
 
     LaunchedEffect(paymentState) {
@@ -106,7 +154,19 @@ fun CheckoutScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
-                            onClick = { viewModel.payCart(cardNumber) },
+                            onClick = {
+                                val savedId = selectedSavedMethodId
+                                if (savedId != null) {
+                                    viewModel.payWithSavedMethod(savedId)
+                                } else {
+                                    viewModel.payWithNewCard(
+                                        cardNumber = cardNumber,
+                                        cardProvider = detectCardProvider(cardNumber),
+                                        expirationMonthYear = "${expiry.take(2)}/${expiry.drop(2)}",
+                                        saveCard = saveNewCard
+                                    )
+                                }
+                            },
                             enabled = formValid && paymentState !is PaymentState.Processing,
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
@@ -153,87 +213,123 @@ fun CheckoutScreen(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Dati di pagamento",
+                        text = "Metodo di pagamento",
                         style = CatalogType.Section,
                         color = CatalogColors.Ink,
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                }
 
-                    OutlinedTextField(
-                        value = cardholderName,
-                        onValueChange = { cardholderName = it },
-                        label = { Text("Intestatario carta") },
-                        placeholder = { Text("Es. Mario Rossi") },
-                        singleLine = true,
-                        shape = CatalogShapes.Field,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CatalogColors.Accent,
-                            unfocusedBorderColor = CatalogColors.Hairline
-                        ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                items(savedMethods, key = { it.id ?: it.hashCode() }) { method ->
+                    SavedPaymentMethodRow(
+                        method = method,
+                        selected = selectedSavedMethodId == method.id,
+                        onClick = { selectedSavedMethodId = method.id }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                item {
+                    NewCardOptionRow(
+                        selected = selectedSavedMethodId == null,
+                        onClick = { selectedSavedMethodId = null }
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (selectedSavedMethodId == null) {
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
-                        value = cardNumber,
-                        onValueChange = { value -> cardNumber = value.filter { it.isDigit() }.take(19) },
-                        label = { Text("Numero carta") },
-                        placeholder = { Text("Es. 4111 1111 1111 1111") },
-                        leadingIcon = { Icon(Icons.Filled.CreditCard, contentDescription = null, tint = CatalogColors.Accent) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        visualTransformation = CardNumberVisualTransformation(),
-                        singleLine = true,
-                        shape = CatalogShapes.Field,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CatalogColors.Accent,
-                            unfocusedBorderColor = CatalogColors.Hairline
-                        ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(
-                            value = expiry,
-                            onValueChange = { value -> expiry = value.filter { it.isDigit() }.take(4) },
-                            label = { Text("Scadenza") },
-                            placeholder = { Text("MM/AA") },
-                            visualTransformation = { text ->
-                                val digits = text.text
-                                val formatted = if (digits.length > 2) "${digits.take(2)}/${digits.drop(2)}" else digits
-                                val offsetMapping = object : OffsetMapping {
-                                    override fun originalToTransformed(offset: Int): Int = if (offset > 2) offset + 1 else offset
-                                    override fun transformedToOriginal(offset: Int): Int = if (offset > 3) offset - 1 else offset.coerceAtMost(2)
-                                }
-                                TransformedText(AnnotatedString(formatted), offsetMapping)
-                            },
+                            value = cardholderName,
+                            onValueChange = { cardholderName = it },
+                            label = { Text("Intestatario carta") },
+                            placeholder = { Text("Es. Mario Rossi") },
+                            singleLine = true,
+                            shape = CatalogShapes.Field,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CatalogColors.Accent,
+                                unfocusedBorderColor = CatalogColors.Hairline
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = cardNumber,
+                            onValueChange = { value -> cardNumber = value.filter { it.isDigit() }.take(19) },
+                            label = { Text("Numero carta") },
+                            placeholder = { Text("Es. 4111 1111 1111 1111") },
+                            leadingIcon = { Icon(Icons.Filled.CreditCard, contentDescription = null, tint = CatalogColors.Accent) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = CardNumberVisualTransformation(),
                             singleLine = true,
                             shape = CatalogShapes.Field,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = CatalogColors.Accent,
                                 unfocusedBorderColor = CatalogColors.Hairline
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
                         )
-                        OutlinedTextField(
-                            value = cvv,
-                            onValueChange = { value -> cvv = value.filter { it.isDigit() }.take(4) },
-                            label = { Text("CVV") },
-                            placeholder = { Text("123") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            singleLine = true,
-                            shape = CatalogShapes.Field,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CatalogColors.Accent,
-                                unfocusedBorderColor = CatalogColors.Hairline
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = expiry,
+                                onValueChange = { value -> expiry = value.filter { it.isDigit() }.take(4) },
+                                label = { Text("Scadenza") },
+                                placeholder = { Text("MM/AA") },
+                                visualTransformation = { text ->
+                                    val digits = text.text
+                                    val formatted = if (digits.length > 2) "${digits.take(2)}/${digits.drop(2)}" else digits
+                                    val offsetMapping = object : OffsetMapping {
+                                        override fun originalToTransformed(offset: Int): Int = if (offset > 2) offset + 1 else offset
+                                        override fun transformedToOriginal(offset: Int): Int = if (offset > 3) offset - 1 else offset.coerceAtMost(2)
+                                    }
+                                    TransformedText(AnnotatedString(formatted), offsetMapping)
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                shape = CatalogShapes.Field,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CatalogColors.Accent,
+                                    unfocusedBorderColor = CatalogColors.Hairline
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = cvv,
+                                onValueChange = { value -> cvv = value.filter { it.isDigit() }.take(4) },
+                                label = { Text("CVV") },
+                                placeholder = { Text("123") },
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                                singleLine = true,
+                                shape = CatalogShapes.Field,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CatalogColors.Accent,
+                                    unfocusedBorderColor = CatalogColors.Hairline
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable { saveNewCard = !saveNewCard }
+                        ) {
+                            Checkbox(
+                                checked = saveNewCard,
+                                onCheckedChange = { saveNewCard = it },
+                                colors = CheckboxDefaults.colors(checkedColor = CatalogColors.AccentDark)
+                            )
+                            Text(
+                                "Salva questo metodo di pagamento per i prossimi acquisti",
+                                style = CatalogType.Body,
+                                color = CatalogColors.InkMuted
+                            )
+                        }
                     }
 
                     val paymentError = paymentState
@@ -250,6 +346,63 @@ fun CheckoutScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SavedPaymentMethodRow(method: PaymentMethodDto, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = if (selected) CatalogColors.AccentSoft else CatalogColors.Surface,
+        border = BorderStroke(1.dp, if (selected) CatalogColors.AccentDark else CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.Filled.CreditCard, contentDescription = null, tint = CatalogColors.Accent)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    "${method.cardProvider} •••• ${method.lastFourDigits ?: "----"}",
+                    style = CatalogType.BodyStrong,
+                    color = CatalogColors.Ink
+                )
+                Text("Scadenza ${method.expirationMonthYear}", style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NewCardOptionRow(selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = if (selected) CatalogColors.AccentSoft else CatalogColors.Surface,
+        border = BorderStroke(1.dp, if (selected) CatalogColors.AccentDark else CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.Filled.AddCircleOutline, contentDescription = null, tint = CatalogColors.Accent)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Nuova carta", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
         }
     }
 }
