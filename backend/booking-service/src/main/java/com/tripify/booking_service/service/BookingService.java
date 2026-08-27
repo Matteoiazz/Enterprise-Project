@@ -65,7 +65,13 @@ public class BookingService {
                 .lines(new ArrayList<>())
                 .build();
 
-        Booking savedBooking = bookingRepository.save(booking);
+        // saveAndFlush (non save): con Hibernate 7 gli insert su colonne IDENTITY
+        // possono essere raggruppati in batch insieme a quelli di altre entità,
+        // e senza un flush esplicito qui l'insert della Booking può arrivare al
+        // database DOPO quello delle sue BookingLine nello stesso batch,
+        // violando la foreign key (visto in produzione: "Key (booking_id)=(N)
+        // is not present in table bookings"). Il flush forza l'insert subito.
+        Booking savedBooking = bookingRepository.saveAndFlush(booking);
 
         // Trasformiamo i CartItem in BookingLine, portando avanti anche
         // quantity e l'eventuale hold aperto su catalog-service: da qui in poi
@@ -93,14 +99,16 @@ public class BookingService {
             lines.add(line);
         }
 
-        // Salviamo le righe direttamente (non richiamando bookingRepository.save
-        // su un'entità già salvata in precedenza): savedBooking ha già un id
-        // assegnato, quindi un secondo save() passerebbe per entityManager.merge()
-        // invece di persist(), e nel cascade verso le nuove BookingLine può
-        // finire per non collegarle correttamente alla riga già inserita in
-        // "bookings", violando la foreign key (visto in produzione: "Key
-        // (booking_id)=(N) is not present in table bookings").
-        savedBooking.setLines(lines);
+        // savedBooking.getLines().addAll(...) e non setLines(...): "lines" ha
+        // orphanRemoval=true, e Hibernate sta già tracciando la collection
+        // (vuota) creata dal builder dopo il saveAndFlush sopra - sostituirla
+        // con una lista nuova fa perdere quel collegamento e Hibernate rifiuta
+        // il flush successivo ("A collection with orphan deletion was no
+        // longer referenced by the owning entity instance").
+        // bookingLineRepository.saveAll(...) resta comunque necessario: senza
+        // un salvataggio esplicito qui, gli id delle righe non sarebbero
+        // ancora assegnati quando costruiamo il DTO di risposta più sotto.
+        savedBooking.getLines().addAll(lines);
         bookingLineRepository.saveAll(lines);
 
         // Evento di audit: creazione della prenotazione. Stessa transazione del
