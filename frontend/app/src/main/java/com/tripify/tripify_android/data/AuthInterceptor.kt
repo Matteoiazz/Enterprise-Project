@@ -22,7 +22,7 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
 
         val response = chain.proceed(requestBuilder.build())
 
-        if (response.code == 401) {
+        if (response.code == 401|| response.code == 403) {
             response.close()
 
             val refreshToken = runBlocking { tokenManager.getRefreshToken() }

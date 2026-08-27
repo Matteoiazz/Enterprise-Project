@@ -105,6 +105,8 @@ public class BookingService {
         // qui NON vanno rilasciati: vedi clearCartAfterCheckout).
         cartService.clearCartAfterCheckout(userId);
 
+        eventPublisher.publishBookingConfirmed(savedBooking);
+
         return toResponseDTO(savedBooking, userId);
     }
 

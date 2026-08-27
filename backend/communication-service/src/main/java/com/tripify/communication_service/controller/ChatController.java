@@ -31,13 +31,15 @@ public class ChatController {
 
     // Metodo di servizio per estrarre l'UUID (sub) dell'utente dal token JWT di Keycloak
     private String extractUserId(Principal principal) {
-        if (principal instanceof JwtAuthenticationToken) {
-            Jwt jwt = ((JwtAuthenticationToken) principal).getToken();
-            // Il subject ('sub') in Keycloak è l'UUID univoco dell'utente
-            return jwt.getSubject();
+        if (principal == null) {
+            return "anonymousUser";
         }
-        // Fallback di sicurezza se per test il token non è presente o è un principal generico
-        return principal != null ? principal.getName() : "anonymous";
+        // Ora che Oauth2ResourceServer è attivo, il principal è un JwtAuthenticationToken
+        if (principal instanceof JwtAuthenticationToken jwtToken) {
+            // getToken().getSubject() restituisce il vero ID utente di Keycloak
+            return jwtToken.getToken().getSubject();
+        }
+        return principal.getName();
     }
 
     // 1. APRE O CREA LA CHAT TRA VIAGGIATORE E HOST (Via REST)

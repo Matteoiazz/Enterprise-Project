@@ -4,6 +4,7 @@ import com.tripify.communication_service.service.NotificationService;
 import com.tripify.communication_service.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 public class NotificationConsumer {
 
     private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // Questo metodo scatta in automatico quando arriva un messaggio
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
@@ -27,5 +29,7 @@ public class NotificationConsumer {
         );
 
         System.out.println("Nuova notifica salvata per l'utente " + userId + ": " + event.getTitle());
+        // 2. MAGIA DEL TEMPO REALE: Invio sul canale WebSocket personale dell'utente
+        messagingTemplate.convertAndSend("/topic/notifications/" + userId, event);
     }
 }

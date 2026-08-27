@@ -48,7 +48,10 @@ class MainActivity : ComponentActivity() {
                 val notificationApi = remember { RetrofitClient.createNotificationApi(tokenManager) }
                 val notificationRepository = remember { NotificationRepository(notificationApi) }
                 val notificationViewModel: NotificationViewModel = viewModel(
-                    factory = NotificationViewModelFactory(notificationRepository)
+                    factory = NotificationViewModelFactory(
+                        repository = notificationRepository,
+                        tokenManager = tokenManager
+                    )
                 )
 
                 val travelDocumentsViewModel: TravelDocumentsViewModel = viewModel(
