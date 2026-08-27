@@ -6,6 +6,7 @@ import com.tripify.tripify_android.data.model.CartDTO
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.PaymentRequestDTO
 import com.tripify.tripify_android.data.model.PaymentResultDTO
+import com.tripify.tripify_android.data.model.ReceivedBookingLineDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -62,4 +63,8 @@ interface BookingApi {
     suspend fun processPayment(
         @Body request: PaymentRequestDTO
     ): Response<PaymentResultDTO>
+
+    // Prenotazioni ricevute sugli annunci di cui il chiamante è organizzatore.
+    @GET("api/v1/bookings/received")
+    suspend fun getReceivedBookings(): Response<List<ReceivedBookingLineDto>>
 }

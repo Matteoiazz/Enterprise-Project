@@ -20,8 +20,14 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.itinerary.util.extractRolesFromToken
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,10 +56,19 @@ fun ProfileScreen(
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToOrganizer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // Voce "Modalità organizzatore" visibile solo se il token porta ROLE_ORGANIZER
+    // (assegnato da user-auth-service alla registrazione, vedi ProfileService).
+    var isOrganizer by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val token = TokenManager(context).tokenFlow.first()
+        isOrganizer = token?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true
+    }
 
     val logoutLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -114,6 +129,8 @@ fun ProfileScreen(
                     onNavigateToTravelDocuments = onNavigateToTravelDocuments,
                     onNavigateToPaymentMethods = onNavigateToPaymentMethods,
                     onNavigateToSettings = onNavigateToSettings,
+                    isOrganizer = isOrganizer,
+                    onNavigateToOrganizer = onNavigateToOrganizer,
                     onLogoutClick = {
                         coroutineScope.launch {
                             val idToken = viewModel.getIdToken()
@@ -192,6 +209,8 @@ fun LoggedProfileContent(
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    isOrganizer: Boolean = false,
+    onNavigateToOrganizer: () -> Unit = {},
     onLogoutClick: () -> Unit
 ) {
     val cardOverlap = 32.dp
@@ -324,9 +343,17 @@ fun LoggedProfileContent(
                     ProfileMenuRow(
                         icon = Icons.Outlined.Settings,
                         text = "Impostazioni App",
-                        hasDivider = false,
+                        hasDivider = isOrganizer,
                         onClick = onNavigateToSettings
                     )
+                    if (isOrganizer) {
+                        ProfileMenuRow(
+                            icon = Icons.Outlined.Storefront,
+                            text = "Modalità organizzatore",
+                            hasDivider = false,
+                            onClick = onNavigateToOrganizer
+                        )
+                    }
                 }
             }
         }

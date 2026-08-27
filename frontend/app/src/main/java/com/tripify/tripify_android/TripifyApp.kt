@@ -313,6 +313,23 @@ fun TripifyApp(
                 )
             }
 
+            // ROTTA: Zona organizzatore (annunci propri + prenotazioni ricevute)
+            composable("organizer") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val organizerViewModel: com.tripify.tripify_android.organizer.viewmodel.OrganizerViewModel =
+                    androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = com.tripify.tripify_android.organizer.viewmodel.OrganizerViewModelFactory(tokenManager)
+                    )
+
+                com.tripify.tripify_android.organizer.ui.OrganizerScreen(
+                    viewModel = organizerViewModel,
+                    catalogViewModel = catalogViewModel,
+                    tokenManager = tokenManager,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
             // ROTTA 4: Profilo Utente Unificato e suoi sottomenu
             composable(Route.Profile.path) {
                 ProfileScreen(
@@ -327,7 +344,8 @@ fun TripifyApp(
                     onNavigateToCompanions = { navController.navigate(Route.Companions.path) },
                     onNavigateToTravelDocuments = { navController.navigate(Route.TravelDocuments.path) },
                     onNavigateToPaymentMethods = { navController.navigate(Route.PaymentMethods.path) },
-                    onNavigateToSettings = { navController.navigate(Route.Settings.path) }
+                    onNavigateToSettings = { navController.navigate(Route.Settings.path) },
+                    onNavigateToOrganizer = { navController.navigate("organizer") }
                 )
             }
 

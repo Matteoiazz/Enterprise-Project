@@ -14,3 +14,17 @@ fun extractUserIdFromToken(token: String): String? {
         null
     }
 }
+
+/** Estrae i ruoli realm ("realm_access": {"roles": [...]}) dal payload di un JWT. */
+fun extractRolesFromToken(token: String): List<String> {
+    return try {
+        val parts = token.split(".")
+        if (parts.size != 3) return emptyList()
+        val payload = String(Base64.decode(parts[1], Base64.URL_SAFE))
+        val realmAccess = JSONObject(payload).optJSONObject("realm_access") ?: return emptyList()
+        val roles = realmAccess.optJSONArray("roles") ?: return emptyList()
+        (0 until roles.length()).map { roles.getString(it) }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
