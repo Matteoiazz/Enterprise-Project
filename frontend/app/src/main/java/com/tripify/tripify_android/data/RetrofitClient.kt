@@ -79,4 +79,17 @@ object RetrofitClient {
             .build()
             .create(NotificationApi::class.java)
     }
+
+    fun createReviewApi(tokenManager: TokenManager): com.tripify.tripify_android.data.ReviewApi {
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor(tokenManager))
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(com.tripify.tripify_android.data.ReviewApi::class.java)
+    }
 }

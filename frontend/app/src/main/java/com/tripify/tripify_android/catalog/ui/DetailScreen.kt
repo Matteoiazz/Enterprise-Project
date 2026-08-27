@@ -36,7 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.model.FareClassUi
@@ -82,6 +84,7 @@ fun DetailScreen(
             item = viewModel.getOrFetchItem(id)
             isResolving = false
         }
+        id?.let { viewModel.loadReviewsAndBookingStatus(it.toLong()) }
     }
 
     if (item == null) {
@@ -123,6 +126,9 @@ private fun DetailContent(
     var isDescriptionExpanded by remember { mutableStateOf(false) }
     var isFavorite by remember { mutableStateOf(false) }
     var showAddToItineraryDialog by remember { mutableStateOf(false) }
+    val reviews by viewModel.itemReviews.collectAsState()
+    val hasBooked by viewModel.hasBookedCurrentItem.collectAsState()
+    val isLoggedIn by viewModel.isLoggedInState.collectAsState()
 
     val itineraryApi = remember { ItineraryRetrofit.create(com.tripify.tripify_android.data.TokenManager(context)) }
     LaunchedEffect(item.id) {
@@ -132,7 +138,7 @@ private fun DetailContent(
                 isFavorite = response.body()?.contains(item.id.toLong()) == true
             }
         } catch (e: Exception) {
-            // stato iniziale del cuore non essenziale: se fallisce resta non selezionato
+            // stato iniziale del cuore non essenziale
         }
     }
 
@@ -170,9 +176,6 @@ private fun DetailContent(
     val checkInDate = checkInMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
     val checkOutDate = checkOutMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
 
-    // Il massimo selezionabile segue la disponibilità vera per la tipologia/tariffa
-    // scelta, non un tetto fisso: altrimenti si può scegliere più di quanto è
-    // davvero libero e scoprirlo solo dopo aver toccato "Prenota ora".
     val maxPassengers = selectedFareClass?.let { fareClass -> seatAvailability[fareClass.id] ?: fareClass.totalSeats } ?: 9
     val maxRooms = selectedRoomType?.let { roomType ->
         if (checkInDate != null && checkOutDate != null) roomAvailability[roomType.id] ?: roomType.totalRooms
@@ -230,9 +233,6 @@ private fun DetailContent(
     val nights = if (checkInDate != null && checkOutDate != null && checkInDate.isBefore(checkOutDate))
         ChronoUnit.DAYS.between(checkInDate, checkOutDate) else null
 
-    // Finché mancano le date non si può calcolare un vero totale: si mostra il prezzo a notte
-    // della tipologia scelta, con l'etichetta coerente, invece di un "TOTALE" che in realtà
-    // non tiene conto di camere/notti.
     val totalLabel: String
     val totalPriceText: String
     when (item) {
@@ -463,8 +463,8 @@ private fun DetailContent(
                     .fillMaxWidth()
                     .background(CatalogColors.Surface, shape = CatalogShapes.Sheet)
                     .offset(y = (-20).dp)
-                    .padding(horizontal = 20.dp, vertical = 24.dp)
-                    .padding(bottom = innerPadding.calculateBottomPadding())
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 24.dp, bottom = innerPadding.calculateBottomPadding() + 60.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(CatalogColors.Accent))
@@ -652,13 +652,10 @@ private fun DetailContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Niente bottone chat sugli item di seed (data.sql): non hanno un organizzatore
-                // reale dietro, aprirebbe una chat con un host che non esiste.
                 if (item.isUserGenerated) {
                     OutlinedButton(
                         onClick = {
                             scope.launch {
-                                // 1. Recuperiamo il token JWT salvato nel DataStore tramite il tuo TokenManager
                                 val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
                                 val token = tokenManager.tokenFlow.first()
                                 if (token.isNullOrBlank()) {
@@ -666,17 +663,14 @@ private fun DetailContent(
                                     return@launch
                                 }
 
-                                // 2. Usiamo l'UUID reale dell'organizzatore associato a questo elemento del catalogo
                                 val hostUuid = item.hostId
 
-                                // 3. Chiamiamo il repository passando l'hostId e il token reale dell'utente
                                 val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
                                     hostId = hostUuid,
                                     authToken = token
                                 )
 
                                 if (chatRoom != null) {
-                                    // 4. Apriamo la chat passando l'ID della stanza restituito dal backend
                                     onChatWithOrganizer(chatRoom.id)
                                 } else {
                                     snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
@@ -717,6 +711,145 @@ private fun DetailContent(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
+
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(color = CatalogColors.Hairline)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                SectionLabel("Recensioni degli utenti")
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (hasBooked) {
+                    var myRating by remember { mutableIntStateOf(0) }
+                    var myComment by remember { mutableStateOf("") }
+                    var isSubmitting by remember { mutableStateOf(false) }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                        shape = CatalogShapes.Field,
+                        colors = CardDefaults.cardColors(containerColor = CatalogColors.SurfaceMuted)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Sei stato qui? Lascia una recensione!", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                for (i in 1..5) {
+                                    Icon(
+                                        imageVector = if (i <= myRating) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                        contentDescription = null,
+                                        tint = CatalogColors.Gold,
+                                        modifier = Modifier.size(36.dp).clickable { myRating = i }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = myComment,
+                                onValueChange = { myComment = it },
+                                placeholder = { Text("Racconta la tua esperienza...", style = CatalogType.Body, color = CatalogColors.InkSubtle) },
+                                modifier = Modifier.fillMaxWidth().height(100.dp),
+                                shape = CatalogShapes.Field,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CatalogColors.Accent,
+                                    unfocusedBorderColor = CatalogColors.Hairline,
+                                    focusedContainerColor = CatalogColors.Surface,
+                                    unfocusedContainerColor = CatalogColors.Surface
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Button(
+                                onClick = {
+                                    if (myRating > 0 && myComment.isNotBlank()) {
+                                        isSubmitting = true
+                                        viewModel.submitReview(
+                                            itemId = item.id.toLong(),
+                                            rating = myRating,
+                                            comment = myComment,
+                                            onSuccess = {
+                                                isSubmitting = false
+                                                myRating = 0
+                                                myComment = ""
+                                                scope.launch { snackbarHostState.showSnackbar("Recensione pubblicata!") }
+                                            },
+                                            onError = { msg ->
+                                                isSubmitting = false
+                                                scope.launch { snackbarHostState.showSnackbar(msg) }
+                                            }
+                                        )
+                                    } else {
+                                        scope.launch { snackbarHostState.showSnackbar("Inserisci un voto e un commento") }
+                                    }
+                                },
+                                enabled = !isSubmitting,
+                                colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+                                shape = CatalogShapes.Pill,
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                if (isSubmitting) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = CatalogColors.Surface, strokeWidth = 2.dp)
+                                else Text("Pubblica", style = CatalogType.Button)
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = CatalogShapes.Field,
+                        color = CatalogColors.SurfaceMuted,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Lock, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (!isLoggedIn) "Accedi e prenota per poter lasciare una recensione."
+                                else "Solo chi ha confermato la prenotazione può lasciare una recensione.",
+                                style = CatalogType.Caption,
+                                color = CatalogColors.InkMuted
+                            )
+                        }
+                    }
+                }
+
+                if (reviews.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier.size(64.dp).background(CatalogColors.SurfaceMuted, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.ChatBubbleOutline, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(28.dp))
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Nessuna recensione", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Prenota e sii il primo a raccontare la tua esperienza!", style = CatalogType.Caption, color = CatalogColors.InkMuted, textAlign = TextAlign.Center)
+                    }
+                } else {
+                    reviews.forEach { rev ->
+                        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier.size(36.dp).background(CatalogColors.AccentSoft, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Filled.Person, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text("Utente verificato", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                                    RatingRow(rating = rev.rating.toDouble())
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(rev.comment, style = CatalogType.Body, color = CatalogColors.Ink)
+                            HorizontalDivider(color = CatalogColors.Hairline, modifier = Modifier.padding(top = 16.dp))
+                        }
+                    }
+                }
             }
         }
 
@@ -897,4 +1030,3 @@ private fun QuantityStepper(label: String, quantity: Int, max: Int, onChange: (I
         }
     }
 }
-

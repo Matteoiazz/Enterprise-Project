@@ -40,8 +40,6 @@ public class BookingService {
     private final PaymentService paymentService;
     private final BookingEventPublisher eventPublisher;
 
-    // Comodità per i chiamanti (tra cui i test) che vogliono sempre l'intero
-    // carrello: la vera logica sta nell'overload con la selezione esplicita.
     @Transactional
     public BookingResponseDTO checkout(String userId) {
         return checkout(userId, null);
@@ -394,5 +392,10 @@ public class BookingService {
                 isLeader,
                 new ArrayList<>(booking.getParticipantIds()),
                 lines);
+    }
+
+    public boolean hasUserBookedItem(String userId, Long catalogItemId) {
+        return bookingRepository.existsByUserIdAndLines_CatalogItemIdAndStatus(
+                userId, catalogItemId, BookingStatus.CONFIRMED);
     }
 }

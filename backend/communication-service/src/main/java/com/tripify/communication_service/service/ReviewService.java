@@ -1,5 +1,6 @@
 package com.tripify.communication_service.service;
 
+import com.tripify.communication_service.client.BookingClient;
 import com.tripify.communication_service.entity.Review;
 import com.tripify.communication_service.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,14 +13,16 @@ import java.util.List;
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final BookingClient bookingClient;
 
-    public Review createReview(Integer rating, String comment, Long travelerId, Long catalogItemId) {
-        // Piccola validazione di business
+    public Review createReview(Integer rating, String comment, String travelerId, Long catalogItemId) {
         if (rating < 1 || rating > 5) {
-            throw new IllegalArgumentException("Il rating deve essere compreso tra 1 e 5 stelle");
+            throw new IllegalArgumentException("Il rating deve essere compreso tra 1 e 5");
         }
-        if (comment == null || comment.trim().isEmpty()) {
-            throw new IllegalArgumentException("Il testo della recensione è obbligatorio");
+
+        boolean hasBooked = bookingClient.hasUserBookedItem(catalogItemId);
+        if (!hasBooked) {
+            throw new IllegalStateException("Accesso negato: puoi recensire solo le esperienze che hai effettivamente prenotato e confermato.");
         }
 
         Review review = Review.builder()
@@ -36,7 +39,7 @@ public class ReviewService {
         return reviewRepository.findByCatalogItemId(catalogItemId);
     }
 
-    public List<Review> getReviewsByTraveler(Long travelerId) {
+    public List<Review> getReviewsByTraveler(String travelerId) {
         return reviewRepository.findByTravelerId(travelerId);
     }
 }

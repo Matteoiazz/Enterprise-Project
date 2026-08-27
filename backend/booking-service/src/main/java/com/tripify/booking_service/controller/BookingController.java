@@ -101,4 +101,12 @@ public class BookingController {
         bookingService.addPassenger(bookingLineId, requesterId, request);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/catalog/{catalogItemId}/has-booked")
+    public ResponseEntity<Boolean> hasUserBookedItem(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long catalogItemId) {
+        String userId = jwt.getSubject();
+        return ResponseEntity.ok(bookingService.hasUserBookedItem(userId, catalogItemId));
+    }
 }

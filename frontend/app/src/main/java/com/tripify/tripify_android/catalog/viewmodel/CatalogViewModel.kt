@@ -113,6 +113,12 @@ class CatalogViewModel(
     private val _itemCache = MutableStateFlow<Map<Int, CatalogItem>>(emptyMap())
     val itemCache: StateFlow<Map<Int, CatalogItem>> = _itemCache.asStateFlow()
 
+    private val _itemReviews = MutableStateFlow<List<com.tripify.tripify_android.data.model.ReviewDto>>(emptyList())
+    val itemReviews: StateFlow<List<com.tripify.tripify_android.data.model.ReviewDto>> = _itemReviews.asStateFlow()
+
+    private val _hasBookedCurrentItem = MutableStateFlow(false)
+    val hasBookedCurrentItem: StateFlow<Boolean> = _hasBookedCurrentItem.asStateFlow()
+
     private var fetchJob: Job? = null
     private var searchDebounceJob: Job? = null
 
@@ -477,6 +483,47 @@ class CatalogViewModel(
             }
         } catch (e: Exception) {
             HoldOutcome.Error("Impossibile completare la richiesta. Controlla la connessione.")
+        }
+    }
+
+    fun loadReviewsAndBookingStatus(itemId: Long) {
+        viewModelScope.launch {
+            try {
+                tokenManager?.let { tm ->
+                    val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
+                    val res = rApi.getReviewsForItem(itemId)
+                    if (res.isSuccessful) {
+                        _itemReviews.value = res.body() ?: emptyList()
+                    }
+
+                    val bApi = com.tripify.tripify_android.data.RetrofitClient.createBookingApi(tm)
+                    val bookedRes = bApi.hasUserBookedItem(itemId)
+                    if (bookedRes.isSuccessful) {
+                        _hasBookedCurrentItem.value = bookedRes.body() ?: false
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun submitReview(itemId: Long, rating: Int, comment: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                tokenManager?.let { tm ->
+                    val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
+                    val res = rApi.addReview(rating, comment, itemId)
+                    if (res.isSuccessful) {
+                        loadReviewsAndBookingStatus(itemId) // Ricarica la lista per mostrare la nuova recensione
+                        onSuccess()
+                    } else {
+                        onError("Impossibile inviare la recensione. Assicurati di aver prenotato.")
+                    }
+                } ?: onError("Devi accedere per recensire.")
+            } catch (e: Exception) {
+                onError("Errore di rete. Controlla la connessione.")
+            }
         }
     }
 }

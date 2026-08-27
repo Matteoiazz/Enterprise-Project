@@ -91,4 +91,7 @@ interface BookingApi {
         @Path("bookingLineId") bookingLineId: Long,
         @Body request: PassengerRequestDTO
     ): Response<Unit>
+
+    @GET("api/v1/bookings/catalog/{catalogItemId}/has-booked")
+    suspend fun hasUserBookedItem(@Path("catalogItemId") catalogItemId: Long): Response<Boolean>
 }
