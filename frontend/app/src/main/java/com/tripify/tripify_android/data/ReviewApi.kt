@@ -8,14 +8,14 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ReviewApi {
-    @POST("api/reviews")
+    @POST("api/v1/reviews")
     suspend fun addReview(
         @Query("rating") rating: Int,
         @Query("comment") comment: String,
         @Query("catalogItemId") catalogItemId: Long
     ): Response<ReviewDto>
 
-    @GET("api/reviews/item/{catalogItemId}")
+    @GET("api/v1/reviews/item/{catalogItemId}")
     suspend fun getReviewsForItem(
         @Path("catalogItemId") catalogItemId: Long
     ): Response<List<ReviewDto>>

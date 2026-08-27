@@ -141,7 +141,7 @@ public class BookingService {
         return toResponseDTO(savedBooking, userId);
     }
 
-    // 2. Recupera lo storico calcolando i permessi Leader vs Partecipante, paginato
+    @Transactional(readOnly = true)
     public Page<BookingResponseDTO> getUserHistory(String userId, Pageable pageable) {
         Page<Booking> bookings = bookingRepository.findAllByUserIdOrParticipantIdsContaining(userId, userId, pageable);
         return bookings.map(booking -> toResponseDTO(booking, userId));
@@ -398,4 +398,6 @@ public class BookingService {
         return bookingRepository.existsByUserIdAndLines_CatalogItemIdAndStatus(
                 userId, catalogItemId, BookingStatus.CONFIRMED);
     }
+
+
 }

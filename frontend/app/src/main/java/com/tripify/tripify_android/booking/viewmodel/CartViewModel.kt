@@ -146,16 +146,11 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun fetchSavedPaymentMethods() {
         viewModelScope.launch {
             try {
-                val response = api.getSavedPaymentMethods()
-                if (response.isSuccessful) {
-                    _savedPaymentMethods.value = response.body().orEmpty()
-                } else {
-                    android.util.Log.w("CartViewModel", "getSavedPaymentMethods non riuscita: HTTP ${response.code()} - ${response.errorBody()?.string()}")
-                }
+                // profileApi restituisce direttamente la lista (non un Response<List>)
+                val methods = profileApi.getPaymentMethods()
+                _savedPaymentMethods.value = methods
             } catch (e: Exception) {
-                // silenzioso verso l'utente (vedi commento sopra), ma logghiamo per poter
-                // diagnosticare via Logcat se il proxy verso user-auth-service è irraggiungibile.
-                android.util.Log.w("CartViewModel", "getSavedPaymentMethods fallita", e)
+                android.util.Log.w("CartViewModel", "fetchSavedPaymentMethods fallita", e)
             }
         }
     }

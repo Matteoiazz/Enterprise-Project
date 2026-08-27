@@ -19,6 +19,8 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
     private val _uiState = MutableStateFlow<BookingState>(BookingState.Loading)
     val uiState: StateFlow<BookingState> = _uiState
 
+    private val profileApi = RetrofitClient.createProfileApi(tokenManager)
+
     // Documenti di viaggio già salvati in Impostazioni Profilo, mostrati nella
     // schermata "Aggiungi passeggero" per evitare di doverli reinserire a mano.
     private val _savedTravelDocuments = MutableStateFlow<List<TravelDocumentDto>>(emptyList())
@@ -27,12 +29,9 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun fetchSavedTravelDocuments() {
         viewModelScope.launch {
             try {
-                val response = api.getSavedTravelDocuments()
-                if (response.isSuccessful) {
-                    _savedTravelDocuments.value = response.body().orEmpty()
-                }
+                val documents = profileApi.getTravelDocuments()
+                _savedTravelDocuments.value = documents
             } catch (e: Exception) {
-                // silenzioso: l'utente può comunque inserire il documento a mano
             }
         }
     }
