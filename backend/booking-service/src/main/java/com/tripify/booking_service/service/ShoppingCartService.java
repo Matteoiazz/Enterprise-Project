@@ -11,14 +11,17 @@ import com.tripify.booking_service.dto.SeatHoldRequestDTO;
 import com.tripify.booking_service.entity.CartItem;
 import com.tripify.booking_service.entity.ShoppingCart;
 import com.tripify.booking_service.exception.CatalogItemNotFoundException;
+import com.tripify.booking_service.exception.ResourceNotFoundException;
 import com.tripify.booking_service.repository.CartItemRepository;
 import com.tripify.booking_service.repository.ShoppingCartRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +32,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ShoppingCartService {
+
+    // Ogni articolo scade 15 minuti dopo essere ENTRATO nel carrello (addedAt),
+    // indipendentemente dagli altri: se A è nel carrello da 10 minuti e si
+    // aggiunge B, tra 5 minuti scade solo A mentre a B restano ancora 10 minuti.
+    private static final long CART_ITEM_TTL_MINUTES = 15;
 
     private final ShoppingCartRepository cartRepository;
     private final CartItemRepository itemRepository;
@@ -146,6 +154,7 @@ public class ShoppingCartService {
                 .checkIn(request.checkIn())
                 .checkOut(request.checkOut())
                 .holdId(holdId)
+                .addedAt(LocalDateTime.now())
                 .build();
         itemRepository.save(newItem);
     }
@@ -195,27 +204,68 @@ public class ShoppingCartService {
         cart.getItems().clear();
     }
 
-    // 3bis. Usata dal checkout: gli hold degli item non vanno rilasciati qui,
-    // perché sono stati appena trasferiti alle nuove BookingLine (che li
-    // confermeranno o rilasceranno a seconda dell'esito del pagamento).
+    // 3bis. Usata dal checkout: rimuove solo gli articoli effettivamente
+    // acquistati (non necessariamente tutto il carrello, vedi BookingService.checkout
+    // con selezione parziale) - i loro hold non vanno rilasciati qui, perché
+    // sono stati appena trasferiti alle nuove BookingLine (che li confermeranno
+    // o rilasceranno a seconda dell'esito del pagamento).
     @Transactional
-    public void clearCartAfterCheckout(String userId) {
+    public void removeCheckedOutItems(String userId, List<Long> cartItemIds) {
         ShoppingCart cart = getCartForUser(userId);
-        itemRepository.deleteByCartId(cart.getId());
+        cart.getItems().removeIf(item -> cartItemIds.contains(item.getId()));
+    }
+
+    // 4. Rimuove un singolo articolo dal carrello su richiesta esplicita
+    // dell'utente (a differenza di clearCart, qui rilasciamo l'hold solo di
+    // QUELL'articolo, non di tutto il carrello).
+    @Transactional
+    public void removeItem(String userId, Long cartItemId) {
+        ShoppingCart cart = getCartForUser(userId);
+        CartItem item = cart.getItems().stream()
+                .filter(i -> i.getId().equals(cartItemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Articolo non trovato nel carrello."));
+
+        releaseHoldIfPresent(item);
+        cart.getItems().remove(item);
+    }
+
+    // 5. Job schedulato: rimuove gli articoli il cui hold di 15 minuti è
+    // scaduto. Va diretto su itemRepository (non passa dall'aggregato
+    // ShoppingCart) perché in un colpo solo può toccare i carrelli di utenti
+    // diversi, non ha senso caricarli tutti solo per questo.
+    @Scheduled(fixedRate = 60_000)
+    @Transactional
+    public void purgeExpiredCartItems() {
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(CART_ITEM_TTL_MINUTES);
+        List<CartItem> expired = itemRepository.findByAddedAtBefore(threshold);
+
+        for (CartItem item : expired) {
+            releaseHoldIfPresent(item);
+            itemRepository.delete(item);
+        }
+
+        if (!expired.isEmpty()) {
+            log.info("Rimossi {} articoli dal carrello per scadenza dei {} minuti", expired.size(), CART_ITEM_TTL_MINUTES);
+        }
+    }
+
+    private void releaseHoldIfPresent(CartItem item) {
+        if (item.getHoldId() != null) {
+            try {
+                catalogClient.releaseHold(item.getHoldId());
+            } catch (RuntimeException ex) {
+                // Non blocchiamo la rimozione per un hold che magari è già
+                // scaduto/rilasciato da solo lato catalog-service: logghiamo
+                // e proseguiamo, il peggio che succede è che scadrà da solo.
+                log.warn("Impossibile rilasciare il blocco {} su catalog-service: {}", item.getHoldId(), ex.getMessage());
+            }
+        }
     }
 
     private void releaseHolds(ShoppingCart cart) {
         for (CartItem item : cart.getItems()) {
-            if (item.getHoldId() != null) {
-                try {
-                    catalogClient.releaseHold(item.getHoldId());
-                } catch (RuntimeException ex) {
-                    // Non blocchiamo lo svuotamento del carrello per un hold che magari
-                    // è già scaduto/rilasciato da solo lato catalog-service: logghiamo
-                    // e proseguiamo, il peggio che succede è che scadrà da solo.
-                    log.warn("Impossibile rilasciare il blocco {} su catalog-service: {}", item.getHoldId(), ex.getMessage());
-                }
-            }
+            releaseHoldIfPresent(item);
         }
     }
 }

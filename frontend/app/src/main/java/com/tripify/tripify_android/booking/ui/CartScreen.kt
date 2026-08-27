@@ -26,11 +26,9 @@ fun CartScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToCheckout: () -> Unit = {}
 ) {
-    // 1. Ascoltiamo lo stato dal ViewModel
     val uiState by viewModel.uiState.collectAsState()
+    val selectedItemIds by viewModel.selectedItemIds.collectAsState()
 
-    // 2. Appena si apre la schermata, chiediamo i dati al server. L'utente non
-    // serve più passarlo: il backend lo ricava dal JWT (vedi BookingApi).
     LaunchedEffect(Unit) {
         viewModel.fetchCart()
     }
@@ -51,15 +49,22 @@ fun CartScreen(
         bottomBar = {
             val state = uiState
             if (state is CartState.Success && state.cart.items.isNotEmpty()) {
+                val selectedItems = state.cart.items.filter { it.id in selectedItemIds }
+                val selectedTotal = selectedItems.sumOf { it.priceAtAdded * it.quantity }
+
                 Surface(color = CatalogColors.Surface, shadowElevation = 8.dp) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Totale", style = CatalogType.Body, color = CatalogColors.InkMuted)
                             Text(
-                                text = "€${"%.2f".format(state.cart.totalAmount)}",
+                                "Totale (${selectedItems.size} articoli)",
+                                style = CatalogType.Body,
+                                color = CatalogColors.InkMuted
+                            )
+                            Text(
+                                text = "€${"%.2f".format(selectedTotal)}",
                                 style = CatalogType.PriceLarge,
                                 color = CatalogColors.AccentDark
                             )
@@ -67,6 +72,7 @@ fun CartScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = onNavigateToCheckout,
+                            enabled = selectedItems.isNotEmpty(),
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                             shape = CatalogShapes.Field
@@ -104,7 +110,13 @@ fun CartScreen(
                             contentPadding = PaddingValues(vertical = 16.dp)
                         ) {
                             items(state.cart.items, key = { it.id }) { item ->
-                                CartItemCard(item = item, catalogViewModel = catalogViewModel)
+                                CartItemCard(
+                                    item = item,
+                                    catalogViewModel = catalogViewModel,
+                                    selected = item.id in selectedItemIds,
+                                    onToggleSelected = { viewModel.toggleItemSelection(item.id) },
+                                    onRemoveClick = { viewModel.removeItem(item.id) }
+                                )
                             }
                         }
                     }

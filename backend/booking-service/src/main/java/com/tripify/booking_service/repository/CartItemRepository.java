@@ -4,8 +4,11 @@ import com.tripify.booking_service.entity.CartItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Repository
 public interface CartItemRepository extends JpaRepository<CartItem, Long>{
-    //svuota il carrello dopo il pagamento
-    void deleteByCartId(Long cartId);
+    // Articoli il cui hold di 15 minuti è scaduto (vedi ShoppingCartService.purgeExpiredCartItems).
+    List<CartItem> findByAddedAtBefore(LocalDateTime threshold);
 }

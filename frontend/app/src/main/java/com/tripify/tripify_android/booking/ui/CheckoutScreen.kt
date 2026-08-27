@@ -86,6 +86,7 @@ fun CheckoutScreen(
     val cartState by viewModel.uiState.collectAsState()
     val paymentState by viewModel.paymentState.collectAsState()
     val savedMethods by viewModel.savedPaymentMethods.collectAsState()
+    val selectedItemIds by viewModel.selectedItemIds.collectAsState()
 
     // null = "nuova carta" selezionata (o nessun metodo salvato ancora scelto);
     // altrimenti è l'id del metodo salvato scelto dall'utente.
@@ -126,6 +127,10 @@ fun CheckoutScreen(
     }
 
     val cart = (cartState as? CartState.Success)?.cart
+    // Solo gli articoli scelti in CartScreen vengono mostrati/pagati qui: gli
+    // altri restano nel carrello (vedi CartViewModel.selectedItemIds).
+    val selectedItems = cart?.items?.filter { it.id in selectedItemIds } ?: emptyList()
+    val selectedTotal = selectedItems.sumOf { it.priceAtAdded * it.quantity }
 
     Scaffold(
         containerColor = CatalogColors.Background,
@@ -141,13 +146,13 @@ fun CheckoutScreen(
             )
         },
         bottomBar = {
-            if (cart != null && cart.items.isNotEmpty()) {
+            if (selectedItems.isNotEmpty()) {
                 Surface(color = CatalogColors.Surface, shadowElevation = 8.dp) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Totale da pagare", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                            Text("Totale da pagare (${selectedItems.size} articoli)", style = CatalogType.Body, color = CatalogColors.InkMuted)
                             Text(
-                                text = "€${"%.2f".format(cart.totalAmount)}",
+                                text = "€${"%.2f".format(selectedTotal)}",
                                 style = CatalogType.PriceLarge,
                                 color = CatalogColors.AccentDark
                             )
@@ -179,7 +184,7 @@ fun CheckoutScreen(
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                Text("Paga €${"%.2f".format(cart.totalAmount)}", style = CatalogType.Button)
+                                Text("Paga €${"%.2f".format(selectedTotal)}", style = CatalogType.Button)
                             }
                         }
                     }
@@ -187,12 +192,12 @@ fun CheckoutScreen(
             }
         }
     ) { innerPadding ->
-        if (cart == null || cart.items.isEmpty()) {
+        if (cart == null || selectedItems.isEmpty()) {
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (cartState is CartState.Loading) {
                     CircularProgressIndicator(color = CatalogColors.AccentDark)
                 } else {
-                    Text("Il carrello è vuoto", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                    Text("Nessun articolo selezionato per il pagamento", style = CatalogType.Body, color = CatalogColors.InkMuted)
                 }
             }
         } else {
@@ -206,8 +211,8 @@ fun CheckoutScreen(
                     )
                 }
 
-                items(cart.items, key = { it.id }) { item ->
-                    CartItemCard(item = item, catalogViewModel = catalogViewModel)
+                items(selectedItems, key = { it.id }) { item ->
+                    CartItemCard(item = item, catalogViewModel = catalogViewModel, selected = true, showControls = false)
                 }
 
                 item {

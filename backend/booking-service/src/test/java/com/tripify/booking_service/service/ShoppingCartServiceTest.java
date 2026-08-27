@@ -20,6 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -150,16 +151,79 @@ class ShoppingCartServiceTest {
     }
 
     @Test
-    void clearCartAfterCheckoutNonRilasciaGliHold() {
+    void removeCheckedOutItemsNonRilasciaGliHold() {
         when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
         addItem(new AddToCartRequestDTO(1L, 1, null, 7L, null, null));
+        Long itemId = cartService.getCartForUser(USER_ID).getItems().get(0).getId();
 
-        cartService.clearCartAfterCheckout(USER_ID);
+        cartService.removeCheckedOutItems(USER_ID, List.of(itemId));
         entityManager.flush();
         entityManager.clear();
 
         verify(catalogClient, never()).releaseHold(any());
         assertThat(cartService.getCartForUser(USER_ID).getItems()).isEmpty();
+    }
+
+    @Test
+    void removeCheckedOutItemsLasciaGliAltriArticoliNelCarrello() {
+        addItem(new AddToCartRequestDTO(1L, 1, null, null, null, null));
+        when(catalogClient.getItem(2L)).thenReturn(
+                new com.tripify.booking_service.dto.CatalogItemSummaryDTO(2L, "Activity", java.math.BigDecimal.valueOf(50.0), null, null));
+        addItem(new AddToCartRequestDTO(2L, 1, null, null, null, null));
+        Long firstItemId = cartService.getCartForUser(USER_ID).getItems().stream()
+                .filter(i -> i.getCatalogItemId().equals(1L)).findFirst().get().getId();
+
+        cartService.removeCheckedOutItems(USER_ID, List.of(firstItemId));
+        entityManager.flush();
+        entityManager.clear();
+
+        ShoppingCart remaining = cartService.getCartForUser(USER_ID);
+        assertThat(remaining.getItems()).hasSize(1);
+        assertThat(remaining.getItems().get(0).getCatalogItemId()).isEqualTo(2L);
+    }
+
+    @Test
+    void removeItemRimuoveSoloQuellArticoloERilasciaIlSuoHold() {
+        when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
+        addItem(new AddToCartRequestDTO(1L, 1, null, 7L, null, null));
+        addItem(new AddToCartRequestDTO(1L, 1, null, null, null, null));
+        Long holdItemId = cartService.getCartForUser(USER_ID).getItems().stream()
+                .filter(i -> i.getHoldId() != null).findFirst().get().getId();
+
+        cartService.removeItem(USER_ID, holdItemId);
+        entityManager.flush();
+        entityManager.clear();
+
+        verify(catalogClient).releaseHold("seat-1");
+        assertThat(cartService.getCartForUser(USER_ID).getItems()).hasSize(1);
+    }
+
+    @Test
+    void removeItemRifiutaUnArticoloNonPresenteNelCarrello() {
+        assertThatThrownBy(() -> cartService.removeItem(USER_ID, 999L))
+                .isInstanceOf(com.tripify.booking_service.exception.ResourceNotFoundException.class);
+    }
+
+    @Test
+    void purgeExpiredCartItemsRimuoveSoloGliArticoliScadutiRilasciandoGliHold() {
+        when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
+        addItem(new AddToCartRequestDTO(1L, 1, null, 7L, null, null)); // scaduto
+        addItem(new AddToCartRequestDTO(1L, 1, null, null, null, null)); // fresco
+
+        CartItem oldItem = cartService.getCartForUser(USER_ID).getItems().stream()
+                .filter(i -> i.getHoldId() != null).findFirst().get();
+        oldItem.setAddedAt(LocalDateTime.now().minusMinutes(16));
+        entityManager.flush();
+        entityManager.clear();
+
+        cartService.purgeExpiredCartItems();
+        entityManager.flush();
+        entityManager.clear();
+
+        verify(catalogClient).releaseHold("seat-1");
+        ShoppingCart remaining = cartService.getCartForUser(USER_ID);
+        assertThat(remaining.getItems()).hasSize(1);
+        assertThat(remaining.getItems().get(0).getHoldId()).isNull();
     }
 
     @Test

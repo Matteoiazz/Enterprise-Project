@@ -2,6 +2,7 @@ package com.tripify.booking_service.controller;
 
 import com.tripify.booking_service.dto.AuditLogEntryDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
+import com.tripify.booking_service.dto.CheckoutRequestDTO;
 import com.tripify.booking_service.dto.PassengerRequestDTO;
 import com.tripify.booking_service.dto.ReceivedBookingLineDTO;
 import com.tripify.booking_service.service.BookingService;
@@ -25,11 +26,16 @@ public class BookingController {
     private final BookingService bookingService;
 
     // userId letto dal claim "sub" del JWT già verificato da Spring Security,
-    // non più dall'header (vedi discussione sicurezza precedente).
+    // non più dall'header (vedi discussione sicurezza precedente). Body opzionale:
+    // se assente o senza cartItemIds si fa il checkout dell'intero carrello,
+    // altrimenti solo degli articoli selezionati (vedi BookingService.checkout).
     @PostMapping("/checkout")
-    public ResponseEntity<BookingResponseDTO> checkoutCart(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<BookingResponseDTO> checkoutCart(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody(required = false) CheckoutRequestDTO request) {
         String userId = jwt.getSubject();
-        return ResponseEntity.ok(bookingService.checkout(userId));
+        List<Long> selectedCartItemIds = request != null ? request.cartItemIds() : null;
+        return ResponseEntity.ok(bookingService.checkout(userId, selectedCartItemIds));
     }
 
     @GetMapping("/user")

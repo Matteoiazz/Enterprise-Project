@@ -8,6 +8,7 @@ import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.AddToCartRequestDTO
 import com.tripify.tripify_android.data.model.BookingResponseDTO
+import com.tripify.tripify_android.data.model.CheckoutRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.PaymentRequestDTO
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,19 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     private val _savedPaymentMethods = MutableStateFlow<List<PaymentMethodDto>>(emptyList())
     val savedPaymentMethods: StateFlow<List<PaymentMethodDto>> = _savedPaymentMethods
 
+    // Articoli del carrello scelti per il prossimo checkout: di default tutti,
+    // l'utente può togliere la spunta a quelli che non vuole prenotare ora.
+    private val _selectedItemIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedItemIds: StateFlow<Set<Long>> = _selectedItemIds
+
+    fun toggleItemSelection(itemId: Long) {
+        _selectedItemIds.value = if (itemId in _selectedItemIds.value) {
+            _selectedItemIds.value - itemId
+        } else {
+            _selectedItemIds.value + itemId
+        }
+    }
+
     // Funzione che verrà chiamata dalla UI per caricare il carrello. Non serve
     // più passare l'userId: il backend lo ricava dal JWT (vedi BookingApi).
     fun fetchCart() {
@@ -47,9 +61,30 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val response = api.getCart()
 
                 if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = CartState.Success(response.body()!!)
+                    val cart = response.body()!!
+                    _uiState.value = CartState.Success(cart)
+                    // Ogni volta che il carrello viene ricaricato si riparte con tutto
+                    // selezionato: più semplice e prevedibile che provare a ricordare
+                    // le deselezioni tra un fetch e l'altro (es. dopo aver rimosso un articolo).
+                    _selectedItemIds.value = cart.items.map { it.id }.toSet()
                 } else {
                     _uiState.value = CartState.Error("Errore nel caricamento del carrello: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _uiState.value = CartState.Error("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
+
+    // Rimuove un singolo articolo dal carrello (rilascia il suo eventuale hold lato server).
+    fun removeItem(itemId: Long) {
+        viewModelScope.launch {
+            try {
+                val response = api.removeCartItem(itemId)
+                if (response.isSuccessful) {
+                    fetchCart()
+                } else {
+                    _uiState.value = CartState.Error(response.parseErrorMessage())
                 }
             } catch (e: Exception) {
                 _uiState.value = CartState.Error("Nessuna connessione: ${e.message}")
@@ -105,25 +140,6 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
-    // Trasforma il carrello corrente in una prenotazione PENDING. Callback
-    // esplicite (invece di passare dallo uiState del carrello) perché il
-    // risultato è una Booking, non più un CartDTO.
-    fun checkout(onSuccess: (bookingId: Long) -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val response = api.checkout()
-                if (response.isSuccessful && response.body() != null) {
-                    onSuccess(response.body()!!.id)
-                    fetchCart()
-                } else {
-                    onError(response.parseErrorMessage())
-                }
-            } catch (e: Exception) {
-                onError("Nessuna connessione: ${e.message}")
-            }
-        }
-    }
-
     // Elenco dei metodi di pagamento già salvati (proxy verso user-auth-service
     // esposto da booking-service): se la chiamata fallisce non blocchiamo il
     // checkout, l'utente può comunque pagare inserendo una carta nuova.
@@ -149,7 +165,7 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // Sono due chiamate distinte lato backend perché il checkout può fallire per
     // motivi diversi dal pagamento (carrello vuoto, hold scaduto).
     private suspend fun checkoutThenPay(buildRequest: (booking: BookingResponseDTO) -> PaymentRequestDTO): BookingResponseDTO? {
-        val checkoutResponse = api.checkout()
+        val checkoutResponse = api.checkout(CheckoutRequestDTO(cartItemIds = _selectedItemIds.value.toList()))
         if (!checkoutResponse.isSuccessful || checkoutResponse.body() == null) {
             _paymentState.value = PaymentState.Error(checkoutResponse.parseErrorMessage())
             return null

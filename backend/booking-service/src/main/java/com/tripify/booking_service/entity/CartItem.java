@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cart_items")
@@ -46,4 +47,12 @@ public class CartItem {
     // per questo item, nel formato "room-{id}"/"seat-{id}" (vedi CatalogClient).
     // Null se l'item non richiede un hold (es. attività, che non ne ha).
     private String holdId;
+
+    // Quando l'articolo è entrato nel carrello: usato per farlo scadere
+    // automaticamente 15 minuti dopo (vedi ShoppingCartService.purgeExpiredCartItems),
+    // indipendentemente dagli altri articoli già presenti o aggiunti dopo.
+    // Volutamente nullable a livello di colonna nonostante il codice la valorizzi
+    // sempre: con ddl-auto=update una NOT NULL su una tabella già popolata
+    // farebbe fallire l'ALTER TABLE (stesso motivo di BookingLine.quantity).
+    private LocalDateTime addedAt;
 }
