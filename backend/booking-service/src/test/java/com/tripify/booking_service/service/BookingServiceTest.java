@@ -243,6 +243,29 @@ class BookingServiceTest {
                 .allMatch(b -> !b.isLeader());
     }
 
+    @Test
+    void getReceivedBookingsRestituisceSoloLeRigheSugliAnnunciDiChiChiama() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(OTHER_USER_ID); // catalogItemId = 1
+
+        when(catalogClient.getMyItems()).thenReturn(
+                java.util.List.of(new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), null, null)));
+
+        var received = bookingService.getReceivedBookings();
+
+        assertThat(received).hasSize(1);
+        assertThat(received.get(0).bookingId()).isEqualTo(booking.id());
+        assertThat(received.get(0).buyerUserId()).isEqualTo(OTHER_USER_ID);
+        assertThat(received.get(0).catalogItemId()).isEqualTo(1L);
+    }
+
+    @Test
+    void getReceivedBookingsRestituisceListaVuotaSeNonHaAnnunci() {
+        checkoutSimpleCartFor(OTHER_USER_ID);
+        when(catalogClient.getMyItems()).thenReturn(java.util.List.of());
+
+        assertThat(bookingService.getReceivedBookings()).isEmpty();
+    }
+
     private com.tripify.booking_service.dto.PassengerRequestDTO passengerRequest(String firstName, String lastName) {
         return new com.tripify.booking_service.dto.PassengerRequestDTO(
                 firstName, lastName, "RSSMRA80A01H501U", "PASSPORT", "AB1234567",
