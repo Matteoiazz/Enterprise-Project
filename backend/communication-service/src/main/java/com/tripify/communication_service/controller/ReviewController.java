@@ -11,13 +11,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/reviews")
+@RequestMapping("/api/v1/reviews")
 @RequiredArgsConstructor
 public class ReviewController {
 
     private final ReviewService reviewService;
 
-    // POST http://localhost:8084/api/reviews
     @PostMapping
     public ResponseEntity<Review> addReview(
             @AuthenticationPrincipal Jwt jwt,
@@ -30,13 +29,11 @@ public class ReviewController {
         return ResponseEntity.ok(savedReview);
     }
 
-    // GET http://localhost:8084/api/reviews/item/5
     @GetMapping("/item/{catalogItemId}")
     public ResponseEntity<List<Review>> getReviewsForItem(@PathVariable Long catalogItemId) {
         return ResponseEntity.ok(reviewService.getReviewsByItem(catalogItemId));
     }
 
-    // GET http://localhost:8084/api/reviews/traveler/f8a9...
     @GetMapping("/traveler/{travelerId}")
     public ResponseEntity<List<Review>> getReviewsByTraveler(@PathVariable String travelerId) {
         return ResponseEntity.ok(reviewService.getReviewsByTraveler(travelerId));
