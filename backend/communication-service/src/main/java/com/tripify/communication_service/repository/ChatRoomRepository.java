@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
+public interface ChatRoomRepository extends JpaRepository<ChatRoom, String> {
 
     // Trova la chat specifica tra un viaggiatore e un host
     Optional<ChatRoom> findByTravelerIdAndHostId(String travelerId, String hostId);

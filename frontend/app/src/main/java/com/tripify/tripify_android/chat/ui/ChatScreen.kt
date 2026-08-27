@@ -17,18 +17,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.chat.viewmodel.ChatViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
-    onBackClick: () -> Unit // <-- Aggiunto per gestire il ritorno alla home
+    onBackClick: () -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-
     val currentUserId = viewModel.currentUserId
 
     LaunchedEffect(messages.size) {
@@ -38,40 +41,47 @@ fun ChatScreen(
     }
 
     Scaffold(
+        containerColor = CatalogColors.Background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(Color(0xFF4CAF50))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Tripify Chat (Utente $currentUserId)")
-                    }
-                },
-                // FRECCIA INDIETRO IN ALTO A SINISTRA
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Torna alla home"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+            Column {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color(0xFF4CAF50))
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ASSISTENZA & CHAT",
+                                style = CatalogType.Overline,
+                                color = CatalogColors.Ink
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Torna indietro",
+                                tint = CatalogColors.Ink
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = CatalogColors.Surface
+                    )
                 )
-            )
+                HorizontalDivider(color = CatalogColors.Hairline)
+            }
         }
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background)
         ) {
             Column(
                 modifier = Modifier
@@ -84,11 +94,10 @@ fun ChatScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                        .padding(horizontal = CatalogSpacing.Gutter),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
-                    item { Spacer(modifier = Modifier.height(4.dp)) }
                     items(messages) { msg ->
                         val isMyMessage = msg.senderId == currentUserId
 
@@ -97,91 +106,98 @@ fun ChatScreen(
                             horizontalArrangement = if (isMyMessage) Arrangement.End else Arrangement.Start
                         ) {
                             Surface(
-                                modifier = Modifier.fillMaxWidth(0.78f),
+                                modifier = Modifier.widthIn(max = 300.dp),
                                 color = if (isMyMessage)
-                                    Color(0xFFDCF8C6) // Verde chiaro per te
+                                    CatalogColors.Ink // Usa il colore scuro/primario della home per i tuoi messaggi
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant, // Grigio per l'altro
+                                    CatalogColors.SurfaceMuted, // Superficie neutra per gli altri
                                 shape = RoundedCornerShape(
                                     topStart = 16.dp,
                                     topEnd = 16.dp,
                                     bottomStart = if (isMyMessage) 16.dp else 4.dp,
                                     bottomEnd = if (isMyMessage) 4.dp else 16.dp
                                 ),
-                                shadowElevation = 1.dp
+                                border = if (!isMyMessage) androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline) else null
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                                 ) {
-                                    // MOSTRA IL NOME SOLO SE NON È IL TUO MESSAGGIO
                                     if (!isMyMessage) {
                                         Text(
-                                            text = "Utente ${msg.senderId}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
+                                            text = "Utente",
+                                            style = CatalogType.Caption,
+                                            color = CatalogColors.AccentDark
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                     }
 
                                     Text(
                                         text = msg.content,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.Black
+                                        style = CatalogType.Body,
+                                        color = if (isMyMessage) Color.White else CatalogColors.Ink
                                     )
 
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Spacer(modifier = Modifier.height(3.dp))
 
                                     Text(
                                         text = "12:54",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
-                                        color = Color.Gray,
+                                        style = CatalogType.Caption,
+                                        fontSize = 9.sp,
+                                        color = if (isMyMessage) Color.White.copy(alpha = 0.7f) else CatalogColors.InkMuted,
                                         modifier = Modifier.align(Alignment.End)
                                     )
                                 }
                             }
                         }
                     }
-                    item { Spacer(modifier = Modifier.height(4.dp)) }
                 }
 
-                // Barra di scrittura inferiore
+                // Barra di scrittura inferiore coerente
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 8.dp
+                    color = CatalogColors.Surface,
+                    shadowElevation = 0.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(horizontal = CatalogSpacing.Gutter, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         OutlinedTextField(
                             value = textInput,
                             onValueChange = { textInput = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Digita un messaggio...") },
-                            shape = RoundedCornerShape(24.dp),
-                            maxLines = 4
+                            placeholder = { Text("Scrivi un messaggio...", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+                            shape = CatalogShapes.Card,
+                            maxLines = 4,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CatalogColors.AccentDark,
+                                unfocusedBorderColor = CatalogColors.Hairline,
+                                focusedContainerColor = CatalogColors.Background,
+                                unfocusedContainerColor = CatalogColors.Background
+                            )
                         )
 
-                        FloatingActionButton(
+                        IconButton(
                             onClick = {
                                 if (textInput.isNotBlank()) {
                                     viewModel.sendMessage(textInput)
                                     textInput = ""
                                 }
                             },
-                            modifier = Modifier.size(48.dp),
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CatalogShapes.Badge)
+                                .background(CatalogColors.AccentDark)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Send,
                                 contentDescription = "Invia",
-                                modifier = Modifier.size(20.dp)
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
