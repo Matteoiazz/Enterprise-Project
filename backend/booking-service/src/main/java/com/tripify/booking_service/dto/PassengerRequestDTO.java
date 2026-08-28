@@ -12,6 +12,7 @@ import java.time.LocalDate;
 public record PassengerRequestDTO(
         @NotBlank(message = "il nome è obbligatorio") String firstName,
         @NotBlank(message = "il cognome è obbligatorio") String lastName,
+        @NotBlank(message = "il numero di telefono è obbligatorio") String phoneNumber,
         @NotBlank(message = "il codice fiscale è obbligatorio") String taxCode,
         @NotBlank(message = "il tipo di documento è obbligatorio") String documentType,
         @NotBlank(message = "il numero di documento è obbligatorio") String documentNumber,

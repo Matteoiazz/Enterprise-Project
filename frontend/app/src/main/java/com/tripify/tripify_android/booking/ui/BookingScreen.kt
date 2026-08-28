@@ -17,6 +17,7 @@ import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
 import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 fun BookingScreen(
     viewModel: BookingViewModel,
     cartViewModel: CartViewModel,
+    catalogViewModel: CatalogViewModel,
     onNavigateToCart: () -> Unit = {},
     onAddPassengersClick: (bookingId: Long) -> Unit = {}
 ) {
@@ -102,6 +104,7 @@ fun BookingScreen(
                             items(state.bookings, key = { it.id }) { booking ->
                                 BookingCard(
                                     booking = booking,
+                                    catalogViewModel = catalogViewModel,
                                     onInviteClick = { bookingId ->
                                         selectedBookingId = bookingId
                                         showInviteDialog = true

@@ -2,14 +2,28 @@ package com.tripify.tripify_android.booking.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.data.model.BookingLineDTO
 import com.tripify.tripify_android.data.model.BookingResponseDTO
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -46,6 +60,7 @@ private fun statusBackground(status: String): androidx.compose.ui.graphics.Color
 @Composable
 fun BookingCard(
     booking: BookingResponseDTO,
+    catalogViewModel: CatalogViewModel,
     onInviteClick: (Long) -> Unit,
     onCancelClick: (Long) -> Unit = {},
     onAddPassengersClick: (Long) -> Unit = {}
@@ -62,8 +77,6 @@ fun BookingCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Viaggio #${booking.id}", style = CatalogType.CardTitle, color = CatalogColors.Ink)
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(text = formatBookingDate(booking.bookingDate), style = CatalogType.Caption, color = CatalogColors.InkMuted)
                 }
 
@@ -79,10 +92,14 @@ fun BookingCard(
 
             if (booking.lines.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
+                booking.lines.forEach { line ->
+                    BookingLineSummaryRow(line = line, catalogViewModel = catalogViewModel)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                val travelerCount = booking.participantIds.size + 1
                 Text(
-                    text = "${booking.lines.size} elemento/i" +
-                        if (booking.participantIds.isNotEmpty()) " · ${booking.participantIds.size + 1} viaggiatori" else "",
-                    style = CatalogType.Body,
+                    text = if (travelerCount == 1) "1 viaggiatore" else "$travelerCount viaggiatori",
+                    style = CatalogType.Caption,
                     color = CatalogColors.InkMuted
                 )
             }
@@ -149,5 +166,47 @@ fun BookingCard(
                 )
             }
         }
+    }
+}
+
+// Riga di una singola prenotazione con foto e nome dell'articolo, stesso
+// aspetto di CartItemCard: qui però è di sola lettura, niente checkbox/elimina.
+@Composable
+private fun BookingLineSummaryRow(line: BookingLineDTO, catalogViewModel: CatalogViewModel) {
+    var resolved by remember(line.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
+    LaunchedEffect(line.catalogItemId) {
+        resolved = catalogViewModel.getOrFetchItem(line.catalogItemId.toInt())
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = resolved?.imageUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = resolved?.title ?: "Articolo #${line.catalogItemId}",
+                style = CatalogType.BodyStrong,
+                color = CatalogColors.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Quantità: ${line.quantity ?: 1}",
+                style = CatalogType.Caption,
+                color = CatalogColors.InkMuted
+            )
+        }
+        Text(
+            text = "€${"%.2f".format(line.price)}",
+            style = CatalogType.Price,
+            color = CatalogColors.AccentDark
+        )
     }
 }

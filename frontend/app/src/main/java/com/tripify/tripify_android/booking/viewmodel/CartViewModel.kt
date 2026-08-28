@@ -9,6 +9,7 @@ import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.AddToCartRequestDTO
 import com.tripify.tripify_android.data.model.BookingResponseDTO
 import com.tripify.tripify_android.data.model.CheckoutRequestDTO
+import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.PaymentRequestDTO
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -159,8 +160,21 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // una Booking PENDING (checkout) poi processa il pagamento su quella Booking.
     // Sono due chiamate distinte lato backend perché il checkout può fallire per
     // motivi diversi dal pagamento (carrello vuoto, hold scaduto).
-    private suspend fun checkoutThenPay(buildRequest: (booking: BookingResponseDTO) -> PaymentRequestDTO): BookingResponseDTO? {
-        val checkoutResponse = api.checkout(CheckoutRequestDTO(cartItemIds = _selectedItemIds.value.toList()))
+    // guestsByCartItemId: dati degli ospiti raccolti in CheckoutScreen PRIMA di
+    // pagare, inviati SUBITO DOPO un pagamento riuscito (servono gli id delle
+    // BookingLine appena create, che non esistono prima). L'abbinamento tra
+    // articolo del carrello e riga della Booking è per posizione: entrambe le
+    // liste derivano dallo stesso ordine di cart.getItems() lato backend, quindi
+    // filtrarle allo stesso modo mantiene la corrispondenza.
+    private suspend fun checkoutThenPay(
+        guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap(),
+        buildRequest: (booking: BookingResponseDTO) -> PaymentRequestDTO
+    ): BookingResponseDTO? {
+        val selectedIds = _selectedItemIds.value
+        val orderedSelectedItems = (_uiState.value as? CartState.Success)?.cart?.items
+            ?.filter { it.id in selectedIds }.orEmpty()
+
+        val checkoutResponse = api.checkout(CheckoutRequestDTO(cartItemIds = selectedIds.toList()))
         if (!checkoutResponse.isSuccessful || checkoutResponse.body() == null) {
             _paymentState.value = PaymentState.Error(checkoutResponse.parseErrorMessage())
             return null
@@ -171,6 +185,19 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
         return if (paymentResponse.isSuccessful && paymentResponse.body()?.success == true) {
             _paymentState.value = PaymentState.Success(booking.id)
+
+            orderedSelectedItems.zip(booking.lines).forEach { (cartItem, line) ->
+                guestsByCartItemId[cartItem.id].orEmpty().forEach { guest ->
+                    try {
+                        api.addPassenger(line.id, guest)
+                    } catch (e: Exception) {
+                        // Il pagamento è comunque riuscito: un ospite non registrato si
+                        // può sempre aggiungere dopo da "Le mie prenotazioni".
+                        android.util.Log.w("CartViewModel", "addPassenger fallita per la riga ${line.id}", e)
+                    }
+                }
+            }
+
             booking
         } else {
             val message = paymentResponse.body()?.message ?: paymentResponse.parseErrorMessage()
@@ -181,11 +208,11 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     // Paga con un metodo già salvato in Impostazioni: solo il suo id viaggia
     // verso il backend, mai un numero di carta (che non viene più chiesto).
-    fun payWithSavedMethod(paymentMethodId: String) {
+    fun payWithSavedMethod(paymentMethodId: String, guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap()) {
         viewModelScope.launch {
             _paymentState.value = PaymentState.Processing
             try {
-                checkoutThenPay { booking ->
+                checkoutThenPay(guestsByCartItemId) { booking ->
                     PaymentRequestDTO(bookingId = booking.id, amount = booking.totalAmount, paymentMethodId = paymentMethodId)
                 }
             } catch (e: Exception) {
@@ -198,11 +225,17 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // pagamento riuscito la carta viene aggiunta anche ai metodi salvati in
     // Impostazioni Profilo: un suo eventuale fallimento non deve far sembrare
     // fallito il pagamento appena andato a buon fine, quindi viene ignorato.
-    fun payWithNewCard(cardNumber: String, cardProvider: String, expirationMonthYear: String, saveCard: Boolean) {
+    fun payWithNewCard(
+        cardNumber: String,
+        cardProvider: String,
+        expirationMonthYear: String,
+        saveCard: Boolean,
+        guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap()
+    ) {
         viewModelScope.launch {
             _paymentState.value = PaymentState.Processing
             try {
-                val booking = checkoutThenPay { b ->
+                val booking = checkoutThenPay(guestsByCartItemId) { b ->
                     PaymentRequestDTO(bookingId = b.id, amount = b.totalAmount, cardNumber = cardNumber)
                 }
                 if (booking != null && saveCard) {

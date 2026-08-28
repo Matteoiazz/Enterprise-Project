@@ -12,6 +12,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -48,6 +49,8 @@ class ShoppingCartServiceTest {
     private ShoppingCartService cartService;
     @MockitoBean
     private CatalogClient catalogClient;
+    @MockitoBean
+    private RabbitTemplate rabbitTemplate;
     @PersistenceContext
     private EntityManager entityManager;
 

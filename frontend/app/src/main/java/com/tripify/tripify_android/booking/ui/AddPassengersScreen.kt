@@ -169,13 +169,14 @@ private fun AddPassengerDialog(
 
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var taxCode by remember { mutableStateOf("") }
     var documentType by remember { mutableStateOf("") }
     var documentNumber by remember { mutableStateOf("") }
     var expirationDate by remember { mutableStateOf("") }
     var issuingCountry by remember { mutableStateOf("") }
 
-    val formValid = firstName.isNotBlank() && lastName.isNotBlank() && taxCode.isNotBlank() &&
+    val formValid = firstName.isNotBlank() && lastName.isNotBlank() && phoneNumber.length == 10 && taxCode.isNotBlank() &&
         documentType.isNotBlank() && documentNumber.isNotBlank() && expirationDate.isNotBlank() && issuingCountry.isNotBlank()
 
     fun fillFromSaved(document: TravelDocumentDto) {
@@ -207,6 +208,13 @@ private fun AddPassengerDialog(
                 OutlinedTextField(
                     value = lastName, onValueChange = { lastName = it },
                     label = { Text("Cognome") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = phoneNumber, onValueChange = { phoneNumber = it.filter { c -> c.isDigit() }.take(10) },
+                    label = { Text("Telefono") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
@@ -267,6 +275,7 @@ private fun AddPassengerDialog(
                         PassengerRequestDTO(
                             firstName = firstName,
                             lastName = lastName,
+                            phoneNumber = phoneNumber,
                             taxCode = taxCode,
                             documentType = documentType,
                             documentNumber = documentNumber,

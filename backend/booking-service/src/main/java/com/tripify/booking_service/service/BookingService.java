@@ -18,6 +18,7 @@ import com.tripify.booking_service.repository.*;
 import com.tripify.booking_service.messaging.BookingNotificationEvent;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookingService {
 
     private final BookingRepository bookingRepository;
@@ -238,6 +240,7 @@ public class BookingService {
                 .bookingLine(line)
                 .firstName(request.firstName())
                 .lastName(request.lastName())
+                .phoneNumber(request.phoneNumber())
                 .taxCode(request.taxCode())
                 .documentType(request.documentType())
                 .documentNumber(request.documentNumber())
@@ -321,7 +324,15 @@ public class BookingService {
         if (!wasConfirmed) {
             for (BookingLine line : booking.getLines()) {
                 if (line.getHoldId() != null) {
-                    catalogClient.releaseHold(line.getHoldId());
+                    try {
+                        catalogClient.releaseHold(line.getHoldId());
+                    } catch (RuntimeException ex) {
+                        // Un hold già scaduto/rilasciato da solo lato catalog-service (es.
+                        // dopo 15 minuti) non deve impedire l'annullamento della prenotazione:
+                        // logghiamo e proseguiamo, stesso criterio di ShoppingCartService.
+                        log.warn("Impossibile rilasciare il blocco {} durante l'annullamento della prenotazione {}: {}",
+                                line.getHoldId(), bookingId, ex.getMessage());
+                    }
                 }
             }
         }

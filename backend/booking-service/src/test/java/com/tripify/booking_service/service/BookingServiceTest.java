@@ -15,6 +15,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -55,6 +56,8 @@ class BookingServiceTest {
     private PaymentService paymentService;
     @MockitoBean
     private BookingEventPublisher eventPublisher;
+    @MockitoBean
+    private RabbitTemplate rabbitTemplate;
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -289,7 +292,7 @@ class BookingServiceTest {
 
     private com.tripify.booking_service.dto.PassengerRequestDTO passengerRequest(String firstName, String lastName) {
         return new com.tripify.booking_service.dto.PassengerRequestDTO(
-                firstName, lastName, "RSSMRA80A01H501U", "PASSPORT", "AB1234567",
+                firstName, lastName, "3331234567", "RSSMRA80A01H501U", "PASSPORT", "AB1234567",
                 java.time.LocalDate.now().plusYears(2), "ITA");
     }
 }

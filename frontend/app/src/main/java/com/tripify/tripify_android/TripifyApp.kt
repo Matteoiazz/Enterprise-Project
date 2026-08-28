@@ -223,6 +223,7 @@ fun TripifyApp(
                 BookingScreen(
                     viewModel = bookingViewModel,
                     cartViewModel = cartViewModel,
+                    catalogViewModel = catalogViewModel,
                     onNavigateToCart = { navController.navigate(Route.Cart.path) },
                     onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) }
                 )
@@ -256,8 +257,13 @@ fun TripifyApp(
                     catalogViewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
+                        // Stesso pattern usato dai tab della bottom bar (vedi onClick più sotto):
+                        // senza, la pila di navigazione restava diversa da quella "normale" e il
+                        // tasto Home smetteva di funzionare da questa specifica istanza di Prenotazioni.
                         navController.navigate(Route.Bookings.path) {
-                            popUpTo(Route.Cart.path) { inclusive = true }
+                            popUpTo(Route.Home.path) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     }
                 )
