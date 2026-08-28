@@ -27,7 +27,6 @@ class CompanionsViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // Formatter standard per l'API e la logica interna
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     fun loadCompanions() {
@@ -51,18 +50,15 @@ class CompanionsViewModel(
             return
         }
 
-        // DOUBLE CHECK: Validazione Severa anche lato Business Logic
         try {
             val birthDate = LocalDate.parse(dateOfBirth, dateFormatter)
             val today = LocalDate.now()
 
-            // 1: Controllo futuro
             if (birthDate.isAfter(today)) {
                 _errorMessage.value = "La data di nascita non può essere nel futuro."
                 return
             }
 
-            // 2: Controllo Maggiorenne (+18)
             val age = Period.between(birthDate, today).years
             if (age < 18) {
                 _errorMessage.value = "Il compagno di viaggio deve essere maggiorenne (almeno 18 anni)."

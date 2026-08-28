@@ -39,10 +39,79 @@ public class ProfileService {
     private final TravelDocumentRepository documentRepository;
     private final Cloudinary cloudinary;
 
+    private Keycloak getKeycloakAdminClient() {
+        return KeycloakBuilder.builder()
+                .serverUrl("http://localhost:8180")
+                .realm("master")
+                .clientId("admin-cli")
+                .grantType(org.keycloak.OAuth2Constants.PASSWORD)
+                .username("admin")
+                .password("admin")
+                .build();
+    }
 
     public User getUser(String email) {
-        return userRepository.findByEmail(email)
-                .orElseGet(() -> createAndSyncUserFromKeycloak(email));
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return createAndSyncUserFromKeycloak(email);
+        }
+
+        if (user.getRole() == Role.ROLE_TRAVELER) {
+            return syncRoleFromKeycloak(user, email);
+        }
+
+        return user;
+    }
+
+    private String getAttributeValue(UserRepresentation kcUser, String key) {
+        if (kcUser.getAttributes() == null) return null;
+
+        String[] possibleKeys = { key, "profile.attributes." + key, "user.attributes." + key };
+        for (String k : possibleKeys) {
+            List<String> values = kcUser.getAttributes().get(k);
+            if (values != null && !values.isEmpty() && values.get(0) != null && !values.get(0).trim().isEmpty()) {
+                return values.get(0);
+            }
+        }
+        return null;
+    }
+
+    private User syncRoleFromKeycloak(User user, String email) {
+        try {
+            Keycloak keycloak = getKeycloakAdminClient();
+            List<UserRepresentation> matches = keycloak.realm("tripify").users().searchByEmail(email, true);
+
+            if (!matches.isEmpty()) {
+                UserRepresentation kcUser = matches.get(0);
+                String userType = getAttributeValue(kcUser, "userType");
+
+                if (userType != null && userType.toLowerCase().contains("organizer")) {
+                    user.setRole(Role.ROLE_ORGANIZER);
+
+                    String company = getAttributeValue(kcUser, "companyName");
+                    if (company != null) user.setCompanyName(company);
+
+                    String vat = getAttributeValue(kcUser, "vatNumber");
+                    if (vat != null) user.setVatNumber(vat);
+
+                    String pec = getAttributeValue(kcUser, "pec");
+                    if (pec != null) user.setPec(pec);
+
+                    try {
+                        RoleRepresentation organizerRole = keycloak.realm("tripify").roles().get("ROLE_ORGANIZER").toRepresentation();
+                        keycloak.realm("tripify").users().get(kcUser.getId()).roles().realmLevel().add(List.of(organizerRole));
+                        log.info("Ruolo ROLE_ORGANIZER assegnato con successo su Keycloak per l'utente {}", email);
+
+                        return userRepository.save(user); // Salva sul DB locale solo se Keycloak ha successo
+                    } catch (Exception roleAssignmentFailed) {
+                        log.warn("Impossibile assegnare il ruolo realm ROLE_ORGANIZER a {}: {}", email, roleAssignmentFailed.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Sincronizzazione ruolo fallita per {}: {}", email, e.getMessage());
+        }
+        return user;
     }
 
     private User createAndSyncUserFromKeycloak(String email) {
@@ -52,15 +121,7 @@ public class ProfileService {
                 .role(Role.ROLE_TRAVELER);
 
         try {
-            Keycloak keycloak = KeycloakBuilder.builder()
-                    .serverUrl("http://localhost:8180")
-                    .realm("master")
-                    .clientId("admin-cli")
-                    .grantType(org.keycloak.OAuth2Constants.PASSWORD)
-                    .username("admin")
-                    .password("admin")
-                    .build();
-
+            Keycloak keycloak = getKeycloakAdminClient();
             List<UserRepresentation> matches = keycloak.realm("tripify").users().searchByEmail(email, true);
 
             if (!matches.isEmpty()) {
@@ -68,39 +129,15 @@ public class ProfileService {
                 userBuilder.name(kcUser.getFirstName());
                 userBuilder.surname(kcUser.getLastName());
 
-                if (kcUser.getAttributes() != null) {
-                    List<String> phoneList = kcUser.getAttributes().get("phoneNumber");
-                    if (phoneList != null && !phoneList.isEmpty()) {
-                        userBuilder.phone(phoneList.get(0));
-                    }
-
-                    List<String> userType = kcUser.getAttributes().get("userType");
-                    if (userType != null && userType.contains("organizer")) {
-                        userBuilder.role(Role.ROLE_ORGANIZER);
-
-                        List<String> companyList = kcUser.getAttributes().get("companyName");
-                        if (companyList != null && !companyList.isEmpty()) userBuilder.companyName(companyList.get(0));
-
-                        List<String> vatList = kcUser.getAttributes().get("vatNumber");
-                        if (vatList != null && !vatList.isEmpty()) userBuilder.vatNumber(vatList.get(0));
-
-                        List<String> pecList = kcUser.getAttributes().get("pec");
-                        if (pecList != null && !pecList.isEmpty()) userBuilder.pec(pecList.get(0));
-
-                        try {
-                            RoleRepresentation organizerRole = keycloak.realm("tripify").roles().get("ROLE_ORGANIZER").toRepresentation();
-                            keycloak.realm("tripify").users().get(kcUser.getId()).roles().realmLevel().add(List.of(organizerRole));
-                        } catch (Exception roleAssignmentFailed) {
-                            log.warn("Impossibile assegnare il ruolo realm ROLE_ORGANIZER a {}: {}", email, roleAssignmentFailed.getMessage());
-                        }
-                    }
-                }
+                String phone = getAttributeValue(kcUser, "phoneNumber");
+                if (phone != null) userBuilder.phone(phone);
             }
         } catch (Exception e) {
             log.warn("Impossibile contattare Keycloak per l'utente {}, uso i valori di default: {}", email, e.getMessage());
         }
 
-        return userRepository.save(userBuilder.build());
+        User savedUser = userRepository.save(userBuilder.build());
+        return syncRoleFromKeycloak(savedUser, email);
     }
 
     public List<CompanionDto> getCompanions(String userEmail) {
@@ -127,7 +164,6 @@ public class ProfileService {
         }
         companionRepository.delete(companion);
     }
-
 
     public List<TravelDocumentDto> getTravelDocuments(String userEmail) {
         User user = getUser(userEmail);
@@ -208,16 +244,13 @@ public class ProfileService {
         documentRepository.deleteAll(documentRepository.findByUser_Id(user.getId()));
         userRepository.delete(user);
 
-        org.keycloak.admin.client.Keycloak keycloak = org.keycloak.admin.client.KeycloakBuilder.builder()
-                .serverUrl("http://localhost:8180")
-                .realm("master")
-                .clientId("admin-cli")
-                .username("admin")
-                .password("admin")
-                .build();
-
-        keycloak.realm("tripify").users().delete(keycloakUserId);
-
+        try {
+            Keycloak keycloak = getKeycloakAdminClient();
+            keycloak.realm("tripify").users().delete(keycloakUserId);
+            log.info("Account eliminato definitivamente sia in locale che su Keycloak per: {}", email);
+        } catch (Exception e) {
+            log.warn("Errore eliminazione utente su Keycloak, ma i dati locali sono stati distrutti con successo: {}", e.getMessage());
+        }
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -232,16 +265,8 @@ public class ProfileService {
 
         userRepository.save(user);
 
-        org.keycloak.admin.client.Keycloak keycloak = org.keycloak.admin.client.KeycloakBuilder.builder()
-                .serverUrl("http://localhost:8180")
-                .realm("master")
-                .clientId("admin-cli")
-                .grantType(org.keycloak.OAuth2Constants.PASSWORD)
-                .username("admin")
-                .password("admin")
-                .build();
-
-        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm("tripify").users().get(keycloakUserId);
+        Keycloak keycloak = getKeycloakAdminClient();
+        UserResource userResource = keycloak.realm("tripify").users().get(keycloakUserId);
 
         if (request.getName() != null || request.getSurname() != null || request.getEmail() != null) {
             org.keycloak.representations.idm.UserRepresentation kcUser = userResource.toRepresentation();
