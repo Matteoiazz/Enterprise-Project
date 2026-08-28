@@ -15,6 +15,8 @@ import com.tripify.booking_service.exception.PaymentValidationException;
 import com.tripify.booking_service.exception.ResourceNotFoundException;
 import com.tripify.booking_service.messaging.BookingEventPublisher;
 import com.tripify.booking_service.repository.*;
+import com.tripify.booking_service.messaging.BookingNotificationEvent;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +41,7 @@ public class BookingService {
     private final CatalogClient catalogClient;
     private final PaymentService paymentService;
     private final BookingEventPublisher eventPublisher;
+    private final RabbitTemplate rabbitTemplate;
 
     @Transactional
     public BookingResponseDTO checkout(String userId) {
@@ -137,6 +140,7 @@ public class BookingService {
         cartService.removeCheckedOutItems(userId, itemsToCheckout.stream().map(CartItem::getId).toList());
 
         eventPublisher.publishBookingConfirmed(savedBooking);
+        sendNotification(userId, "Prenotazione in attesa 🛒", "Hai creato una prenotazione di " + totalAmount + "€.");
 
         return toResponseDTO(savedBooking, userId);
     }
@@ -178,6 +182,8 @@ public class BookingService {
         // eseguito l'azione, non il friendId invitato (quello va nel dettaglio).
         auditService.log(booking, leaderId, AuditAction.PARTICIPANT_ADDED,
                 "Invitato partecipante con id " + friendId);
+
+        sendNotification(friendId, "Nuovo compagno di viaggio! ✈️", "Sei stato aggiunto a un viaggio.");
 
         // Restituisce il viaggio aggiornato (con isLeader = true, dato che l'ha chiamato il leader)
         return toResponseDTO(booking, leaderId);
@@ -289,6 +295,8 @@ public class BookingService {
 
         eventPublisher.publishBookingConfirmed(booking);
 
+        sendNotification(userId, "Prenotazione Confermata! 🎉", "Il pagamento è andato a buon fine.");
+
         return booking;
     }
 
@@ -327,6 +335,7 @@ public class BookingService {
 
         auditService.log(booking, requesterId, AuditAction.STATUS_CHANGED,
                 "Prenotazione annullata" + (wasConfirmed ? " e rimborso avviato" : ""));
+
 
         return toResponseDTO(booking, requesterId);
     }
@@ -398,6 +407,17 @@ public class BookingService {
         return bookingRepository.existsByUserIdAndLines_CatalogItemIdAndStatus(
                 userId, catalogItemId, BookingStatus.CONFIRMED);
     }
+
+
+    private void sendNotification(String userId, String title, String message) {
+        try {
+            BookingNotificationEvent event = new BookingNotificationEvent(userId, title, message);
+            rabbitTemplate.convertAndSend("notification_queue", event);
+        } catch (Exception e) {
+            // Ignora o logga l'errore
+        }
+    }
+
 
 
 }
