@@ -4,6 +4,7 @@ import com.tripify.booking_service.dto.AuditLogEntryDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.CheckoutRequestDTO;
 import com.tripify.booking_service.dto.PassengerRequestDTO;
+import com.tripify.booking_service.dto.PassengerResponseDTO;
 import com.tripify.booking_service.dto.ReceivedBookingLineDTO;
 import com.tripify.booking_service.service.BookingService;
 import jakarta.validation.Valid;
@@ -100,6 +101,18 @@ public class BookingController {
         String requesterId = jwt.getSubject();
         bookingService.addPassenger(bookingLineId, requesterId, request);
         return ResponseEntity.ok().build();
+    }
+
+    // Passeggeri di una riga con il relativo QR di check-in (null se il
+    // check-in non è ancora aperto per quella riga, vedi CheckInService).
+    // Visibile a leader/partecipanti, stesso criterio dell'audit history.
+    @GetMapping("/lines/{bookingLineId}/passengers")
+    public ResponseEntity<List<PassengerResponseDTO>> getPassengersForLine(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long bookingLineId) {
+
+        String requesterId = jwt.getSubject();
+        return ResponseEntity.ok(bookingService.getPassengersForLine(bookingLineId, requesterId));
     }
 
     @GetMapping("/catalog/{catalogItemId}/has-booked")

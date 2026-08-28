@@ -229,7 +229,19 @@ fun TripifyApp(
                     cartViewModel = cartViewModel,
                     catalogViewModel = catalogViewModel,
                     onNavigateToCart = { navController.navigate(Route.Cart.path) },
-                    onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) }
+                    onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) },
+                    onShowBoardingPassClick = { bookingId -> navController.navigate(Route.BoardingPass.path(bookingId)) }
+                )
+            }
+
+            // ROTTA: Biglietto/QR di check-in di una prenotazione
+            composable(Route.BoardingPass.path) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
+                com.tripify.tripify_android.booking.ui.BoardingPassScreen(
+                    viewModel = bookingViewModel,
+                    catalogViewModel = catalogViewModel,
+                    bookingId = bookingId,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

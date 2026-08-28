@@ -6,6 +6,7 @@ import com.tripify.tripify_android.data.model.CartDTO
 import com.tripify.tripify_android.data.model.CheckoutRequestDTO
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
+import com.tripify.tripify_android.data.model.PassengerResponseDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.PaymentRequestDTO
 import com.tripify.tripify_android.data.model.PaymentResultDTO
@@ -91,6 +92,13 @@ interface BookingApi {
         @Path("bookingLineId") bookingLineId: Long,
         @Body request: PassengerRequestDTO
     ): Response<Unit>
+
+    // Passeggeri di una riga con il relativo QR di check-in (null se il
+    // check-in non è ancora aperto per quella riga).
+    @GET("api/v1/bookings/lines/{bookingLineId}/passengers")
+    suspend fun getPassengersForLine(
+        @Path("bookingLineId") bookingLineId: Long
+    ): Response<List<PassengerResponseDTO>>
 
     @GET("api/v1/bookings/catalog/{catalogItemId}/has-booked")
     suspend fun hasUserBookedItem(@Path("catalogItemId") catalogItemId: Long): Response<Boolean>

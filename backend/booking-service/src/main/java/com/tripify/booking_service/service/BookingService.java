@@ -5,6 +5,7 @@ import com.tripify.booking_service.dto.AuditLogEntryDTO;
 import com.tripify.booking_service.dto.BookingLineDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.PassengerRequestDTO;
+import com.tripify.booking_service.dto.PassengerResponseDTO;
 import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
 import com.tripify.booking_service.dto.ReceivedBookingLineDTO;
 import com.tripify.booking_service.entity.*;
@@ -412,6 +413,34 @@ public class BookingService {
                 isLeader,
                 new ArrayList<>(booking.getParticipantIds()),
                 lines);
+    }
+
+    // 9. Passeggeri (con il relativo QR di check-in, se già generato) di una
+    // riga di prenotazione. Autorizzazione: leader o uno dei partecipanti del
+    // viaggio, stesso criterio di getAuditHistory - chiunque abbia il telefono
+    // in mano deve poter mostrare il "biglietto", non solo chi ha pagato.
+    @Transactional(readOnly = true)
+    public List<PassengerResponseDTO> getPassengersForLine(Long bookingLineId, String requesterId) {
+        BookingLine line = bookingLineRepository.findById(bookingLineId)
+                .orElseThrow(() -> new ResourceNotFoundException("Riga di prenotazione non trovata!"));
+
+        Booking booking = line.getBooking();
+        boolean isLeader = booking.getUserId().equals(requesterId);
+        boolean isParticipant = booking.getParticipantIds().contains(requesterId);
+        if (!isLeader && !isParticipant) {
+            throw new AccessDeniedException("Accesso negato: non fai parte di questa prenotazione.");
+        }
+
+        return line.getPassengers().stream()
+                .map(passenger -> new PassengerResponseDTO(
+                        passenger.getId(),
+                        passenger.getFirstName(),
+                        passenger.getLastName(),
+                        passenger.getDocumentType(),
+                        passenger.getDocumentNumber(),
+                        passenger.getQrCodeData(),
+                        passenger.isCheckedIn()))
+                .collect(Collectors.toList());
     }
 
     public boolean hasUserBookedItem(String userId, Long catalogItemId) {

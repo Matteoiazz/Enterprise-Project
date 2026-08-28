@@ -2,9 +2,11 @@ package com.tripify.tripify_android.booking.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tripify.tripify_android.booking.model.BoardingPassState
 import com.tripify.tripify_android.booking.model.BookingState
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.data.model.BookingResponseDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.data.parseErrorMessage // AGGIUNTO L'IMPORT PER LA MAGIA!
@@ -103,6 +105,29 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 }
             } catch (e: Exception) {
                 onError("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
+
+    // Il "biglietto" di un viaggio: il QR (o "check-in non ancora aperto") di
+    // ogni passeggero, raggruppato per riga. Le righe arrivano già in memoria
+    // dalla lista prenotazioni: qui serve solo recuperare i passeggeri di
+    // ciascuna, che non viaggiano nella risposta "le mie prenotazioni" per non
+    // appesantirla ogni volta (vedi BookingApi.getPassengersForLine).
+    private val _boardingPassState = MutableStateFlow<BoardingPassState>(BoardingPassState.Loading)
+    val boardingPassState: StateFlow<BoardingPassState> = _boardingPassState
+
+    fun fetchBoardingPass(booking: BookingResponseDTO) {
+        viewModelScope.launch {
+            _boardingPassState.value = BoardingPassState.Loading
+            try {
+                val linesWithPassengers = booking.lines.map { line ->
+                    val response = api.getPassengersForLine(line.id)
+                    line to (if (response.isSuccessful) response.body().orEmpty() else emptyList())
+                }
+                _boardingPassState.value = BoardingPassState.Success(linesWithPassengers)
+            } catch (e: Exception) {
+                _boardingPassState.value = BoardingPassState.Error("Nessuna connessione: ${e.message}")
             }
         }
     }
