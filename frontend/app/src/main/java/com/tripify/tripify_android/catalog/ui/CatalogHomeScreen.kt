@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,7 +45,7 @@ fun HomeScreen(
     viewModel: CatalogViewModel,
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onNavigateToProfile: () -> Unit = {},
+    onNavigateToSaved: () -> Unit = {},
     onNavigateToBookings: () -> Unit = {},
     onNavigateToSearchResults: () -> Unit = {},
     onNavigateToChat: () -> Unit = {},
@@ -89,7 +90,6 @@ fun HomeScreen(
         }
     }
 
-    // Infinite scroll: quando l'utente si avvicina in fondo alla lista carica la pagina successiva.
     LaunchedEffect(listState, isLastPage, isLoading) {
         snapshotFlow { listState.layoutInfo.let { it.visibleItemsInfo.lastOrNull()?.index to it.totalItemsCount } }
             .collect { (lastVisibleIndex, totalCount) ->
@@ -138,12 +138,19 @@ fun HomeScreen(
                         }
                     },
                     actions = {
-                        TextButton(onClick = if (isLoggedIn) onNavigateToProfile else onNavigateToAuth) {
-                            Text(
-                                text = if (isLoggedIn) "PROFILO" else "ACCEDI",
-                                style = CatalogType.Overline,
-                                color = CatalogColors.AccentDark
-                            )
+                        // Tasto Salvati (Cuore) in alto a destra, oppure Login se non sei loggato
+                        if (isLoggedIn) {
+                            IconButton(onClick = onNavigateToSaved) {
+                                Icon(Icons.Filled.FavoriteBorder, contentDescription = "Salvati", tint = CatalogColors.AccentDark)
+                            }
+                        } else {
+                            TextButton(onClick = onNavigateToAuth) {
+                                Text(
+                                    text = "ACCEDI",
+                                    style = CatalogType.Overline,
+                                    color = CatalogColors.AccentDark
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -210,7 +217,6 @@ fun HomeScreen(
                 )
             }
 
-            // --- SEZIONE RACCOMANDAZIONI  ---
             if (hasSearched && recommendedItems.isNotEmpty()) {
                 item(key = "recommendations") {
                     Column(modifier = Modifier.fillMaxWidth()) {

@@ -308,4 +308,37 @@ public class ProfileService {
             throw new RuntimeException("Errore durante l'upload dell'immagine", e);
         }
     }
+
+
+    public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
+        return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
+                .map(u -> new com.tripify.user_auth_service.dto.response.UserResponse(
+                        u.getName() != null ? u.getName() : "Organizzatore",
+                        u.getSurname() != null ? u.getSurname() : "",
+                        u.getEmail(),
+                        u.getProfilePictureUrl()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    public com.tripify.user_auth_service.dto.response.UserResponse getOrganizerById(String identifier) {
+        User u;
+        if (identifier.contains("@")) {
+            u = getUser(identifier);
+        } else {
+            u = userRepository.findById(UUID.fromString(identifier))
+                    .orElseThrow(() -> new RuntimeException("Utente non trovato nel database locale"));
+        }
+
+        if (u.getRole() != Role.ROLE_ORGANIZER) {
+            throw new RuntimeException("L'utente richiesto non è un organizzatore");
+        }
+
+        return new com.tripify.user_auth_service.dto.response.UserResponse(
+                u.getName() != null ? u.getName() : "Organizzatore",
+                u.getSurname() != null ? u.getSurname() : "",
+                u.getEmail(),
+                u.getProfilePictureUrl()
+        );
+    }
 }

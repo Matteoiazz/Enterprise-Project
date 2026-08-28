@@ -90,4 +90,7 @@ interface CatalogApi {
 
     @DELETE("/api/v1/catalog/items/{id}")
     suspend fun deleteItem(@Path("id") id: Int): Response<Unit>
+
+    @GET("/api/v1/catalog/items/host/{hostId}")
+    suspend fun getItemsByHostId(@Path("hostId") hostId: String): List<CatalogItemDto>
 }
