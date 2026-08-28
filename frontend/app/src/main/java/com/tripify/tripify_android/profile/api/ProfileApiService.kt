@@ -53,4 +53,10 @@ interface ProfileApiService {
     suspend fun uploadProfilePicture(
         @Part file: MultipartBody.Part
     ): Response<Map<String, String>>
+
+    @GET("/api/v1/profile/organizers")
+    suspend fun getOrganizers(): List<com.tripify.tripify_android.data.UserResponse>
+
+    @GET("/api/v1/profile/organizers/{id}")
+    suspend fun getOrganizerById(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
 }

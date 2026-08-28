@@ -19,4 +19,9 @@ sealed class Route(val path: String) {
 
     object Settings : Route("settings")
 
+    object OrganizerSearch : Route("organizer_search")
+    object OrganizerShowcase : Route("organizer_showcase/{hostId}") {
+        fun path(hostId: String) = "organizer_showcase/$hostId"
+    }
+
 }

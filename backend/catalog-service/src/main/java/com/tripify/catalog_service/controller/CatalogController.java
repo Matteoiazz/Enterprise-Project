@@ -196,4 +196,13 @@ public class CatalogController {
         BigDecimal price = catalogService.getItemById(itemId).getPrice();
         return ResponseEntity.ok(price != null ? price.doubleValue() : null);
     }
+
+    @GetMapping("/items/host/{hostId}")
+    public ResponseEntity<List<CatalogItemDTO>> getItemsByHost(@PathVariable UUID hostId) {
+        List<CatalogItemDTO> items = catalogService.getItemsByHost(hostId).stream()
+                .map(catalogMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(items);
+    }
+
 }

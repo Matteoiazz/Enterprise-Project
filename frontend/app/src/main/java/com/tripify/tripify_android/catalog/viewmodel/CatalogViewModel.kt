@@ -515,7 +515,7 @@ class CatalogViewModel(
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
                     val res = rApi.addReview(rating, comment, itemId)
                     if (res.isSuccessful) {
-                        loadReviewsAndBookingStatus(itemId) // Ricarica la lista per mostrare la nuova recensione
+                        loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
                         onError("Impossibile inviare la recensione. Assicurati di aver prenotato.")
@@ -524,6 +524,20 @@ class CatalogViewModel(
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }
+        }
+    }
+
+    suspend fun getItemsByOrganizer(hostId: String): List<CatalogItem> {
+        return try {
+            val dtos = api.getItemsByHostId(hostId)
+            val mappedItems = dtos.map { mapDtoToItem(it) }
+            cacheItems(mappedItems)
+            mappedItems
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 }

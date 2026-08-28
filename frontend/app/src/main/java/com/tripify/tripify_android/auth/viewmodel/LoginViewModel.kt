@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.BuildConfig
+import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import kotlinx.coroutines.launch
 import net.openid.appauth.AppAuthConfiguration
@@ -97,8 +98,34 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
                         tokenManager.saveToken(tokenResponse.accessToken ?: "")
                         tokenManager.saveIdToken(tokenResponse.idToken ?: "")
                         tokenManager.saveRefreshToken(tokenResponse.refreshToken ?: "")
-                        isLoginSuccessful = true
-                        isLoading = false
+
+                        try {
+                            val profileApi = RetrofitClient.createProfileApi(tokenManager)
+                            profileApi.getCompanions()
+
+                            val refreshRequest = net.openid.appauth.TokenRequest.Builder(
+                                response.request.configuration,
+                                clientId
+                            )
+                                .setGrantType(net.openid.appauth.GrantTypeValues.REFRESH_TOKEN)
+                                .setRefreshToken(tokenResponse.refreshToken)
+                                .build()
+
+                            authService.performTokenRequest(refreshRequest) { refreshResp, _ ->
+                                viewModelScope.launch {
+                                    if (refreshResp != null) {
+                                        tokenManager.saveToken(refreshResp.accessToken ?: "")
+                                        tokenManager.saveIdToken(refreshResp.idToken ?: "")
+                                        tokenManager.saveRefreshToken(refreshResp.refreshToken ?: "")
+                                    }
+                                    isLoginSuccessful = true
+                                    isLoading = false
+                                }
+                            }
+                        } catch (e: Exception) {
+                            isLoginSuccessful = true
+                            isLoading = false
+                        }
                     }
                 }
             }

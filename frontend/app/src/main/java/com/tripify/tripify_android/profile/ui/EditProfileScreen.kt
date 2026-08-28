@@ -35,14 +35,20 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
+    initialName: String = "",
+    initialSurname: String = "",
+    initialEmail: String = "",
+    initialPhone: String = "",
+    initialAddress: String = "",
     onNavigateBack: () -> Unit,
     onSaveProfile: (String, String, String, String, String, String) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var surname by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
+    // Inizializziamo i campi con i valori attuali passati dall'esterno
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var surname by remember(initialSurname) { mutableStateOf(initialSurname) }
+    var email by remember(initialEmail) { mutableStateOf(initialEmail) }
+    var phone by remember(initialPhone) { mutableStateOf(initialPhone) }
+    var address by remember(initialAddress) { mutableStateOf(initialAddress) }
 
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }

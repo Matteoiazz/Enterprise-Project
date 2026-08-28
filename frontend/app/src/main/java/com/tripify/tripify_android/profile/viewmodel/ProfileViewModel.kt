@@ -37,6 +37,9 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     private val api = RetrofitClient.createApi(tokenManager)
     private val profileApi = RetrofitClient.createProfileApi(tokenManager)
 
+    var organizersList by mutableStateOf<List<com.tripify.tripify_android.data.UserResponse>>(emptyList())
+    var isLoadingOrganizers by mutableStateOf(false)
+
     fun loadUserProfile() {
         viewModelScope.launch {
             isLoading = true
@@ -186,6 +189,19 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             email = ""
             profilePictureUrl = null
             isLoggedOut = true
+        }
+    }
+
+    fun loadOrganizers() {
+        viewModelScope.launch {
+            isLoadingOrganizers = true
+            try {
+                organizersList = profileApi.getOrganizers()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoadingOrganizers = false
+            }
         }
     }
 }

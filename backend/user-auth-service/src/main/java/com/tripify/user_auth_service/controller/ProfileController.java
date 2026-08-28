@@ -124,4 +124,15 @@ public class ProfileController {
 
         return ResponseEntity.ok(java.util.Map.of("imageUrl", imageUrl));
     }
+
+    @GetMapping("/organizers")
+    public ResponseEntity<List<com.tripify.user_auth_service.dto.response.UserResponse>> getAllOrganizers() {
+        List<com.tripify.user_auth_service.dto.response.UserResponse> organizers = profileService.getAllOrganizers();
+        return ResponseEntity.ok(organizers);
+    }
+
+    @GetMapping("/organizers/{keycloakId}")
+    public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getOrganizerById(@PathVariable String keycloakId) {
+        return ResponseEntity.ok(profileService.getOrganizerById(keycloakId));
+    }
 }
