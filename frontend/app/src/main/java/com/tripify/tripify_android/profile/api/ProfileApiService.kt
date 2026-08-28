@@ -8,6 +8,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -54,9 +55,11 @@ interface ProfileApiService {
         @Part file: MultipartBody.Part
     ): Response<Map<String, String>>
 
+    @Headers("ngrok-skip-browser-warning: true")
     @GET("/api/v1/profile/organizers")
     suspend fun getOrganizers(): List<com.tripify.tripify_android.data.UserResponse>
 
+    @Headers("ngrok-skip-browser-warning: true")
     @GET("/api/v1/profile/organizers/{id}")
     suspend fun getOrganizerById(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
 }

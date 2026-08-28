@@ -80,6 +80,9 @@ public class ProfileController {
     @GetMapping("/me")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
         String email = jwt.getClaimAsString("email");
+        String keycloakId = jwt.getSubject();
+
+        profileService.saveTrueKeycloakId(email, keycloakId);
 
         com.tripify.user_auth_service.entity.User user = profileService.getUser(email);
 
@@ -87,7 +90,8 @@ public class ProfileController {
         String displayCognome = user.getSurname() != null ? user.getSurname() : "";
 
         return ResponseEntity.ok(new com.tripify.user_auth_service.dto.response.UserResponse(
-                displayNome, displayCognome, email,user.getProfilePictureUrl()
+                keycloakId,
+                displayNome, displayCognome, email, user.getProfilePictureUrl()
         ));
     }
 
@@ -126,13 +130,29 @@ public class ProfileController {
     }
 
     @GetMapping("/organizers")
-    public ResponseEntity<List<com.tripify.user_auth_service.dto.response.UserResponse>> getAllOrganizers() {
-        List<com.tripify.user_auth_service.dto.response.UserResponse> organizers = profileService.getAllOrganizers();
+    public ResponseEntity<List<com.tripify.user_auth_service.dto.response.UserResponse>> getAllOrganizers(@AuthenticationPrincipal Jwt jwt) {
+        String currentKeycloakId = jwt.getSubject();
+        String currentEmail = jwt.getClaimAsString("email");
+
+        List<com.tripify.user_auth_service.dto.response.UserResponse> organizers = profileService.getAllOrganizers().stream()
+                .map(org -> {
+                    if (org.email().equalsIgnoreCase(currentEmail)) {
+                        return new com.tripify.user_auth_service.dto.response.UserResponse(
+                                currentKeycloakId,
+                                org.name(),
+                                org.surname(),
+                                org.email(),
+                                org.profilePictureUrl()
+                        );
+                    }
+                    return org;
+                }).toList();
+
         return ResponseEntity.ok(organizers);
     }
 
-    @GetMapping("/organizers/{keycloakId}")
-    public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getOrganizerById(@PathVariable String keycloakId) {
-        return ResponseEntity.ok(profileService.getOrganizerById(keycloakId));
+    @GetMapping("/organizers/{email}")
+    public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getOrganizerByEmail(@PathVariable String email) {
+        return ResponseEntity.ok(profileService.getOrganizerById(email));
     }
 }
