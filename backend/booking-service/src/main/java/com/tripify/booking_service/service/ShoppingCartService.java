@@ -14,6 +14,8 @@ import com.tripify.booking_service.exception.CatalogItemNotFoundException;
 import com.tripify.booking_service.exception.ResourceNotFoundException;
 import com.tripify.booking_service.repository.CartItemRepository;
 import com.tripify.booking_service.repository.ShoppingCartRepository;
+import com.tripify.booking_service.messaging.BookingNotificationEvent;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -43,7 +45,7 @@ public class ShoppingCartService {
 
     // INIETTIAMO IL CLIENT FEIGN PER PARLARE COL CATALOGO
     private final CatalogClient catalogClient;
-
+    private final RabbitTemplate rabbitTemplate;
     // 1. Recupera il carrello (entità) di un utente. Uso interno di altri
     // service (es. BookingService.checkout) che leggono cart.getItems()
     // già dentro una propria transazione: per esporlo via API vedi
@@ -140,6 +142,8 @@ public class ShoppingCartService {
                 CartItem item = existingItem.get();
                 item.setQuantity(item.getQuantity() + request.quantity());
                 itemRepository.save(item);
+                sendNotification(userId, "Carrello Aggiornato 🛒", "Hai aggiunto ulteriori quantità.");
+
                 return;
             }
         }
@@ -157,6 +161,7 @@ public class ShoppingCartService {
                 .addedAt(LocalDateTime.now())
                 .build();
         itemRepository.save(newItem);
+        sendNotification(userId, "Aggiunto al carrello 🛒", "Hai aggiunto un nuovo elemento.");
     }
 
     /**
@@ -266,6 +271,16 @@ public class ShoppingCartService {
     private void releaseHolds(ShoppingCart cart) {
         for (CartItem item : cart.getItems()) {
             releaseHoldIfPresent(item);
+        }
+    }
+
+
+    private void sendNotification(String userId, String title, String message) {
+        try {
+            BookingNotificationEvent event = new BookingNotificationEvent(userId, title, message);
+            rabbitTemplate.convertAndSend("notification_queue", event);
+        } catch (Exception e) {
+            log.error("Impossibile inviare la notifica per l'utente {}: {}", userId, e.getMessage());
         }
     }
 }
