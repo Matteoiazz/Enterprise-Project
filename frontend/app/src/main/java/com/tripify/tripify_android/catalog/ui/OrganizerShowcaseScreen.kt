@@ -53,9 +53,12 @@ fun OrganizerShowcaseScreen(
 
     LaunchedEffect(hostId) {
         try {
-            // Scarica in parallelo sia le informazioni dell'agenzia sia i suoi annunci!
-            organizerProfile = profileApi.getOrganizerById(hostId)
-            organizerItems = catalogViewModel.getItemsByOrganizer(hostId)
+            val profile = profileApi.getOrganizerById(hostId)
+            organizerProfile = profile
+
+            if (profile.id.isNotBlank()) {
+                organizerItems = catalogViewModel.getItemsByOrganizer(profile.id)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {

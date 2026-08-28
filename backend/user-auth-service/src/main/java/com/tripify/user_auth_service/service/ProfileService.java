@@ -313,12 +313,13 @@ public class ProfileService {
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
                 .map(u -> new com.tripify.user_auth_service.dto.response.UserResponse(
+                        (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString(),
                         u.getName() != null ? u.getName() : "Organizzatore",
                         u.getSurname() != null ? u.getSurname() : "",
                         u.getEmail(),
                         u.getProfilePictureUrl()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public com.tripify.user_auth_service.dto.response.UserResponse getOrganizerById(String identifier) {
@@ -334,11 +335,31 @@ public class ProfileService {
             throw new RuntimeException("L'utente richiesto non è un organizzatore");
         }
 
+        String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
+
         return new com.tripify.user_auth_service.dto.response.UserResponse(
+                kcId,
                 u.getName() != null ? u.getName() : "Organizzatore",
                 u.getSurname() != null ? u.getSurname() : "",
                 u.getEmail(),
                 u.getProfilePictureUrl()
         );
+    }
+
+    public User getUserWithKeycloakId(String email, String keycloakId) {
+        User user = getUser(email);
+        if (keycloakId != null && !keycloakId.equals(user.getUsername())) {
+            user.setUsername(keycloakId);
+            user = userRepository.save(user);
+        }
+        return user;
+    }
+
+    public void saveTrueKeycloakId(String email, String kcId) {
+        User u = userRepository.findByEmail(email).orElse(null);
+        if (u != null && (u.getUsername() == null || !u.getUsername().equals(kcId))) {
+            u.setUsername(kcId);
+            userRepository.save(u);
+        }
     }
 }
