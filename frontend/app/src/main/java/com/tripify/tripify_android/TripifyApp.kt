@@ -111,10 +111,15 @@ fun TripifyApp(
                             selected = selected,
                             onClick = {
                                 if (!selected) {
+                                    // Niente saveState/restoreState: con più punti che li usavano
+                                    // insieme (qui e nel redirect post-pagamento) le "transazioni di
+                                    // salvataggio" di Navigation-Compose finivano per mescolarsi,
+                                    // e il tasto Home poteva riportare a una tab sbagliata invece che
+                                    // a Home. Pop deterministico fino a Home e via: niente da
+                                    // ripristinare, niente da confondere.
                                     navController.navigate(item.route) {
-                                        popUpTo(Route.Home.path) { saveState = true }
+                                        popUpTo(Route.Home.path)
                                         launchSingleTop = true
-                                        restoreState = true
                                     }
                                 }
                             },
@@ -143,14 +148,13 @@ fun TripifyApp(
                     onNavigateToAuth = { navController.navigate(Route.Auth.path) },
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") },
                     onNavigateToProfile = {
-                        // Stesso pattern delle tab della bottom bar: Profilo e' una di
-                        // quelle destinazioni, un navigate() semplice creerebbe una voce
-                        // duplicata nel back stack e romperebbe il ritorno a Home dalla
-                        // bottom bar.
+                        // Stesso pattern delle tab della bottom bar (vedi onClick più sotto):
+                        // Profilo e' una di quelle destinazioni, un navigate() semplice
+                        // creerebbe una voce duplicata nel back stack e romperebbe il
+                        // ritorno a Home dalla bottom bar.
                         navController.navigate(Route.Profile.path) {
-                            popUpTo(Route.Home.path) { saveState = true }
+                            popUpTo(Route.Home.path)
                             launchSingleTop = true
-                            restoreState = true
                         }
                     },
                     onNavigateToBookings = { navController.navigate(Route.Bookings.path) },
@@ -257,13 +261,11 @@ fun TripifyApp(
                     catalogViewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
-                        // Stesso pattern usato dai tab della bottom bar (vedi onClick più sotto):
-                        // senza, la pila di navigazione restava diversa da quella "normale" e il
-                        // tasto Home smetteva di funzionare da questa specifica istanza di Prenotazioni.
+                        // Stesso pattern deterministico delle tab della bottom bar (vedi
+                        // onClick più sopra): pop fino a Home e via, niente saveState.
                         navController.navigate(Route.Bookings.path) {
-                            popUpTo(Route.Home.path) { saveState = true }
+                            popUpTo(Route.Home.path)
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 )

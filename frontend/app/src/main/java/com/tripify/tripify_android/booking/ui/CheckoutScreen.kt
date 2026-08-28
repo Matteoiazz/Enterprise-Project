@@ -35,18 +35,14 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.data.model.CartItemDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
+import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Calendar
 
-// Indovina il circuito dalla prima cifra, solo per precompilare il campo
-// "cardProvider" richiesto quando si salva una carta nuova in Impostazioni
-// (l'utente non lo sceglie da un menu qui, per non appesantire il checkout).
-private fun detectCardProvider(cardNumber: String): String = when {
-    cardNumber.startsWith("34") || cardNumber.startsWith("37") -> "American Express"
-    cardNumber.startsWith("4") -> "Visa"
-    cardNumber.startsWith("5") -> "Mastercard"
-    else -> "Carta"
-}
+// Stessa lista di Impostazioni > Metodi di pagamento: il circuito si sceglie
+// da un menu anche qui, non si indovina più dal numero carta, così il dato
+// salvato in Impostazioni è coerente con quello scelto durante il checkout.
+private val cardProviderOptions = listOf("Visa", "Mastercard", "American Express", "Maestro")
 
 // Raggruppa il numero carta a blocchi di 4 solo per la visualizzazione: il valore
 // memorizzato resta la sequenza di sole cifre inviata al backend.
@@ -92,10 +88,54 @@ private class GuestFieldsState {
     var documentExpirationDate by mutableStateOf("")
     var issuingCountry by mutableStateOf("")
 
+    // Il documento deve restare valido oltre la data odierna: anche una
+    // scadenza fissata a oggi non basta, deve essere strettamente successiva
+    // (stesso vincolo di @Future lato backend, vedi PassengerRequestDTO).
+    private val expirationDateValid: Boolean
+        get() = runCatching { LocalDate.parse(documentExpirationDate) }.getOrNull()
+            ?.isAfter(LocalDate.now()) == true
+
+    // Ogni errore è null finché il campo è vuoto e non si è ancora tentato di
+    // pagare (submitAttempted=false): niente campi rossi appena si apre la
+    // schermata. Un campo compilato ma fuori formato mostra subito l'errore.
+    fun firstNameError(submitAttempted: Boolean): String? =
+        if (submitAttempted && firstName.isBlank()) "Il nome è obbligatorio" else null
+
+    fun lastNameError(submitAttempted: Boolean): String? =
+        if (submitAttempted && lastName.isBlank()) "Il cognome è obbligatorio" else null
+
+    fun phoneNumberError(submitAttempted: Boolean): String? = when {
+        phoneNumber.isBlank() -> if (submitAttempted) "Il numero di telefono è obbligatorio" else null
+        phoneNumber.length != 10 -> "Il numero di telefono deve avere 10 cifre"
+        else -> null
+    }
+
+    fun taxCodeError(submitAttempted: Boolean): String? =
+        if (submitAttempted && taxCode.isBlank()) "Il codice fiscale è obbligatorio" else null
+
+    fun documentTypeError(submitAttempted: Boolean): String? =
+        if (submitAttempted && documentType.isBlank()) "Il tipo di documento è obbligatorio" else null
+
+    fun documentNumberError(submitAttempted: Boolean): String? =
+        if (submitAttempted && documentNumber.isBlank()) "Il numero di documento è obbligatorio" else null
+
+    fun documentExpirationDateError(submitAttempted: Boolean): String? = when {
+        documentExpirationDate.isBlank() -> if (submitAttempted) "Seleziona una data di scadenza" else null
+        !expirationDateValid -> "Documento scaduto! Impossibile effettuare la prenotazione con questo documento."
+        else -> null
+    }
+
+    fun issuingCountryError(submitAttempted: Boolean): String? = when {
+        issuingCountry.isBlank() -> if (submitAttempted) "Il paese di rilascio è obbligatorio" else null
+        issuingCountry.length != 3 -> "Deve essere un codice ISO a 3 lettere (es. ITA)"
+        else -> null
+    }
+
     val isValid: Boolean
-        get() = firstName.isNotBlank() && lastName.isNotBlank() && phoneNumber.length == 10 &&
-            taxCode.isNotBlank() && documentType.isNotBlank() && documentNumber.isNotBlank() &&
-            documentExpirationDate.isNotBlank() && issuingCountry.isNotBlank()
+        get() = firstNameError(true) == null && lastNameError(true) == null &&
+            phoneNumberError(true) == null && taxCodeError(true) == null &&
+            documentTypeError(true) == null && documentNumberError(true) == null &&
+            documentExpirationDateError(true) == null && issuingCountryError(true) == null
 
     fun toRequest() = PassengerRequestDTO(
         firstName = firstName,
@@ -131,11 +171,18 @@ fun CheckoutScreen(
     var selectedSavedMethodId by remember { mutableStateOf<String?>(null) }
     var hasAutoSelected by remember { mutableStateOf(false) }
 
+    var cardProvider by remember { mutableStateOf(cardProviderOptions.first()) }
     var cardNumber by remember { mutableStateOf("") }
     var cardholderName by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
     var cvv by remember { mutableStateOf("") }
     var saveNewCard by remember { mutableStateOf(false) }
+
+    // Diventa true al primo tentativo di pagamento con dati non validi: da lì in
+    // poi ogni campo obbligatorio ancora vuoto si segnala in rosso. I campi
+    // compilati ma fuori formato (es. carta troppo corta) si segnalano subito,
+    // senza aspettare un tentativo di pagamento.
+    var submitAttempted by remember { mutableStateOf(false) }
 
     // Stessa validazione della scadenza usata in Impostazioni > Metodi di pagamento:
     // mese 1-12, e l'anno corrente è accettato solo se il mese è quello corrente o
@@ -145,6 +192,26 @@ fun CheckoutScreen(
     val expiryValid = expiry.length == 4 && expiryMonth != null && expiryMonth in 1..12 &&
         expiryYear != null && !YearMonth.of(2000 + expiryYear, expiryMonth).isBefore(YearMonth.now())
     val newCardValid = cardNumber.length == 16 && cardholderName.isNotBlank() && expiryValid && cvv.length == 3
+
+    val cardholderNameError: String? =
+        if (submitAttempted && cardholderName.isBlank()) "L'intestatario della carta è obbligatorio" else null
+    val cardNumberError: String? = when {
+        cardNumber.isBlank() -> if (submitAttempted) "Il numero della carta è obbligatorio" else null
+        cardNumber.length != 16 -> "Il numero della carta deve avere 16 cifre"
+        else -> null
+    }
+    val expiryError: String? = when {
+        expiry.isBlank() -> if (submitAttempted) "La data di scadenza è obbligatoria" else null
+        expiry.length < 4 -> null
+        expiryMonth == null || expiryMonth !in 1..12 -> "Mese non valido"
+        !expiryValid -> "La carta è scaduta"
+        else -> null
+    }
+    val cvvError: String? = when {
+        cvv.isBlank() -> if (submitAttempted) "Il CVV è obbligatorio" else null
+        cvv.length != 3 -> "Il CVV deve avere 3 cifre"
+        else -> null
+    }
 
     LaunchedEffect(Unit) {
         viewModel.fetchCart()
@@ -211,21 +278,27 @@ fun CheckoutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = {
-                                val guestsRequest = guestsByItemId.mapValues { (_, guests) -> guests.map { it.toRequest() } }
-                                val savedId = selectedSavedMethodId
-                                if (savedId != null) {
-                                    viewModel.payWithSavedMethod(savedId, guestsRequest)
+                                if (!formValid) {
+                                    // Niente chiamata di rete: si accende solo la segnalazione
+                                    // rossa sui campi ancora vuoti o fuori formato.
+                                    submitAttempted = true
                                 } else {
-                                    viewModel.payWithNewCard(
-                                        cardNumber = cardNumber,
-                                        cardProvider = detectCardProvider(cardNumber),
-                                        expirationMonthYear = "${expiry.take(2)}/${expiry.drop(2)}",
-                                        saveCard = saveNewCard,
-                                        guestsByCartItemId = guestsRequest
-                                    )
+                                    val guestsRequest = guestsByItemId.mapValues { (_, guests) -> guests.map { it.toRequest() } }
+                                    val savedId = selectedSavedMethodId
+                                    if (savedId != null) {
+                                        viewModel.payWithSavedMethod(savedId, guestsRequest)
+                                    } else {
+                                        viewModel.payWithNewCard(
+                                            cardNumber = cardNumber,
+                                            cardProvider = cardProvider,
+                                            expirationMonthYear = "${expiry.take(2)}/${expiry.drop(2)}",
+                                            saveCard = saveNewCard,
+                                            guestsByCartItemId = guestsRequest
+                                        )
+                                    }
                                 }
                             },
-                            enabled = formValid && paymentState !is PaymentState.Processing,
+                            enabled = paymentState !is PaymentState.Processing,
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                             shape = CatalogShapes.Field
@@ -291,7 +364,8 @@ fun CheckoutScreen(
                         GuestFieldsForItem(
                             item = cartItem,
                             catalogViewModel = catalogViewModel,
-                            guests = guestsByItemId[cartItem.id].orEmpty()
+                            guests = guestsByItemId[cartItem.id].orEmpty(),
+                            submitAttempted = submitAttempted
                         )
                     }
                 }
@@ -325,11 +399,51 @@ fun CheckoutScreen(
                     if (selectedSavedMethodId == null) {
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        var providerExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = providerExpanded,
+                            onExpandedChange = { providerExpanded = !providerExpanded },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = cardProvider,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Circuito") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
+                                singleLine = true,
+                                shape = CatalogShapes.Field,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CatalogColors.Accent,
+                                    unfocusedBorderColor = CatalogColors.Hairline
+                                ),
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = providerExpanded,
+                                onDismissRequest = { providerExpanded = false }
+                            ) {
+                                cardProviderOptions.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option) },
+                                        onClick = {
+                                            cardProvider = option
+                                            providerExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         OutlinedTextField(
                             value = cardholderName,
                             onValueChange = { cardholderName = it },
                             label = { Text("Intestatario carta") },
                             placeholder = { Text("Es. Mario Rossi") },
+                            isError = cardholderNameError != null,
+                            supportingText = cardholderNameError?.let { { Text(it) } },
                             singleLine = true,
                             shape = CatalogShapes.Field,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -347,6 +461,8 @@ fun CheckoutScreen(
                             label = { Text("Numero carta") },
                             placeholder = { Text("Es. 4111 1111 1111 1111") },
                             leadingIcon = { Icon(Icons.Filled.CreditCard, contentDescription = null, tint = CatalogColors.Accent) },
+                            isError = cardNumberError != null,
+                            supportingText = cardNumberError?.let { { Text(it) } },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             visualTransformation = CardNumberVisualTransformation(),
                             singleLine = true,
@@ -366,6 +482,8 @@ fun CheckoutScreen(
                                 onValueChange = { value -> expiry = value.filter { it.isDigit() }.take(4) },
                                 label = { Text("Scadenza") },
                                 placeholder = { Text("MM/AA") },
+                                isError = expiryError != null,
+                                supportingText = expiryError?.let { { Text(it) } },
                                 visualTransformation = { text ->
                                     val digits = text.text
                                     val formatted = if (digits.length > 2) "${digits.take(2)}/${digits.drop(2)}" else digits
@@ -389,6 +507,8 @@ fun CheckoutScreen(
                                 onValueChange = { value -> cvv = value.filter { it.isDigit() }.take(3) },
                                 label = { Text("CVV") },
                                 placeholder = { Text("123") },
+                                isError = cvvError != null,
+                                supportingText = cvvError?.let { { Text(it) } },
                                 visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                                 singleLine = true,
@@ -496,7 +616,12 @@ private fun NewCardOptionRow(selected: Boolean, onClick: () -> Unit) {
 // Un ospite per ogni "posto" acquistato (item.quantity) sull'articolo, con il
 // titolo dell'articolo risolto dal catalogo come nel resto del carrello.
 @Composable
-private fun GuestFieldsForItem(item: CartItemDTO, catalogViewModel: CatalogViewModel, guests: List<GuestFieldsState>) {
+private fun GuestFieldsForItem(
+    item: CartItemDTO,
+    catalogViewModel: CatalogViewModel,
+    guests: List<GuestFieldsState>,
+    submitAttempted: Boolean
+) {
     var resolvedTitle by remember(item.catalogItemId) { mutableStateOf<String?>(null) }
     LaunchedEffect(item.catalogItemId) {
         resolvedTitle = catalogViewModel.getOrFetchItem(item.catalogItemId.toInt())?.title
@@ -510,14 +635,14 @@ private fun GuestFieldsForItem(item: CartItemDTO, catalogViewModel: CatalogViewM
         )
         Spacer(modifier = Modifier.height(8.dp))
         guests.forEachIndexed { index, guest ->
-            GuestFieldsCard(index = index + 1, state = guest)
+            GuestFieldsCard(index = index + 1, state = guest, submitAttempted = submitAttempted)
             Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
 
 @Composable
-private fun GuestFieldsCard(index: Int, state: GuestFieldsState) {
+private fun GuestFieldsCard(index: Int, state: GuestFieldsState, submitAttempted: Boolean) {
     val context = LocalContext.current
     val openDatePicker = {
         val today = Calendar.getInstance()
@@ -527,6 +652,15 @@ private fun GuestFieldsCard(index: Int, state: GuestFieldsState) {
             today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH)
         ).show()
     }
+
+    val firstNameError = state.firstNameError(submitAttempted)
+    val lastNameError = state.lastNameError(submitAttempted)
+    val phoneNumberError = state.phoneNumberError(submitAttempted)
+    val taxCodeError = state.taxCodeError(submitAttempted)
+    val documentTypeError = state.documentTypeError(submitAttempted)
+    val issuingCountryError = state.issuingCountryError(submitAttempted)
+    val documentNumberError = state.documentNumberError(submitAttempted)
+    val documentExpirationDateError = state.documentExpirationDateError(submitAttempted)
 
     Surface(
         shape = CatalogShapes.Field,
@@ -541,11 +675,17 @@ private fun GuestFieldsCard(index: Int, state: GuestFieldsState) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = state.firstName, onValueChange = { state.firstName = it },
-                    label = { Text("Nome") }, singleLine = true, modifier = Modifier.weight(1f)
+                    label = { Text("Nome") },
+                    isError = firstNameError != null,
+                    supportingText = firstNameError?.let { { Text(it) } },
+                    singleLine = true, modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
                     value = state.lastName, onValueChange = { state.lastName = it },
-                    label = { Text("Cognome") }, singleLine = true, modifier = Modifier.weight(1f)
+                    label = { Text("Cognome") },
+                    isError = lastNameError != null,
+                    supportingText = lastNameError?.let { { Text(it) } },
+                    singleLine = true, modifier = Modifier.weight(1f)
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -553,36 +693,50 @@ private fun GuestFieldsCard(index: Int, state: GuestFieldsState) {
                 value = state.phoneNumber,
                 onValueChange = { value -> state.phoneNumber = value.filter { it.isDigit() }.take(10) },
                 label = { Text("Telefono") },
+                isError = phoneNumberError != null,
+                supportingText = phoneNumberError?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.taxCode, onValueChange = { state.taxCode = it.uppercase() },
-                label = { Text("Codice fiscale") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                label = { Text("Codice fiscale") },
+                isError = taxCodeError != null,
+                supportingText = taxCodeError?.let { { Text(it) } },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = state.documentType, onValueChange = { state.documentType = it },
                     label = { Text("Tipo documento") }, placeholder = { Text("Es. CARTA_IDENTITA") },
+                    isError = documentTypeError != null,
+                    supportingText = documentTypeError?.let { { Text(it) } },
                     singleLine = true, modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
                     value = state.issuingCountry, onValueChange = { state.issuingCountry = it.uppercase().take(3) },
                     label = { Text("Paese") }, placeholder = { Text("ITA") },
+                    isError = issuingCountryError != null,
+                    supportingText = issuingCountryError?.let { { Text(it) } },
                     singleLine = true, modifier = Modifier.weight(1f)
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.documentNumber, onValueChange = { state.documentNumber = it },
-                label = { Text("Numero documento") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                label = { Text("Numero documento") },
+                isError = documentNumberError != null,
+                supportingText = documentNumberError?.let { { Text(it) } },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.documentExpirationDate, onValueChange = {},
                 label = { Text("Scadenza documento") }, placeholder = { Text("Seleziona una data") },
+                isError = documentExpirationDateError != null,
+                supportingText = documentExpirationDateError?.let { { Text(it) } },
                 readOnly = true, singleLine = true,
                 trailingIcon = {
                     IconButton(onClick = openDatePicker) {
