@@ -113,10 +113,15 @@ fun TripifyApp(
                             selected = selected,
                             onClick = {
                                 if (!selected) {
+                                    // Niente saveState/restoreState: con più punti che li usavano
+                                    // insieme (qui e nel redirect post-pagamento) le "transazioni di
+                                    // salvataggio" di Navigation-Compose finivano per mescolarsi,
+                                    // e il tasto Home poteva riportare a una tab sbagliata invece che
+                                    // a Home. Pop deterministico fino a Home e via: niente da
+                                    // ripristinare, niente da confondere.
                                     navController.navigate(item.route) {
-                                        popUpTo(Route.Home.path) { saveState = true }
+                                        popUpTo(Route.Home.path)
                                         launchSingleTop = true
-                                        restoreState = true
                                     }
                                 }
                             },
@@ -231,6 +236,7 @@ fun TripifyApp(
                 BookingScreen(
                     viewModel = bookingViewModel,
                     cartViewModel = cartViewModel,
+                    catalogViewModel = catalogViewModel,
                     onNavigateToCart = { navController.navigate(Route.Cart.path) },
                     onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) }
                 )
@@ -261,8 +267,11 @@ fun TripifyApp(
                     catalogViewModel = catalogViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
+                        // Stesso pattern deterministico delle tab della bottom bar (vedi
+                        // onClick più sopra): pop fino a Home e via, niente saveState.
                         navController.navigate(Route.Bookings.path) {
-                            popUpTo(Route.Cart.path) { inclusive = true }
+                            popUpTo(Route.Home.path)
+                            launchSingleTop = true
                         }
                     }
                 )

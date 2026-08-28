@@ -29,6 +29,12 @@ public class Passenger {
     @Column(nullable = false)
     private String lastName;
 
+    // Nullable a livello di colonna (nonostante il codice la valorizzi sempre)
+    // per lo stesso motivo degli altri campi aggiunti dopo la creazione della
+    // tabella: con ddl-auto=update una NOT NULL su una tabella già popolata
+    // farebbe fallire l'ALTER TABLE.
+    private String phoneNumber;
+
     @Column(nullable = false)
     private String taxCode;
 

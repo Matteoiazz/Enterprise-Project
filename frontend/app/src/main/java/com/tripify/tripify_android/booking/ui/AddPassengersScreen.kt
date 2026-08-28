@@ -25,6 +25,7 @@ import com.tripify.tripify_android.data.model.BookingLineDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.Calendar
 
 // Schermata raggiungibile solo dal Leader di un viaggio (vedi BookingCard):
@@ -169,14 +170,48 @@ private fun AddPassengerDialog(
 
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var taxCode by remember { mutableStateOf("") }
     var documentType by remember { mutableStateOf("") }
     var documentNumber by remember { mutableStateOf("") }
     var expirationDate by remember { mutableStateOf("") }
     var issuingCountry by remember { mutableStateOf("") }
 
-    val formValid = firstName.isNotBlank() && lastName.isNotBlank() && taxCode.isNotBlank() &&
-        documentType.isNotBlank() && documentNumber.isNotBlank() && expirationDate.isNotBlank() && issuingCountry.isNotBlank()
+    // Diventa true al primo tentativo di salvataggio con dati non validi: da lì
+    // in poi i campi obbligatori ancora vuoti si segnalano in rosso. Un campo
+    // già compilato ma fuori formato (data scaduta, paese troppo corto) si
+    // segnala subito, senza aspettare un tentativo di salvataggio.
+    var submitAttempted by remember { mutableStateOf(false) }
+
+    // Il documento deve restare valido oltre la data odierna, stesso vincolo
+    // di @Future lato backend (vedi PassengerRequestDTO): anche una scadenza
+    // fissata a oggi non basta.
+    val expirationDateValid = runCatching { LocalDate.parse(expirationDate) }.getOrNull()
+        ?.isAfter(LocalDate.now()) == true
+
+    val firstNameError = if (submitAttempted && firstName.isBlank()) "Il nome è obbligatorio" else null
+    val lastNameError = if (submitAttempted && lastName.isBlank()) "Il cognome è obbligatorio" else null
+    val phoneNumberError = when {
+        phoneNumber.isBlank() -> if (submitAttempted) "Il numero di telefono è obbligatorio" else null
+        phoneNumber.length != 10 -> "Il numero di telefono deve avere 10 cifre"
+        else -> null
+    }
+    val taxCodeError = if (submitAttempted && taxCode.isBlank()) "Il codice fiscale è obbligatorio" else null
+    val documentTypeError = if (submitAttempted && documentType.isBlank()) "Il tipo di documento è obbligatorio" else null
+    val documentNumberError = if (submitAttempted && documentNumber.isBlank()) "Il numero di documento è obbligatorio" else null
+    val expirationDateError = when {
+        expirationDate.isBlank() -> if (submitAttempted) "Seleziona una data di scadenza" else null
+        !expirationDateValid -> "Documento scaduto! Impossibile effettuare la prenotazione con questo documento."
+        else -> null
+    }
+    val issuingCountryError = when {
+        issuingCountry.isBlank() -> if (submitAttempted) "Il paese di rilascio è obbligatorio" else null
+        issuingCountry.length != 3 -> "Deve essere un codice ISO a 3 lettere (es. ITA)"
+        else -> null
+    }
+
+    val formValid = firstName.isNotBlank() && lastName.isNotBlank() && phoneNumber.length == 10 && taxCode.isNotBlank() &&
+        documentType.isNotBlank() && documentNumber.isNotBlank() && expirationDateValid && issuingCountry.length == 3
 
     fun fillFromSaved(document: TravelDocumentDto) {
         documentType = document.documentType
@@ -201,17 +236,35 @@ private fun AddPassengerDialog(
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = firstName, onValueChange = { firstName = it },
-                    label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    label = { Text("Nome") },
+                    isError = firstNameError != null,
+                    supportingText = firstNameError?.let { { Text(it) } },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = lastName, onValueChange = { lastName = it },
-                    label = { Text("Cognome") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    label = { Text("Cognome") },
+                    isError = lastNameError != null,
+                    supportingText = lastNameError?.let { { Text(it) } },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = phoneNumber, onValueChange = { phoneNumber = it.filter { c -> c.isDigit() }.take(10) },
+                    label = { Text("Telefono") },
+                    isError = phoneNumberError != null,
+                    supportingText = phoneNumberError?.let { { Text(it) } },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = taxCode, onValueChange = { taxCode = it.uppercase() },
-                    label = { Text("Codice fiscale") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    label = { Text("Codice fiscale") },
+                    isError = taxCodeError != null,
+                    supportingText = taxCodeError?.let { { Text(it) } },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
 
                 if (savedDocuments.isNotEmpty()) {
@@ -232,17 +285,24 @@ private fun AddPassengerDialog(
                 OutlinedTextField(
                     value = documentType, onValueChange = { documentType = it },
                     label = { Text("Tipo documento") }, placeholder = { Text("Es. CARTA_IDENTITA") },
+                    isError = documentTypeError != null,
+                    supportingText = documentTypeError?.let { { Text(it) } },
                     singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = documentNumber, onValueChange = { documentNumber = it },
-                    label = { Text("Numero documento") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                    label = { Text("Numero documento") },
+                    isError = documentNumberError != null,
+                    supportingText = documentNumberError?.let { { Text(it) } },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = expirationDate, onValueChange = {},
                     label = { Text("Scadenza documento") }, placeholder = { Text("Seleziona una data") },
+                    isError = expirationDateError != null,
+                    supportingText = expirationDateError?.let { { Text(it) } },
                     readOnly = true, singleLine = true,
                     trailingIcon = {
                         IconButton(onClick = openDatePicker) {
@@ -255,25 +315,31 @@ private fun AddPassengerDialog(
                 OutlinedTextField(
                     value = issuingCountry, onValueChange = { issuingCountry = it.uppercase().take(3) },
                     label = { Text("Paese emissione") }, placeholder = { Text("Es. ITA") },
+                    isError = issuingCountryError != null,
+                    supportingText = issuingCountryError?.let { { Text(it) } },
                     singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             Button(
-                enabled = formValid,
                 onClick = {
-                    onConfirm(
-                        PassengerRequestDTO(
-                            firstName = firstName,
-                            lastName = lastName,
-                            taxCode = taxCode,
-                            documentType = documentType,
-                            documentNumber = documentNumber,
-                            documentExpirationDate = expirationDate,
-                            issuingCountry = issuingCountry
+                    if (!formValid) {
+                        submitAttempted = true
+                    } else {
+                        onConfirm(
+                            PassengerRequestDTO(
+                                firstName = firstName,
+                                lastName = lastName,
+                                phoneNumber = phoneNumber,
+                                taxCode = taxCode,
+                                documentType = documentType,
+                                documentNumber = documentNumber,
+                                documentExpirationDate = expirationDate,
+                                issuingCountry = issuingCountry
+                            )
                         )
-                    )
+                    }
                 }
             ) { Text("Salva") }
         },

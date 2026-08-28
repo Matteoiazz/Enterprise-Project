@@ -47,6 +47,7 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
+        log.warn("Validazione fallita su {}: {}", ex.getParameter().getExecutable(), message);
         return buildError(message.isBlank() ? "Dati non validi" : message, HttpStatus.BAD_REQUEST, "Dati non validi");
     }
 
