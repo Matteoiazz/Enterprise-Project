@@ -667,6 +667,7 @@ private fun DetailContent(
 
                                 val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
                                     hostId = hostUuid,
+                                    title = "Organizzatore ${item.title}",
                                     authToken = token
                                 )
 

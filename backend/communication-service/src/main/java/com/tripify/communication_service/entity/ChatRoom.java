@@ -26,6 +26,9 @@ public class ChatRoom {
     @Column(nullable = false)
     private String hostId; // L'ID dell'organizzatore (UUID di Keycloak)
 
+    // NUOVO CAMPO
+    private String title;
+
     private LocalDateTime createdAt;
 
     @PrePersist

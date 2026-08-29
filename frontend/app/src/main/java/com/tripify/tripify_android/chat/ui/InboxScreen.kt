@@ -141,7 +141,7 @@ fun InboxScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text(
-                                            text = "Chat con Organizzatore",
+                                            text = room.title ?: "Chat con Organizzatore",
                                             style = CatalogType.LabelStrong,
                                             color = CatalogColors.Ink
                                         )

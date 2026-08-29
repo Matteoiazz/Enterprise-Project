@@ -355,7 +355,7 @@ fun ItineraryDetailScreen(
                                             return@launch
                                         }
                                         isChatting = true
-                                        val chatRoom = ChatRepository.getOrCreateChatRoom(hostId = list.ownerId, authToken = token)
+                                        val chatRoom = ChatRepository.getOrCreateChatRoom(hostId = list.ownerId, title = "Organizzatore ${list.name}", authToken = token)
                                         isChatting = false
                                         if (chatRoom != null) {
                                             onChatWithOrganizer(chatRoom.id)

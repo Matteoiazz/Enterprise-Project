@@ -45,7 +45,11 @@ public class ChatController {
 
     @PostMapping("/chat/room")
     @ResponseBody
-    public ChatRoom getOrCreateChatRoom(@RequestParam String hostId, Principal principal) {
+    public ChatRoom getOrCreateChatRoom(
+            @RequestParam String hostId,
+            @RequestParam(required = false) String title, // Nuovo parametro
+            Principal principal) {
+
         String travelerId = extractUserId(principal);
 
         Optional<ChatRoom> existingRoom = chatRoomRepository.findByTravelerIdAndHostId(travelerId, hostId);
@@ -56,6 +60,7 @@ public class ChatController {
         ChatRoom newRoom = new ChatRoom();
         newRoom.setTravelerId(travelerId);
         newRoom.setHostId(hostId);
+        newRoom.setTitle(title); // Salviamo il titolo
         return chatRoomRepository.save(newRoom);
     }
 

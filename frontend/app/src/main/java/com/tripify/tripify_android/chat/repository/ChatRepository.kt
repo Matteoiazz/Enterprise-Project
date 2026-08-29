@@ -15,36 +15,32 @@ object ChatRepository {
     private val baseUrl: String
         get() = BuildConfig.BASE_URL
 
-    suspend fun getOrCreateChatRoom(hostId: String, authToken: String?): ChatRoom? {
+    // Sostituisci solo questa funzione nel tuo ChatRepository
+    suspend fun getOrCreateChatRoom(hostId: String, title: String? = null, authToken: String?): ChatRoom? {
         return withContext(Dispatchers.IO) {
             try {
-                Log.d("ChatRepository", "Chiamata a getOrCreateChatRoom con hostId: $hostId")
+                val encodedTitle = title?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
+                val urlString = if (encodedTitle.isNotEmpty()) {
+                    "${BuildConfig.BASE_URL}/chat/room?hostId=$hostId&title=$encodedTitle"
+                } else {
+                    "${BuildConfig.BASE_URL}/chat/room?hostId=$hostId"
+                }
 
-                val url = URL("$baseUrl/chat/room?hostId=$hostId")
-                val connection = url.openConnection() as HttpURLConnection
+                val url = java.net.URL(urlString)
+                val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "POST"
-                // RIMOSSO connection.doOutput = true perché non stiamo inviando un body JSON
 
                 if (!authToken.isNullOrBlank()) {
                     connection.setRequestProperty("Authorization", "Bearer $authToken")
                 }
 
-                val responseCode = connection.responseCode
-                Log.d("ChatRepository", "Response Code: $responseCode")
-
-                // Accettiamo QUALSIASI codice di successo (200 OK, 201 CREATED, ecc.)
-                if (responseCode in 200..299) {
+                if (connection.responseCode in 200..299) {
                     val responseJson = connection.inputStream.bufferedReader().use { it.readText() }
-                    Log.d("ChatRepository", "Response JSON: $responseJson")
-                    gson.fromJson(responseJson, ChatRoom::class.java)
+                    com.google.gson.Gson().fromJson(responseJson, ChatRoom::class.java)
                 } else {
-                    // Leggiamo l'errore del server per capire cosa non va!
-                    val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
-                    Log.e("ChatRepository", "Errore server HTTP $responseCode: $errorStream")
                     null
                 }
             } catch (e: Exception) {
-                Log.e("ChatRepository", "Eccezione di rete", e)
                 null
             }
         }

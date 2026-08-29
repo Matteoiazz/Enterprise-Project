@@ -4,5 +4,6 @@ data class ChatRoom(
     val id: String,
     val travelerId: String,
     val hostId: String,
+    val title: String? = null,
     val createdAt: String? = null
 )
