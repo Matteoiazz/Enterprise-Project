@@ -63,11 +63,17 @@ public class ChatController {
     @ResponseBody
     public List<ChatRoom> getUserChatRooms(Principal principal) {
         String userId = extractUserId(principal);
+        //debug
+        System.out.println("DEBUG CHAT ROOMS: L'utente che richiede le chat è -> " + userId);
 
         List<ChatRoom> asTraveler = chatRoomRepository.findByTravelerId(userId);
         List<ChatRoom> asHost = chatRoomRepository.findByHostId(userId);
-        asTraveler.addAll(asHost);
-        return asTraveler;
+
+        // Creiamo una nuova lista mutabile per evitare eccezioni di UnsupportedOperationException
+        List<ChatRoom> allRooms = new java.util.ArrayList<>(asTraveler);
+        allRooms.addAll(asHost);
+
+        return allRooms;
     }
 
     @GetMapping("/chat/history/{roomId}")

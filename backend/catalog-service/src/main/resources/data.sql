@@ -730,6 +730,8 @@ FROM tmp_recurring_flights;
 
 DROP TABLE tmp_recurring_flights;
 
+
+
 -- ==========================================
 -- SINCRONIZZAZIONE SEQUENZE POSTGRESQL
 -- ==========================================

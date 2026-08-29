@@ -11,9 +11,9 @@ DELETE FROM favorite_lists WHERE id IN (1, 2, 3, 4, 5);
 -- 1 attività) componendo CatalogItem reali già presenti in catalog-service (data.sql).
 INSERT INTO favorite_lists (id, name, owner_id, visibility, public_token, city, likes_count, bookings_count, created_at) VALUES
     (1, 'Roma Express', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0001-4a11-8e11-000000000001', 'Roma', 24, 6, now()),
-    (2, 'Fuga a Venezia', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0002-4a11-8e11-000000000002', 'Venezia', 41, 11, now()),
+    (2, 'Fuga a Venezia', '99999999-9999-9999-9999-999999999999', 'PUBLIC', 'a1b2c3d4-0002-4a11-8e11-000000000002', 'Venezia', 41, 11, now()),
     (3, 'Sicilia On Fire', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0003-4a11-8e11-000000000003', 'Catania', 17, 4, now()),
-    (4, 'Puglia Autentica', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0004-4a11-8e11-000000000004', 'Bari', 33, 9, now()),
+    (4, 'Puglia Autentica', '33333333-3333-3333-3333-333333333333', 'PUBLIC', 'a1b2c3d4-0004-4a11-8e11-000000000004', 'Bari', 33, 9, now()),
     (5, 'Sardegna Blu', '31c8b93d-d815-49ce-bd59-f22f93d28d12', 'PUBLIC', 'a1b2c3d4-0005-4a11-8e11-000000000005', 'Cagliari', 8, 2, now());
 
 -- Ogni itinerario qui sotto è una vera andata/ritorno verso una singola città, con
