@@ -29,6 +29,9 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     var email by mutableStateOf("")
     var profilePictureUrl by mutableStateOf<String?>(null)
 
+    var phone by mutableStateOf("")
+    var address by mutableStateOf("")
+
     var isLoading by mutableStateOf(false)
     var isUploadingImage by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
@@ -53,6 +56,11 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     surname = user.surname ?: ""
                     email = user.email
                     profilePictureUrl = user.profilePictureUrl
+                    phone = user.phone ?: ""
+                    address = user.address ?: ""
+
+
+                    refreshTokenSilently()
                 } else {
                     errorMessage = "Impossibile recuperare i dati. Errore: ${response.code()}"
                 }
@@ -62,6 +70,44 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } finally {
                 isLoading = false
             }
+        }
+    }
+
+    private suspend fun refreshTokenSilently() {
+        try {
+            val refreshToken = tokenManager.getRefreshToken()?.takeIf { it.isNotEmpty() } ?: return
+
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val client = okhttp3.OkHttpClient()
+                val requestBody = okhttp3.FormBody.Builder()
+                    .add("grant_type", "refresh_token")
+                    .add("client_id", "tripify-android-client")
+                    .add("refresh_token", refreshToken)
+                    .build()
+
+                val request = okhttp3.Request.Builder()
+                    .url("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
+                    .post(requestBody)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string() ?: return@withContext
+                    val json = org.json.JSONObject(responseBody)
+                    val newAccessToken = json.getString("access_token")
+                    val newRefreshToken = if (json.has("refresh_token")) {
+                        json.getString("refresh_token")
+                    } else {
+                        refreshToken
+                    }
+
+                    tokenManager.saveToken(newAccessToken)
+                    tokenManager.saveRefreshToken(newRefreshToken)
+                }
+            }
+        } catch (e: Exception) {
+
+            e.printStackTrace()
         }
     }
 
@@ -119,6 +165,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         newAddress: String,
         newEmail: String,
         newPassword: String?,
+
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
@@ -140,6 +187,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     if (newName.isNotBlank()) name = newName
                     if (newSurname.isNotBlank()) surname = newSurname
                     if (newEmail.isNotBlank()) email = newEmail
+                    if (newPhone.isNotBlank()) phone = newPhone
+                    if (newAddress.isNotBlank()) address = newAddress
                     onSuccess()
                 } else {
                     errorMessage = "Errore durante il salvataggio: ${response.code()}"

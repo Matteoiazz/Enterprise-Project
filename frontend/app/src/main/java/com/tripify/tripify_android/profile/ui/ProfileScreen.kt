@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +35,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.util.extractRolesFromToken
@@ -59,11 +59,9 @@ fun ProfileScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var isOrganizer by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        val token = TokenManager(context).tokenFlow.first()
-        isOrganizer = token?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true
-    }
+    val tokenManager = remember { TokenManager(context) }
+    val currentToken by tokenManager.tokenFlow.collectAsState(initial = null)
+    val isOrganizer = currentToken?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true
 
     val logoutLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -82,8 +80,7 @@ fun ProfileScreen(
             viewModel.isLoggedOut = false
         }
     }
-
-    val isLoggedIn = viewModel.name.isNotEmpty()
+    val isLoggedIn = viewModel.name.isNotEmpty() && currentToken != null
 
     Scaffold(
         containerColor = CatalogColors.Background,

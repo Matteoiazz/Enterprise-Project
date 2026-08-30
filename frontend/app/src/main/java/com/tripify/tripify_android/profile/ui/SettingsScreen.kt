@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.profile.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
@@ -32,12 +34,23 @@ fun SettingsScreen(
     onNavigateToKeycloakAccount: () -> Unit,
     onAccountDeleted: () -> Unit
 ) {
+    val context = LocalContext.current
     val useMetricSystem by viewModel.useMetricSystem.collectAsState()
     val selectedCurrency by viewModel.selectedCurrency.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val chatAlertsEnabled by viewModel.chatAlertsEnabled.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Prima, se l'eliminazione account falliva lato server, non succedeva
+    // visibilmente nulla (solo un log in console): l'utente restava sulla
+    // schermata senza sapere se doveva riprovare. Stesso pattern già usato in
+    // LoginScreen per viewModel.errorMessage.
+    LaunchedEffect(viewModel.errorMessage) {
+        viewModel.errorMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Scaffold(
         containerColor = CatalogColors.Background,

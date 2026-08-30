@@ -20,7 +20,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,24 +30,21 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
-    initialName: String = "",
-    initialSurname: String = "",
-    initialEmail: String = "",
-    initialPhone: String = "",
-    initialAddress: String = "",
+    viewModel: ProfileViewModel,
     onNavigateBack: () -> Unit,
     onSaveProfile: (String, String, String, String, String, String) -> Unit
 ) {
-    // Inizializziamo i campi con i valori attuali passati dall'esterno
-    var name by remember(initialName) { mutableStateOf(initialName) }
-    var surname by remember(initialSurname) { mutableStateOf(initialSurname) }
-    var email by remember(initialEmail) { mutableStateOf(initialEmail) }
-    var phone by remember(initialPhone) { mutableStateOf(initialPhone) }
-    var address by remember(initialAddress) { mutableStateOf(initialAddress) }
+    var name by remember(viewModel.name) { mutableStateOf(viewModel.name) }
+    var surname by remember(viewModel.surname) { mutableStateOf(viewModel.surname) }
+    var email by remember(viewModel.email) { mutableStateOf(viewModel.email) }
+
+    var phone by remember(viewModel.phone) { mutableStateOf(viewModel.phone) }
+    var address by remember(viewModel.address) { mutableStateOf(viewModel.address) }
 
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }

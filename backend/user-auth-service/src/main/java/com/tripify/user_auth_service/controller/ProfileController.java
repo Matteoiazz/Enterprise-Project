@@ -83,7 +83,6 @@ public class ProfileController {
         String keycloakId = jwt.getSubject();
 
         profileService.saveTrueKeycloakId(email, keycloakId);
-
         com.tripify.user_auth_service.entity.User user = profileService.getUser(email);
 
         String displayNome = user.getName() != null ? user.getName() : "Utente";
@@ -91,7 +90,9 @@ public class ProfileController {
 
         return ResponseEntity.ok(new com.tripify.user_auth_service.dto.response.UserResponse(
                 keycloakId,
-                displayNome, displayCognome, email, user.getProfilePictureUrl()
+                displayNome, displayCognome, email, user.getProfilePictureUrl(),
+                user.getPhone(), user.getAddress(),
+                user.getCompanyName(), user.getVatNumber(), user.getPec()
         ));
     }
 
@@ -139,10 +140,8 @@ public class ProfileController {
                     if (org.email().equalsIgnoreCase(currentEmail)) {
                         return new com.tripify.user_auth_service.dto.response.UserResponse(
                                 currentKeycloakId,
-                                org.name(),
-                                org.surname(),
-                                org.email(),
-                                org.profilePictureUrl()
+                                org.name(), org.surname(), org.email(), org.profilePictureUrl(),
+                                org.phone(), org.address(), org.companyName(), org.vatNumber(), org.pec()
                         );
                     }
                     return org;

@@ -7,20 +7,23 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
-import com.tripify.tripify_android.catalog.ui.components.CatalogCardSkeleton
 import com.tripify.tripify_android.catalog.ui.components.ExcursionCard
 import com.tripify.tripify_android.catalog.ui.components.FlightCard
 import com.tripify.tripify_android.catalog.ui.components.HotelCard
@@ -135,12 +138,39 @@ fun OrganizerShowcaseScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(text = org.email, style = CatalogType.Body, color = CatalogColors.InkMuted)
 
+                        // SEZIONE INFORMAZIONI AZIENDALI
+                        if (!org.companyName.isNullOrBlank() || !org.vatNumber.isNullOrBlank() || !org.pec.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = CatalogColors.SurfaceMuted),
+                                shape = CatalogShapes.Card
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    Text("INFORMAZIONI AZIENDALI", style = CatalogType.Overline, color = CatalogColors.InkMuted)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    if (!org.companyName.isNullOrBlank()) {
+                                        BusinessInfoRow(Icons.Default.Business, "Azienda", org.companyName)
+                                    }
+                                    if (!org.vatNumber.isNullOrBlank()) {
+                                        BusinessInfoRow(Icons.Default.ReceiptLong, "P.IVA", org.vatNumber)
+                                    }
+                                    if (!org.pec.isNullOrBlank()) {
+                                        BusinessInfoRow(Icons.Default.Email, "PEC", org.pec)
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(28.dp))
 
                         Button(
                             onClick = { onChatWithOrganizer(org.email) },
                             modifier = Modifier
-                                .fillMaxWidth(0.85f)
+                                .fillMaxWidth()
                                 .height(54.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
                             shape = CatalogShapes.Pill
@@ -193,6 +223,26 @@ fun OrganizerShowcaseScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun BusinessInfoRow(icon: ImageVector, label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(36.dp).background(CatalogColors.Surface, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(text = label, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            Text(text = value, style = CatalogType.BodyStrong, color = CatalogColors.Ink)
         }
     }
 }

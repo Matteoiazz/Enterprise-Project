@@ -1,5 +1,8 @@
 package com.tripify.tripify_android.profile.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.TokenManager
@@ -23,6 +26,8 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
     val chatAlertsEnabled: StateFlow<Boolean> = tokenManager.chatAlertsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    var errorMessage by mutableStateOf<String?>(null)
+
     fun toggleMetricSystem(value: Boolean) {
         viewModelScope.launch { tokenManager.setUseMetricSystem(value) }
     }
@@ -44,6 +49,7 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
 
     fun deleteAccount(onSuccess: () -> Unit) {
         viewModelScope.launch {
+            errorMessage = null
             try {
                 val response = profileApi.deleteMyAccount()
 
@@ -51,12 +57,17 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
                     tokenManager.clearTokens()
                     onSuccess()
                 } else {
-                    println("Errore durante l'eliminazione dell'account: ${response.code()}")
+                    // Prima qui c'era solo un println: se la cancellazione falliva
+                    // lato server, l'utente restava fermo sulla schermata senza
+                    // nessun feedback visibile, come se avesse premuto un bottone
+                    // rotto. Stesso pattern di errorMessage già usato nelle altre
+                    // ViewModel (es. ProfileViewModel), mostrato poi con un Toast
+                    // in SettingsScreen.
+                    errorMessage = "Errore durante l'eliminazione dell'account: ${response.code()}"
                 }
-
             } catch (e: Exception) {
-                println("Eccezione durante la chiamata di eliminazione:")
                 e.printStackTrace()
+                errorMessage = "Errore di rete: ${e.localizedMessage}"
             }
         }
     }

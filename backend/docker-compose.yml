@@ -78,6 +78,8 @@ services:
       POSTGRES_PASSWORD: password
     networks:
       - travel-network
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
 
   # RabbitMQ
   rabbitmq:
@@ -93,7 +95,12 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: keycloak
-    command: start-dev
+    # --import-realm: importa automaticamente i file .json trovati nella cartella
+    # montata su /opt/keycloak/data/import al primo avvio di un database vuoto.
+    # Se il realm "tripify" esiste gia' nel DB, Keycloak lo lascia stare (non lo
+    # sovrascrive) - serve soprattutto per chi clona il progetto da zero o resetta
+    # il volume del DB.
+    command: start-dev --import-realm
     depends_on:
       - db-keycloak
     ports:
@@ -113,8 +120,12 @@ services:
     networks:
       - travel-network
     volumes:
-      - ./keycloak-themes:/opt/keycloak/themes
+      - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
+      - ./keycloak-import:/opt/keycloak/data/import
 
 networks:
   travel-network:
     driver: bridge
+
+volumes:
+  keycloak-db-data:

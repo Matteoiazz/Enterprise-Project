@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,8 +34,19 @@ fun OrganizersSearchScreen(
     val organizers = viewModel.organizersList
     val isLoading = viewModel.isLoadingOrganizers
 
+    // Stato per la barra di ricerca
+    var searchQuery by remember { mutableStateOf("") }
+
     LaunchedEffect(Unit) {
         viewModel.loadOrganizers()
+    }
+
+    // Filtriamo gli organizzatori in tempo reale
+    val filteredOrganizers = organizers.filter { org ->
+        val fullName = "${org.name.orEmpty()} ${org.surname.orEmpty()}".lowercase()
+        val email = org.email.lowercase()
+        val query = searchQuery.lowercase()
+        fullName.contains(query) || email.contains(query)
     }
 
     Scaffold(
@@ -67,7 +80,38 @@ fun OrganizersSearchScreen(
                     text = "Esplora le migliori agenzie",
                     style = CatalogType.Hero,
                     color = CatalogColors.Ink,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
+            // BARRA DI RICERCA
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Cerca per nome o email...", style = CatalogType.Body) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Cerca", tint = CatalogColors.InkSubtle)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Cancella", tint = CatalogColors.InkSubtle)
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    shape = CatalogShapes.Pill,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = CatalogColors.Surface,
+                        unfocusedContainerColor = CatalogColors.Surface,
+                        focusedBorderColor = CatalogColors.Accent,
+                        unfocusedBorderColor = CatalogColors.Hairline,
+                        cursorColor = CatalogColors.Accent
+                    )
                 )
             }
 
@@ -80,21 +124,21 @@ fun OrganizersSearchScreen(
                         CircularProgressIndicator(color = CatalogColors.AccentDark, strokeWidth = 3.dp)
                     }
                 }
-            } else if (organizers.isEmpty()) {
+            } else if (filteredOrganizers.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Nessun organizzatore disponibile al momento.",
+                            text = if (searchQuery.isEmpty()) "Nessun organizzatore disponibile." else "Nessun risultato per \"$searchQuery\"",
                             style = CatalogType.Body,
                             color = CatalogColors.InkMuted
                         )
                     }
                 }
             } else {
-                items(organizers, key = { it.email }) { org ->
+                items(filteredOrganizers, key = { it.email }) { org ->
                     val displayName = "${org.name ?: ""} ${org.surname ?: ""}".trim().ifEmpty { "Organizzatore" }
 
                     Card(

@@ -14,7 +14,7 @@ public class UpdateProfileRequestDTO {
     @Size(min = 2, max = 50, message = "Il cognome deve avere tra 2 e 50 caratteri")
     private String surname;
 
-    @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Formato telefono non valido (es. +393331234567)")
+    @Pattern(regexp = "^\\+?[0-9\\s\\-]{8,20}$", message = "Formato telefono non valido (es. +39 333 1234567)")
     private String phone;
 
     @Size(max = 100, message = "L'indirizzo è troppo lungo")

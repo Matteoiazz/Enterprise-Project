@@ -309,7 +309,7 @@
                             <div class="tf-input-wrap">
                                 <input type="text" id="user.attributes.companyName" name="user.attributes.companyName"
                                        value="${(register.formData['user.attributes.companyName']!'')}"
-                                       placeholder="Tripify Travel S.r.l."/>
+                                       placeholder="Tripify Travel S.r.l." autocomplete="off"/>
                             </div>
                         </div>
                         <div class="tf-field">
@@ -317,7 +317,7 @@
                             <div class="tf-input-wrap">
                                 <input type="text" id="user.attributes.vatNumber" name="user.attributes.vatNumber"
                                        value="${(register.formData['user.attributes.vatNumber']!'')}"
-                                       placeholder="IT01234567890"/>
+                                       placeholder="IT01234567890" autocomplete="off"/>
                             </div>
                         </div>
                         <div class="tf-field">
@@ -325,7 +325,7 @@
                             <div class="tf-input-wrap">
                                 <input type="email" id="user.attributes.pec" name="user.attributes.pec"
                                        value="${(register.formData['user.attributes.pec']!'')}"
-                                       placeholder="fatturazione@azienda.it"/>
+                                       placeholder="fatturazione@azienda.it" autocomplete="off"/>
                             </div>
                         </div>
                     </div>

@@ -34,11 +34,6 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
                     .build()
                 return chain.proceed(newRequest)
             }
-
-            // Nessun refresh token, o refresh fallito: il token salvato non e' piu'
-            // valido. Va pulito subito, altrimenti resta riattaccato a ogni
-            // richiesta futura (anche verso endpoint pubblici) e continua a
-            // far fallire tutto finche' l'utente non cancella i dati dell'app.
             runBlocking { tokenManager.clearTokens() }
         }
 
@@ -66,7 +61,11 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
                 val json = JSONObject(responseBody)
 
                 val newAccessToken = json.getString("access_token")
-                val newRefreshToken = json.getString("refresh_token")
+                val newRefreshToken = if (json.has("refresh_token")) {
+                    json.getString("refresh_token")
+                } else {
+                    refreshToken
+                }
 
                 runBlocking {
                     tokenManager.saveToken(newAccessToken)
