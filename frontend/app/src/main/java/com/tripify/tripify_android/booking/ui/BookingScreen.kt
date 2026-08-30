@@ -50,7 +50,13 @@ fun BookingScreen(
     // 2. Appena si apre la schermata, chiediamo i dati al server. L'utente non
     // serve più passarlo: il backend lo ricava dal JWT (vedi BookingApi).
     LaunchedEffect(Unit) {
-        viewModel.fetchUserBookings()
+        // hideCancelled=true solo qui: è il caricamento "a fresco" che parte
+        // ogni volta che si arriva su questa schermata (anche tornandoci da
+        // un'altra tab). I refresh interni dopo annulla/invita/aggiungi
+        // passeggero (vedi BookingViewModel) restano sulla stessa schermata e
+        // non lo passano, quindi una prenotazione appena annullata resta
+        // visibile con la pill "Annullata" finché non se ne esce e rientra.
+        viewModel.fetchUserBookings(hideCancelled = true)
         cartViewModel.fetchCart()
     }
 
