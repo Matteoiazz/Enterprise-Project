@@ -8,6 +8,8 @@ public record PassengerResponseDTO(
         Long id,
         String firstName,
         String lastName,
+        String phoneNumber,
+        String taxCode,
         String documentType,
         String documentNumber,
         String qrCodeData,
