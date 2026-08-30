@@ -28,40 +28,90 @@
         }
         .tf-shell{
             width:100%;
-            max-width:600px;
+            max-width:960px;
+            min-height:560px;
             background:var(--tf-white);
             border-radius:28px;
             display:flex;
-            flex-direction: column;
             overflow:hidden;
             box-shadow:0 30px 60px -20px rgba(11,61,46,0.25);
         }
-        .tf-form-panel{
+        .tf-hero{
             flex:1;
-            padding:44px 48px;
+            position:relative;
+            background:linear-gradient(160deg, var(--tf-green) 0%, var(--tf-dark-green) 100%);
+            color:var(--tf-white);
+            padding:48px 40px;
+            display:flex;
+            flex-direction:column;
+            justify-content:space-between;
             min-width:0;
         }
-        .tf-form-panel h2{ font-size:25px; font-weight:900; color:var(--tf-dark-green); margin-bottom:4px; }
-        .tf-form-panel .tf-sub{ color:var(--tf-gray); font-size:14px; margin-bottom:22px; }
+        .tf-hero::before{
+            content:"";
+            position:absolute;
+            inset:0;
+            background-image:
+                    radial-gradient(circle at 85% 15%, rgba(255,255,255,0.10) 0%, transparent 45%),
+                    radial-gradient(circle at 10% 90%, rgba(255,255,255,0.08) 0%, transparent 40%);
+            pointer-events:none;
+        }
+        .tf-logo{
+            display:flex; align-items:center; gap:10px;
+            font-weight:900; font-size:20px; letter-spacing:2px;
+            position:relative; z-index:1;
+        }
+        .tf-logo-mark{
+            width:34px; height:34px; border-radius:10px;
+            background:rgba(255,255,255,0.16);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .tf-hero-copy{ position:relative; z-index:1; }
+        .tf-hero-copy h1{
+            font-size:32px; font-weight:900; line-height:1.25;
+            margin-bottom:14px; letter-spacing:0.2px;
+        }
+        .tf-hero-copy p{
+            font-size:15px; opacity:0.85; line-height:1.6; max-width:340px;
+        }
+        .tf-route{
+            position:relative; z-index:1;
+            display:flex; align-items:center; gap:8px;
+            font-size:13px; opacity:0.75; letter-spacing:1px;
+            text-transform:uppercase;
+        }
+        .tf-route .dot{ width:6px; height:6px; border-radius:50%; background:var(--tf-white); }
+        .tf-route .line{ flex:1; height:1px; background:rgba(255,255,255,0.35); max-width:60px; }
+
+        .tf-form-panel{
+            flex:1;
+            padding:48px 44px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            min-width:0;
+        }
+        .tf-form-panel h2{ font-size:26px; font-weight:900; color:var(--tf-dark-green); margin-bottom:6px; }
+        .tf-form-panel .tf-sub{ color:var(--tf-gray); font-size:14px; margin-bottom:28px; line-height:1.6; }
 
         .tf-alert{
             background:#FDECEC; color:var(--tf-error);
             border-radius:var(--tf-radius-sm);
             padding:12px 14px; font-size:13.5px; font-weight:600;
-            margin-bottom:18px;
+            margin-bottom:20px;
         }
 
         .tf-field{ margin-bottom:16px; }
         .tf-field label{
-            display:block; font-size:12.5px; font-weight:700;
+            display:block; font-size:13px; font-weight:700;
             color:var(--tf-dark-green); margin-bottom:6px; letter-spacing:0.3px;
         }
         .tf-input-wrap input{
             width:100%;
-            padding:13px 15px;
+            padding:14px 16px;
             border:1.5px solid var(--tf-light-gray);
             border-radius:var(--tf-radius-sm);
-            font-size:14.5px;
+            font-size:15px;
             color:var(--tf-dark-green);
             background:var(--tf-bg);
             outline:none;
@@ -95,8 +145,12 @@
         .req-item { display: flex; align-items: center; margin-bottom: 4px; transition: color 0.2s ease;}
         .req-icon { width: 16px; display: inline-block; text-align: center; margin-right: 6px; }
 
-        @media (max-width: 860px){
-            .tf-form-panel{ padding:32px 26px; }
+        @media (max-width: 760px){
+            .tf-shell{ flex-direction:column; max-width:440px; min-height:0; }
+            .tf-hero{ padding:32px 28px; min-height:160px; }
+            .tf-hero-copy h1{ font-size:24px; }
+            .tf-hero-copy p{ display:none; }
+            .tf-form-panel{ padding:36px 28px; }
         }
 
         a:focus-visible, button:focus-visible, input:focus-visible, label:focus-within{
@@ -107,11 +161,31 @@
 </head>
 <body>
 <div class="tf-shell">
-    <div class="tf-form-panel">
-        <h2>Imposta la tua Password</h2>
-        <p class="tf-sub">L'email è stata verificata! Ora crea una password sicura per il tuo account.</p>
 
-        <!-- Nascondiamo il warning arancione di default, mostriamo solo i veri errori! -->
+    <!-- HERO -->
+    <div class="tf-hero">
+        <div class="tf-logo">
+            <span class="tf-logo-mark">✈️</span>
+            TRIPIFY
+        </div>
+        <div class="tf-hero-copy">
+            <h1>Quasi fatto.<br/>Un'ultima cosa.</h1>
+            <p>La tua password protegge prenotazioni, documenti e pagamenti: scegline una robusta e tienila solo per te.</p>
+        </div>
+        <div class="tf-route">
+            <span class="dot"></span>
+            <span class="line"></span>
+            <span>Accesso sicuro</span>
+            <span class="line"></span>
+            <span class="dot"></span>
+        </div>
+    </div>
+
+    <!-- FORM -->
+    <div class="tf-form-panel">
+        <h2>Crea la tua Password</h2>
+        <p class="tf-sub">Scegli una password sicura per il tuo account Tripify.</p>
+
         <#if message?has_content && message.type == 'error'>
             <div class="tf-alert">⚠️ ${kcSanitize(message.summary)?no_esc}</div>
         </#if>
@@ -181,7 +255,6 @@
         if (pwdInput) {
             const pwd = pwdInput.value;
 
-            // Mostra la checklist non appena l'utente digita qualcosa
             if (pwd.length > 0) {
                 pwdChecklistUI.style.display = 'block';
             } else {

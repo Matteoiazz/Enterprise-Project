@@ -16,13 +16,20 @@ public class ReviewService {
     private final BookingClient bookingClient;
 
     public Review createReview(Integer rating, String comment, String travelerId, Long catalogItemId) {
-        if (rating < 1 || rating > 5) {
+        if (rating == null || rating < 1 || rating > 5) {
             throw new IllegalArgumentException("Il rating deve essere compreso tra 1 e 5");
+        }
+        if (comment == null || comment.isBlank()) {
+            throw new IllegalArgumentException("Il commento non può essere vuoto");
         }
 
         boolean hasBooked = bookingClient.hasUserBookedItem(catalogItemId);
         if (!hasBooked) {
             throw new IllegalStateException("Accesso negato: puoi recensire solo le esperienze che hai effettivamente prenotato e confermato.");
+        }
+
+        if (reviewRepository.existsByTravelerIdAndCatalogItemId(travelerId, catalogItemId)) {
+            throw new IllegalStateException("Hai già recensito questa esperienza");
         }
 
         Review review = Review.builder()
@@ -33,6 +40,35 @@ public class ReviewService {
                 .build();
 
         return reviewRepository.save(review);
+    }
+
+    public Review updateReview(Long id, Integer rating, String comment, String travelerId) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Recensione non trovata"));
+
+        if (!review.getTravelerId().equals(travelerId)) {
+            throw new IllegalStateException("Non puoi modificare la recensione di un altro utente");
+        }
+        if (rating == null || rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("Il rating deve essere compreso tra 1 e 5");
+        }
+        if (comment == null || comment.isBlank()) {
+            throw new IllegalArgumentException("Il commento non può essere vuoto");
+        }
+
+        review.setRating(rating);
+        review.setComment(comment);
+        return reviewRepository.save(review);
+    }
+
+    public void deleteReview(Long id, String travelerId) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Recensione non trovata"));
+
+        if (!review.getTravelerId().equals(travelerId)) {
+            throw new IllegalStateException("Non puoi cancellare la recensione di un altro utente");
+        }
+        reviewRepository.delete(review);
     }
 
     public List<Review> getReviewsByItem(Long catalogItemId) {

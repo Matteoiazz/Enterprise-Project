@@ -78,9 +78,14 @@ fun DetailScreen(
     val cachedAtStart = remember(itemId) { id?.let { viewModel.itemCache.value[it] } }
     var item by remember(itemId) { mutableStateOf(cachedAtStart) }
     var isResolving by remember(itemId) { mutableStateOf(cachedAtStart == null && id != null) }
+    // Incrementato dal tasto "Riprova": prima qualsiasi fallimento nel caricare l'elemento
+    // (anche solo un intoppo di rete, non un vero 404) portava a un vicolo cieco con
+    // "Elemento non trovato" e nessun modo di ritentare se non uscire e rientrare.
+    var retryTrigger by remember(itemId) { mutableStateOf(0) }
 
-    LaunchedEffect(itemId) {
+    LaunchedEffect(itemId, retryTrigger) {
         if (item == null && id != null) {
+            isResolving = true
             item = viewModel.getOrFetchItem(id)
             isResolving = false
         }
@@ -92,7 +97,13 @@ fun DetailScreen(
             if (isResolving) {
                 CircularProgressIndicator(color = CatalogColors.AccentDark)
             } else {
-                Text("Elemento non trovato", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Elemento non trovato", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = { retryTrigger++ }) {
+                        Text("Riprova", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                    }
+                }
             }
         }
         return
@@ -140,6 +151,14 @@ private fun DetailContent(
         } catch (e: Exception) {
             // stato iniziale del cuore non essenziale
         }
+    }
+
+    // Serve per capire, nella lista recensioni, quale (se c'è) è la propria - per mostrarci
+    // sopra i controlli di modifica/cancellazione invece che nella lista di sola lettura.
+    var currentUserId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val token = com.tripify.tripify_android.data.TokenManager(context).tokenFlow.first()
+        currentUserId = token?.let { com.tripify.tripify_android.itinerary.util.extractUserIdFromToken(it) }
     }
 
     var selectedRoomType by remember(item) {
@@ -720,7 +739,9 @@ private fun DetailContent(
                 SectionLabel("Recensioni degli utenti")
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (hasBooked) {
+                val myReview = reviews.find { it.travelerId == currentUserId }
+
+                if (hasBooked && myReview == null) {
                     var myRating by remember { mutableIntStateOf(0) }
                     var myComment by remember { mutableStateOf("") }
                     var isSubmitting by remember { mutableStateOf(false) }
@@ -794,6 +815,140 @@ private fun DetailContent(
                             }
                         }
                     }
+                } else if (myReview != null) {
+                    var isEditingReview by remember(myReview.id) { mutableStateOf(false) }
+                    var editRating by remember(myReview.id) { mutableIntStateOf(myReview.rating) }
+                    var editComment by remember(myReview.id) { mutableStateOf(myReview.comment) }
+                    var isSavingEdit by remember { mutableStateOf(false) }
+                    var showDeleteReviewConfirm by remember { mutableStateOf(false) }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                        shape = CatalogShapes.Field,
+                        colors = CardDefaults.cardColors(containerColor = CatalogColors.SurfaceMuted)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("La tua recensione", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                                if (!isEditingReview) {
+                                    Row {
+                                        IconButton(onClick = { isEditingReview = true }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Filled.Edit, contentDescription = "Modifica recensione", tint = CatalogColors.InkMuted, modifier = Modifier.size(18.dp))
+                                        }
+                                        IconButton(onClick = { showDeleteReviewConfirm = true }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Filled.DeleteOutline, contentDescription = "Elimina recensione", tint = CatalogColors.Alert, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            if (isEditingReview) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    for (i in 1..5) {
+                                        Icon(
+                                            imageVector = if (i <= editRating) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                            contentDescription = null,
+                                            tint = CatalogColors.Gold,
+                                            modifier = Modifier.size(36.dp).clickable { editRating = i }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                OutlinedTextField(
+                                    value = editComment,
+                                    onValueChange = { editComment = it },
+                                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                                    shape = CatalogShapes.Field,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = CatalogColors.Accent,
+                                        unfocusedBorderColor = CatalogColors.Hairline,
+                                        focusedContainerColor = CatalogColors.Surface,
+                                        unfocusedContainerColor = CatalogColors.Surface
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.align(Alignment.End)) {
+                                    TextButton(onClick = {
+                                        isEditingReview = false
+                                        editRating = myReview.rating
+                                        editComment = myReview.comment
+                                    }) {
+                                        Text("Annulla", style = CatalogType.Button, color = CatalogColors.InkMuted)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            val reviewId = myReview.id
+                                            if (reviewId == null) {
+                                                scope.launch { snackbarHostState.showSnackbar("Errore: recensione non valida") }
+                                            } else if (editRating > 0 && editComment.isNotBlank()) {
+                                                isSavingEdit = true
+                                                viewModel.updateReview(
+                                                    reviewId = reviewId,
+                                                    itemId = item.id.toLong(),
+                                                    rating = editRating,
+                                                    comment = editComment,
+                                                    onSuccess = {
+                                                        isSavingEdit = false
+                                                        isEditingReview = false
+                                                        scope.launch { snackbarHostState.showSnackbar("Recensione aggiornata") }
+                                                    },
+                                                    onError = { msg ->
+                                                        isSavingEdit = false
+                                                        scope.launch { snackbarHostState.showSnackbar(msg) }
+                                                    }
+                                                )
+                                            } else {
+                                                scope.launch { snackbarHostState.showSnackbar("Inserisci un voto e un commento") }
+                                            }
+                                        },
+                                        enabled = !isSavingEdit,
+                                        colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+                                        shape = CatalogShapes.Pill
+                                    ) {
+                                        if (isSavingEdit) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = CatalogColors.Surface, strokeWidth = 2.dp)
+                                        else Text("Salva", style = CatalogType.Button)
+                                    }
+                                }
+                            } else {
+                                RatingRow(rating = myReview.rating.toDouble())
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(myReview.comment, style = CatalogType.Body, color = CatalogColors.Ink)
+                            }
+                        }
+                    }
+
+                    if (showDeleteReviewConfirm) {
+                        AlertDialog(
+                            onDismissRequest = { showDeleteReviewConfirm = false },
+                            containerColor = CatalogColors.Surface,
+                            title = { Text("Eliminare la recensione?", style = CatalogType.LabelStrong, color = CatalogColors.Ink) },
+                            text = { Text("L'operazione non è reversibile.", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showDeleteReviewConfirm = false
+                                    val reviewId = myReview.id
+                                    if (reviewId != null) {
+                                        viewModel.deleteReview(
+                                            reviewId = reviewId,
+                                            itemId = item.id.toLong(),
+                                            onSuccess = { scope.launch { snackbarHostState.showSnackbar("Recensione eliminata") } },
+                                            onError = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
+                                        )
+                                    }
+                                }) { Text("Elimina", style = CatalogType.Button, color = CatalogColors.Alert) }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDeleteReviewConfirm = false }) { Text("Annulla", style = CatalogType.Button, color = CatalogColors.InkMuted) }
+                            }
+                        )
+                    }
                 } else {
                     Surface(
                         shape = CatalogShapes.Field,
@@ -813,7 +968,11 @@ private fun DetailContent(
                     }
                 }
 
-                if (reviews.isEmpty()) {
+                // La propria recensione (se c'è) è già mostrata sopra con i controlli di
+                // modifica/cancellazione: qui sotto va esclusa per non farla comparire due volte.
+                val otherReviews = reviews.filter { it.travelerId != currentUserId }
+
+                if (otherReviews.isEmpty()) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -830,7 +989,7 @@ private fun DetailContent(
                         Text("Prenota e sii il primo a raccontare la tua esperienza!", style = CatalogType.Caption, color = CatalogColors.InkMuted, textAlign = TextAlign.Center)
                     }
                 } else {
-                    reviews.forEach { rev ->
+                    otherReviews.forEach { rev ->
                         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(

@@ -12,4 +12,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByCatalogItemId(Long catalogItemId);
 
     List<Review> findByTravelerId(String travelerId);
+
+    boolean existsByTravelerIdAndCatalogItemId(String travelerId, Long catalogItemId);
 }

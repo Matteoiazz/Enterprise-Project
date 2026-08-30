@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tripify.tripify_android.profile.model.CompanionDto
 import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
@@ -47,6 +48,7 @@ fun CompanionsScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
+    var companionToDelete by remember { mutableStateOf<CompanionDto?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -112,9 +114,7 @@ fun CompanionsScreen(
                             firstName = companion.firstName,
                             lastName = companion.lastName,
                             dob = companion.dateOfBirth,
-                            onDeleteClick = {
-                                companion.id?.let { id -> viewModel.deleteCompanion(id) }
-                            }
+                            onDeleteClick = { companionToDelete = companion }
                         )
                     }
                 }
@@ -146,6 +146,28 @@ fun CompanionsScreen(
                     }
                 )
             }
+        }
+
+        companionToDelete?.let { toDelete ->
+            AlertDialog(
+                onDismissRequest = { companionToDelete = null },
+                title = { Text("Rimuovere ${toDelete.firstName} ${toDelete.lastName}?", style = CatalogType.LabelStrong, color = CatalogColors.Ink) },
+                text = { Text("Il compagno di viaggio verrà rimosso dal tuo Travel ID. L'operazione non è reversibile.", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        toDelete.id?.let { id -> viewModel.deleteCompanion(id) }
+                        companionToDelete = null
+                    }) {
+                        Text("RIMUOVI", style = CatalogType.Button, color = CatalogColors.Alert)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { companionToDelete = null }) {
+                        Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted)
+                    }
+                },
+                containerColor = CatalogColors.Surface
+            )
         }
     }
 }

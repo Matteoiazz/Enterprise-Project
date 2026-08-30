@@ -1,14 +1,9 @@
 package com.tripify.tripify_android.data
 
-import com.tripify.tripify_android.BuildConfig
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import okhttp3.FormBody
 import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONObject
 
 class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
 
@@ -25,8 +20,7 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
         if (response.code == 401|| response.code == 403) {
             response.close()
 
-            val refreshToken = runBlocking { tokenManager.getRefreshToken() }
-            val newAccessToken = refreshToken?.takeIf { it.isNotEmpty() }?.let { refreshAccessToken(it) }
+            val newAccessToken = runBlocking { tokenManager.refreshAccessToken() }
 
             if (newAccessToken != null) {
                 val newRequest = chain.request().newBuilder()
@@ -38,44 +32,5 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
         }
 
         return response
-    }
-
-    private fun refreshAccessToken(refreshToken: String): String? {
-        try {
-            val client = OkHttpClient()
-            val requestBody = FormBody.Builder()
-                .add("grant_type", "refresh_token")
-                .add("client_id", "tripify-android-client")
-                .add("refresh_token", refreshToken)
-                .build()
-
-            val request = Request.Builder()
-                .url("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
-                .post(requestBody)
-                .build()
-
-            val response = client.newCall(request).execute()
-
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string() ?: return null
-                val json = JSONObject(responseBody)
-
-                val newAccessToken = json.getString("access_token")
-                val newRefreshToken = if (json.has("refresh_token")) {
-                    json.getString("refresh_token")
-                } else {
-                    refreshToken
-                }
-
-                runBlocking {
-                    tokenManager.saveToken(newAccessToken)
-                    tokenManager.saveRefreshToken(newRefreshToken)
-                }
-                return newAccessToken
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return null
     }
 }

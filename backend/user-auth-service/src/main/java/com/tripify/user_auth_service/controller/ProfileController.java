@@ -154,4 +154,9 @@ public class ProfileController {
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getOrganizerByEmail(@PathVariable String email) {
         return ResponseEntity.ok(profileService.getOrganizerById(email));
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleBadRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
 }

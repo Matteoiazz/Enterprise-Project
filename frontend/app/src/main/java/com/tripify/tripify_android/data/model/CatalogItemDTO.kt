@@ -1,5 +1,7 @@
 package com.tripify.tripify_android.data.model
 
+import com.google.gson.annotations.SerializedName
+
 data class CatalogItemDto(
     val id: Int,
     val title: String,
@@ -10,8 +12,9 @@ data class CatalogItemDto(
     val category: String?,
     val rating: Int?,
     val imageUrls: List<String>?,
-    // --- CAMPI SPECIFICI chat ---
     val hostId: String?,
+
+    @SerializedName("userGenerated")
     val isUserGenerated: Boolean = false,
 
     // --- CAMPI SPECIFICI VOLO ---

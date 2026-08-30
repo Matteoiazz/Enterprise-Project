@@ -6,9 +6,18 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.tripify.tripify_android.BuildConfig
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import okhttp3.FormBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
 
@@ -24,6 +33,8 @@ class TokenManager(private val context: Context) {
         val NOTIFICATIONS_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("notifications_enabled")
         val CHAT_ALERTS_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("chat_alerts_enabled")
     }
+
+    private val refreshMutex = Mutex()
 
     val useMetricSystemFlow: Flow<Boolean> = context.dataStore.data.map { it[METRIC_SYSTEM_KEY] ?: true }
     val currencyFlow: Flow<String> = context.dataStore.data.map { it[CURRENCY_KEY] ?: "EUR" }
@@ -64,6 +75,50 @@ class TokenManager(private val context: Context) {
             preferences.remove(JWT_TOKEN_KEY)
             preferences.remove(ID_TOKEN_KEY)
             preferences.remove(REFRESH_TOKEN_KEY)
+        }
+    }
+
+
+    suspend fun refreshAccessToken(): String? = refreshMutex.withLock {
+        val refreshToken = getRefreshToken()?.takeIf { it.isNotEmpty() } ?: return@withLock null
+
+        withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient()
+                val requestBody = FormBody.Builder()
+                    .add("grant_type", "refresh_token")
+                    .add("client_id", "tripify-android-client")
+                    .add("refresh_token", refreshToken)
+                    .build()
+
+                val request = Request.Builder()
+                    .url("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
+                    .post(requestBody)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    if (responseBody == null) {
+                        null
+                    } else {
+                        val json = JSONObject(responseBody)
+                        val newAccessToken = json.getString("access_token")
+                        val newRefreshToken = if (json.has("refresh_token")) {
+                            json.getString("refresh_token")
+                        } else {
+                            refreshToken
+                        }
+
+                        saveToken(newAccessToken)
+                        saveRefreshToken(newRefreshToken)
+                        newAccessToken
+                    }
+                } else null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
     }
 }
