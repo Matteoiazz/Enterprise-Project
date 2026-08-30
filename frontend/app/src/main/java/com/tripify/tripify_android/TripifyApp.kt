@@ -421,9 +421,7 @@ fun TripifyApp(
 
             composable("edit_profile") {
                 EditProfileScreen(
-                    initialName = profileViewModel.name,
-                    initialSurname = profileViewModel.surname,
-                    initialEmail = profileViewModel.email,
+                    viewModel = profileViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onSaveProfile = { newName, newSurname, newPhone, newAddress, newEmail, newPwd ->
                         profileViewModel.updateProfile(
@@ -434,7 +432,7 @@ fun TripifyApp(
                             newEmail = newEmail,
                             newPassword = newPwd,
                             onSuccess = {
-                                if (newEmail.isNotBlank()) {
+                                if (newEmail.isNotBlank() && newEmail != profileViewModel.email) {
                                     profileViewModel.logout()
                                     navController.navigate(Route.Auth.path) {
                                         popUpTo(0) { inclusive = true }

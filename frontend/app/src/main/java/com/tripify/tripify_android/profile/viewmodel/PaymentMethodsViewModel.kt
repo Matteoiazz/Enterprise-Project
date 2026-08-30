@@ -44,15 +44,24 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
         }
 
         try {
+
             val parts = expiration.split("/")
-            if (parts.size == 2) {
-                val month = parts[0].toInt()
-                val year = parts[1].toInt() + 2000
-                val cardYM = YearMonth.of(year, month)
-                if (cardYM.isBefore(YearMonth.now())) {
-                    _errorMessage.value = "Impossibile salvare: La carta è scaduta."
-                    return
-                }
+            if (parts.size != 2 || parts[0].length != 2 || parts[1].length != 2) {
+                _errorMessage.value = "Formato scadenza non valido. Usa MM/AA."
+                return
+            }
+
+            val month = parts[0].toInt()
+            if (month !in 1..12) {
+                _errorMessage.value = "Formato scadenza non valido. Usa MM/AA."
+                return
+            }
+            val year = parts[1].toInt() + 2000
+
+            val cardYM = YearMonth.of(year, month)
+            if (cardYM.isBefore(YearMonth.now())) {
+                _errorMessage.value = "Impossibile salvare: la carta è scaduta."
+                return
             }
         } catch (e: Exception) {
             _errorMessage.value = "Formato scadenza non valido."

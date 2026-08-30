@@ -7,3 +7,15 @@ out/
 .DS_Store
 Thumbs.db
 *.zip
+
+# Dati grezzi Postgres del Keycloak locale (pg_wal, pg_multixact, ecc.) - non
+# ha senso versionare un database, e la cartella sembra un residuo di una
+# vecchia configurazione a bind mount (il docker-compose.yml attuale usa un
+# volume Docker nominato, non questa cartella).
+backend/keycloak-data/
+
+# Cache locale di Gradle: tantissimi file piccoli che si rigenerano da soli
+# ad ogni build, non ha senso versionarli e (soprattutto) fanno rallentare
+# parecchio git status/add quando non sono esclusi, perche' li deve
+# scansionare tutti ogni volta.
+.gradle/

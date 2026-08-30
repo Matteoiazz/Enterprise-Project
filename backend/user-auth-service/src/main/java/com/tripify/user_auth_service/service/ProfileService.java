@@ -22,6 +22,7 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -39,14 +40,24 @@ public class ProfileService {
     private final TravelDocumentRepository documentRepository;
     private final Cloudinary cloudinary;
 
+
+    @Value("${keycloak.admin.server-url:http://localhost:8180}")
+    private String keycloakAdminServerUrl;
+
+    @Value("${keycloak.admin.username:admin}")
+    private String keycloakAdminUsername;
+
+    @Value("${keycloak.admin.password:admin}")
+    private String keycloakAdminPassword;
+
     private Keycloak getKeycloakAdminClient() {
         return KeycloakBuilder.builder()
-                .serverUrl("http://localhost:8180")
+                .serverUrl(keycloakAdminServerUrl)
                 .realm("master")
                 .clientId("admin-cli")
                 .grantType(org.keycloak.OAuth2Constants.PASSWORD)
-                .username("admin")
-                .password("admin")
+                .username(keycloakAdminUsername)
+                .password(keycloakAdminPassword)
                 .build();
     }
 
@@ -54,6 +65,10 @@ public class ProfileService {
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
             return createAndSyncUserFromKeycloak(email);
+        }
+
+        if (user.getName() == null || user.getSurname() == null || user.getPhone() == null) {
+            user = backfillMissingProfileFieldsFromKeycloak(user, email);
         }
 
         if (user.getRole() == Role.ROLE_TRAVELER) {
@@ -110,6 +125,41 @@ public class ProfileService {
             }
         } catch (Exception e) {
             log.warn("Sincronizzazione ruolo fallita per {}: {}", email, e.getMessage());
+        }
+        return user;
+    }
+
+    private User backfillMissingProfileFieldsFromKeycloak(User user, String email) {
+        try {
+            Keycloak keycloak = getKeycloakAdminClient();
+            List<UserRepresentation> matches = keycloak.realm("tripify").users().searchByEmail(email, true);
+
+            if (!matches.isEmpty()) {
+                UserRepresentation kcUser = matches.get(0);
+                boolean changed = false;
+
+                if (user.getName() == null && kcUser.getFirstName() != null && !kcUser.getFirstName().isBlank()) {
+                    user.setName(kcUser.getFirstName());
+                    changed = true;
+                }
+                if (user.getSurname() == null && kcUser.getLastName() != null && !kcUser.getLastName().isBlank()) {
+                    user.setSurname(kcUser.getLastName());
+                    changed = true;
+                }
+                if (user.getPhone() == null) {
+                    String phone = getAttributeValue(kcUser, "phoneNumber");
+                    if (phone != null) {
+                        user.setPhone(phone);
+                        changed = true;
+                    }
+                }
+
+                if (changed) {
+                    return userRepository.save(user);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossibile completare i dati profilo mancanti da Keycloak per {}: {}", email, e.getMessage());
         }
         return user;
     }
@@ -268,13 +318,19 @@ public class ProfileService {
         Keycloak keycloak = getKeycloakAdminClient();
         UserResource userResource = keycloak.realm("tripify").users().get(keycloakUserId);
 
-        if (request.getName() != null || request.getSurname() != null || request.getEmail() != null) {
+        if (request.getName() != null || request.getSurname() != null || request.getEmail() != null || request.getPhone() != null) {
             org.keycloak.representations.idm.UserRepresentation kcUser = userResource.toRepresentation();
             if (request.getName() != null) kcUser.setFirstName(request.getName());
             if (request.getSurname() != null) kcUser.setLastName(request.getSurname());
             if (request.getEmail() != null) {
                 kcUser.setEmail(request.getEmail());
                 kcUser.setUsername(request.getEmail());
+            }
+            if (request.getPhone() != null) {
+                if (kcUser.getAttributes() == null) {
+                    kcUser.setAttributes(new java.util.HashMap<>());
+                }
+                kcUser.getAttributes().put("phoneNumber", java.util.List.of(request.getPhone()));
             }
             userResource.update(kcUser);
         }
@@ -317,7 +373,12 @@ public class ProfileService {
                         u.getName() != null ? u.getName() : "Organizzatore",
                         u.getSurname() != null ? u.getSurname() : "",
                         u.getEmail(),
-                        u.getProfilePictureUrl()
+                        u.getProfilePictureUrl(),
+                        u.getPhone(),
+                        u.getAddress(),
+                        u.getCompanyName(),
+                        u.getVatNumber(),
+                        u.getPec()
                 ))
                 .toList();
     }
@@ -342,7 +403,12 @@ public class ProfileService {
                 u.getName() != null ? u.getName() : "Organizzatore",
                 u.getSurname() != null ? u.getSurname() : "",
                 u.getEmail(),
-                u.getProfilePictureUrl()
+                u.getProfilePictureUrl(),
+                u.getPhone(),
+                u.getAddress(),
+                u.getCompanyName(),
+                u.getVatNumber(),
+                u.getPec()
         );
     }
 
@@ -357,7 +423,17 @@ public class ProfileService {
 
     public void saveTrueKeycloakId(String email, String kcId) {
         User u = userRepository.findByEmail(email).orElse(null);
-        if (u != null && (u.getUsername() == null || !u.getUsername().equals(kcId))) {
+        if (u == null) return;
+
+        if (u.getUsername() != null && !u.getUsername().equals(kcId)) {
+            companionRepository.deleteAll(companionRepository.findByUser(u));
+            paymentMethodRepository.deleteAll(paymentMethodRepository.findByUser(u));
+            documentRepository.deleteAll(documentRepository.findByUser_Id(u.getId()));
+            userRepository.delete(u);
+            return;
+        }
+
+        if (u.getUsername() == null) {
             u.setUsername(kcId);
             userRepository.save(u);
         }

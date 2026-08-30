@@ -5,6 +5,11 @@ public record UserResponse(
         String name,
         String surname,
         String email,
-        String profilePictureUrl
+        String profilePictureUrl,
+        String phone,
+        String address,
+        String companyName,
+        String vatNumber,
+        String pec
 ) {
 }
