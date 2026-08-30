@@ -144,12 +144,21 @@ fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit:
         }
     }
 
+    val departureIso = if (departureDate.isNotBlank()) combineIso(departureDate, departureTime) else null
+    val arrivalIso = if (arrivalDate.isNotBlank()) combineIso(arrivalDate, arrivalTime) else null
+    val isArrivalAfterDeparture = departureIso == null || arrivalIso == null || try {
+        java.time.LocalDateTime.parse(arrivalIso).isAfter(java.time.LocalDateTime.parse(departureIso))
+    } catch (e: Exception) {
+        true
+    }
+
     val isValid = title.isNotBlank() && price.toDoubleOrNull() != null &&
             departureAirport.length == 3 && arrivalAirport.length == 3 &&
             departureCity.isNotBlank() && arrivalCity.isNotBlank() &&
             departureDate.isNotBlank() && arrivalDate.isNotBlank() &&
             totalSeats.toIntOrNull() != null &&
-            fareClasses.all { it.name.isNotBlank() && it.price.toDoubleOrNull() != null && it.seats.toIntOrNull() != null }
+            fareClasses.all { it.name.isNotBlank() && it.price.toDoubleOrNull() != null && it.seats.toIntOrNull() != null } &&
+            isArrivalAfterDeparture
 
     FormDialogShell(
         title = if (existing == null) "Nuovo volo" else "Modifica volo",
@@ -187,6 +196,9 @@ fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit:
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DateOnlyField("Data arrivo", arrivalDate, { arrivalDate = it }, modifier = Modifier.weight(1f))
             LabeledField("Ora (HH:mm)", arrivalTime, { arrivalTime = it }, modifier = Modifier.weight(1f))
+        }
+        if (!isArrivalAfterDeparture) {
+            Text("L'arrivo deve essere dopo la partenza", style = CatalogType.Caption, color = CatalogColors.Alert)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LabeledField("Posti totali", totalSeats, { totalSeats = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)

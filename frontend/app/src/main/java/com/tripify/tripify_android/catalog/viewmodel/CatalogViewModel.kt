@@ -71,10 +71,6 @@ class CatalogViewModel(
 
     private val _passengers = MutableStateFlow(1)
     val passengers: StateFlow<Int> = _passengers.asStateFlow()
-
-    // Date/camere scelte nella ricerca hotel: servono sia a filtrare (solo hotel con
-    // disponibilità vera per quelle notti) sia a pre-compilare il dettaglio quando l'utente
-    // apre un risultato, invece di fargli riscegliere tutto da capo.
     private val _hotelCheckIn = MutableStateFlow<LocalDate?>(null)
     val hotelCheckIn: StateFlow<LocalDate?> = _hotelCheckIn.asStateFlow()
 
@@ -106,10 +102,6 @@ class CatalogViewModel(
     private val _recommendedItems = MutableStateFlow<List<CatalogItem>>(emptyList())
     val recommendedItems: StateFlow<List<CatalogItem>> = _recommendedItems.asStateFlow()
 
-    // Accumula ogni item mai visto (risultati di ricerca + raccomandazioni + fetch singoli),
-    // così DetailScreen può trovare un item anche se non è (più) nella lista risultati corrente:
-    // prima il lookup guardava solo catalogList, e le raccomandazioni ne sono sempre escluse
-    // per costruzione -> tap su una raccomandazione falliva sempre con "Elemento non trovato".
     private val _itemCache = MutableStateFlow<Map<Int, CatalogItem>>(emptyMap())
     val itemCache: StateFlow<Map<Int, CatalogItem>> = _itemCache.asStateFlow()
 
@@ -121,6 +113,7 @@ class CatalogViewModel(
 
     private var fetchJob: Job? = null
     private var searchDebounceJob: Job? = null
+    private var nextPageJob: Job? = null
 
     /** L'identità reale (JWT) la legge il backend: qui serve solo per decidere se mostrare la UI di prenotazione. */
     suspend fun isLoggedIn(): Boolean = !tokenManager?.tokenFlow?.first().isNullOrBlank()
@@ -140,6 +133,7 @@ class CatalogViewModel(
 
     fun setCategory(category: String) {
         _selectedCategory.value = category
+        _minRating.value = 0
         fetchCatalogData(isUserSearch = true)
     }
 
@@ -164,8 +158,6 @@ class CatalogViewModel(
         _destination.value = city
         _hotelCheckIn.value = checkIn
         _hotelCheckOut.value = checkOut
-        // Il numero di camere non è più un filtro di ricerca: si sceglie nel dettaglio al
-        // momento di prenotare. In ricerca basta sapere se l'hotel ha almeno 1 camera libera.
         _hotelRooms.value = 1
         fetchCatalogData(isUserSearch = true)
     }
@@ -284,8 +276,7 @@ class CatalogViewModel(
             departureDate = _departureDate.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
 
             minSeats = _passengers.value.takeIf { it > 1 },
-            // Filtra solo gli Hotel (il backend ignora questi parametri per voli/attività):
-            // mostra soltanto chi ha davvero una tipologia libera per quelle notti.
+
             checkIn = _hotelCheckIn.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
             checkOut = _hotelCheckOut.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
             rooms = _hotelRooms.value.takeIf { it > 1 },
@@ -296,6 +287,8 @@ class CatalogViewModel(
 
     private fun fetchCatalogData(isUserSearch: Boolean) {
         fetchJob?.cancel()
+
+        nextPageJob?.cancel()
         fetchJob = viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -329,7 +322,7 @@ class CatalogViewModel(
 
     fun loadNextPage() {
         if (_isLoading.value || _isLoadingMore.value || _isLastPage.value) return
-        viewModelScope.launch {
+        nextPageJob = viewModelScope.launch {
             _isLoadingMore.value = true
             try {
                 val pageResult = performSearch(page = currentPage + 1)
@@ -488,22 +481,26 @@ class CatalogViewModel(
 
     fun loadReviewsAndBookingStatus(itemId: Long) {
         viewModelScope.launch {
-            try {
-                tokenManager?.let { tm ->
+            tokenManager?.let { tm ->
+                try {
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
                     val res = rApi.getReviewsForItem(itemId)
                     if (res.isSuccessful) {
                         _itemReviews.value = res.body() ?: emptyList()
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
 
+                try {
                     val bApi = com.tripify.tripify_android.data.RetrofitClient.createBookingApi(tm)
                     val bookedRes = bApi.hasUserBookedItem(itemId)
                     if (bookedRes.isSuccessful) {
                         _hasBookedCurrentItem.value = bookedRes.body() ?: false
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -518,9 +515,57 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        onError("Impossibile inviare la recensione. Assicurati di aver prenotato.")
+                        val serverMessage = try {
+                            res.errorBody()?.string()
+                        } catch (e: Exception) {
+                            null
+                        }
+                        onError(
+                            if (!serverMessage.isNullOrBlank()) serverMessage
+                            else "Impossibile inviare la recensione. Assicurati di aver prenotato."
+                        )
                     }
                 } ?: onError("Devi accedere per recensire.")
+            } catch (e: Exception) {
+                onError("Errore di rete. Controlla la connessione.")
+            }
+        }
+    }
+
+    fun updateReview(reviewId: Long, itemId: Long, rating: Int, comment: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                tokenManager?.let { tm ->
+                    val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
+                    val res = rApi.updateReview(reviewId, rating, comment)
+                    if (res.isSuccessful) {
+                        loadReviewsAndBookingStatus(itemId)
+                        onSuccess()
+                    } else {
+                        val serverMessage = try { res.errorBody()?.string() } catch (e: Exception) { null }
+                        onError(if (!serverMessage.isNullOrBlank()) serverMessage else "Impossibile modificare la recensione.")
+                    }
+                } ?: onError("Devi accedere per modificare la recensione.")
+            } catch (e: Exception) {
+                onError("Errore di rete. Controlla la connessione.")
+            }
+        }
+    }
+
+    fun deleteReview(reviewId: Long, itemId: Long, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                tokenManager?.let { tm ->
+                    val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
+                    val res = rApi.deleteReview(reviewId)
+                    if (res.isSuccessful) {
+                        loadReviewsAndBookingStatus(itemId)
+                        onSuccess()
+                    } else {
+                        val serverMessage = try { res.errorBody()?.string() } catch (e: Exception) { null }
+                        onError(if (!serverMessage.isNullOrBlank()) serverMessage else "Impossibile eliminare la recensione.")
+                    }
+                } ?: onError("Devi accedere per eliminare la recensione.")
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }

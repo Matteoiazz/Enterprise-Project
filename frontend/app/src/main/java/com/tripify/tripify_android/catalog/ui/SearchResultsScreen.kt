@@ -44,9 +44,21 @@ fun SearchResultsScreen(
     val guideOnly by viewModel.guideOnly.collectAsState()
     val hasSearched by viewModel.hasSearched.collectAsState()
     val recommendedItems by viewModel.recommendedItems.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Qui dentro un errore (ricerca o "carica altri" falliti) non veniva mostrato in
+    // nessun modo: la lista restava semplicemente com'era, senza alcun avviso. Stesso
+    // snackbar già usato in HomeScreen per viewModel.errorMessage.
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearErrorMessage()
+        }
+    }
 
     LaunchedEffect(listState, isLastPage, isLoading) {
         snapshotFlow { listState.layoutInfo.let { it.visibleItemsInfo.lastOrNull()?.index to it.totalItemsCount } }
@@ -76,6 +88,7 @@ fun SearchResultsScreen(
 
     Scaffold(
         containerColor = CatalogColors.Background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(

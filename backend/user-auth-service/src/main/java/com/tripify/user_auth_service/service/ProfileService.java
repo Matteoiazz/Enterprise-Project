@@ -198,6 +198,19 @@ public class ProfileService {
     }
 
     public CompanionDto addCompanion(String userEmail, CompanionDto dto) {
+        if (dto.getFirstName() == null || dto.getFirstName().isBlank()) {
+            throw new IllegalArgumentException("Il nome del compagno è obbligatorio");
+        }
+        if (dto.getLastName() == null || dto.getLastName().isBlank()) {
+            throw new IllegalArgumentException("Il cognome del compagno è obbligatorio");
+        }
+        if (dto.getDateOfBirth() == null) {
+            throw new IllegalArgumentException("La data di nascita è obbligatoria");
+        }
+        if (dto.getDateOfBirth().isAfter(java.time.LocalDate.now())) {
+            throw new IllegalArgumentException("La data di nascita non può essere nel futuro");
+        }
+
         Companion saved = companionRepository.save(Companion.builder()
                 .firstName(dto.getFirstName()).lastName(dto.getLastName())
                 .dateOfBirth(dto.getDateOfBirth()).user(getUser(userEmail)).build());
@@ -229,6 +242,22 @@ public class ProfileService {
     }
 
     public TravelDocumentDto addTravelDocument(String userEmail, TravelDocumentDto dto) {
+        if (dto.getDocumentType() == null || dto.getDocumentType().isBlank()) {
+            throw new IllegalArgumentException("Il tipo di documento è obbligatorio");
+        }
+        if (dto.getDocumentNumber() == null || dto.getDocumentNumber().isBlank()) {
+            throw new IllegalArgumentException("Il numero di documento è obbligatorio");
+        }
+        if (dto.getIssuingCountry() == null || dto.getIssuingCountry().isBlank()) {
+            throw new IllegalArgumentException("Il paese di rilascio è obbligatorio");
+        }
+        if (dto.getExpirationDate() == null) {
+            throw new IllegalArgumentException("La data di scadenza è obbligatoria");
+        }
+        if (dto.getExpirationDate().isBefore(java.time.LocalDate.now())) {
+            throw new IllegalArgumentException("Il documento è già scaduto");
+        }
+
         User user = getUser(userEmail);
         TravelDocument doc = TravelDocument.builder()
                 .user(user)
@@ -262,9 +291,24 @@ public class ProfileService {
     }
 
     public PaymentMethodDto addPaymentMethod(String userEmail, PaymentMethodDto dto) {
-        String lastFour = (dto.getCardNumber() != null && dto.getCardNumber().length() >= 4)
-                ? dto.getCardNumber().substring(dto.getCardNumber().length() - 4)
-                : "0000";
+        String cardNumber = dto.getCardNumber() != null ? dto.getCardNumber().replaceAll("\\s+", "") : null;
+        if (cardNumber == null || cardNumber.length() < 13 || cardNumber.length() > 19 || !cardNumber.matches("\\d+")) {
+            throw new IllegalArgumentException("Numero carta non valido");
+        }
+        if (dto.getExpirationMonthYear() == null || dto.getExpirationMonthYear().isBlank()) {
+            throw new IllegalArgumentException("La scadenza della carta è obbligatoria");
+        }
+        try {
+            java.time.YearMonth expiry = java.time.YearMonth.parse(dto.getExpirationMonthYear(),
+                    java.time.format.DateTimeFormatter.ofPattern("MM/yy"));
+            if (expiry.isBefore(java.time.YearMonth.now())) {
+                throw new IllegalArgumentException("La carta è scaduta");
+            }
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException("Formato scadenza non valido, usa MM/AA");
+        }
+
+        String lastFour = cardNumber.substring(cardNumber.length() - 4);
 
         PaymentMethod saved = paymentMethodRepository.save(PaymentMethod.builder()
                 .cardProvider(dto.getCardProvider()).lastFourDigits(lastFour)
@@ -388,7 +432,14 @@ public class ProfileService {
         if (identifier.contains("@")) {
             u = getUser(identifier);
         } else {
-            u = userRepository.findById(UUID.fromString(identifier))
+            u = userRepository.findByUsername(identifier)
+                    .or(() -> {
+                        try {
+                            return userRepository.findById(UUID.fromString(identifier));
+                        } catch (IllegalArgumentException notAUuid) {
+                            return java.util.Optional.empty();
+                        }
+                    })
                     .orElseThrow(() -> new RuntimeException("Utente non trovato nel database locale"));
         }
 

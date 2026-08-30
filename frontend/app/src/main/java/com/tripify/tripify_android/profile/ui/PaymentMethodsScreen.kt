@@ -46,6 +46,7 @@ fun PaymentMethodsScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
+    var cardToDelete by remember { mutableStateOf<PaymentMethodDto?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(errorMessage) {
@@ -108,9 +109,7 @@ fun PaymentMethodsScreen(
                     items(methods) { card ->
                         CreditCardPremium(
                             card = card,
-                            onDeleteClick = {
-                                card.id?.let { id -> viewModel.deletePaymentMethod(id) }
-                            }
+                            onDeleteClick = { cardToDelete = card }
                         )
                     }
                 }
@@ -144,6 +143,28 @@ fun PaymentMethodsScreen(
                     }
                 )
             }
+        }
+
+        cardToDelete?.let { toDelete ->
+            AlertDialog(
+                onDismissRequest = { cardToDelete = null },
+                title = { Text("Eliminare questa carta?", style = CatalogType.LabelStrong, color = CatalogColors.Ink) },
+                text = { Text("La carta ${toDelete.cardProvider} che termina con ${toDelete.lastFourDigits ?: "0000"} verrà rimossa. L'operazione non è reversibile.", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        toDelete.id?.let { id -> viewModel.deletePaymentMethod(id) }
+                        cardToDelete = null
+                    }) {
+                        Text("ELIMINA", style = CatalogType.Button, color = CatalogColors.Alert)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { cardToDelete = null }) {
+                        Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted)
+                    }
+                },
+                containerColor = CatalogColors.Surface
+            )
         }
     }
 }

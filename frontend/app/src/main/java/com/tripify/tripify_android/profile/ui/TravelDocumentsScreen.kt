@@ -48,6 +48,7 @@ fun TravelDocumentsScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
+    var documentToDelete by remember { mutableStateOf<TravelDocumentDto?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -111,9 +112,7 @@ fun TravelDocumentsScreen(
                     items(documents, key = { it.id ?: it.hashCode() }) { doc ->
                         DocumentCardPremium(
                             doc = doc,
-                            onDeleteClick = {
-                                doc.id?.let { id -> viewModel.deleteDocument(id) }
-                            }
+                            onDeleteClick = { documentToDelete = doc }
                         )
                     }
                 }
@@ -146,6 +145,28 @@ fun TravelDocumentsScreen(
                     }
                 )
             }
+        }
+
+        documentToDelete?.let { toDelete ->
+            AlertDialog(
+                onDismissRequest = { documentToDelete = null },
+                title = { Text("Eliminare questo documento?", style = CatalogType.LabelStrong, color = CatalogColors.Ink) },
+                text = { Text("${toDelete.documentType} ${toDelete.documentNumber} verrà rimosso. L'operazione non è reversibile.", style = CatalogType.Body, color = CatalogColors.InkMuted) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        toDelete.id?.let { id -> viewModel.deleteDocument(id) }
+                        documentToDelete = null
+                    }) {
+                        Text("ELIMINA", style = CatalogType.Button, color = CatalogColors.Alert)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { documentToDelete = null }) {
+                        Text("ANNULLA", style = CatalogType.Button, color = CatalogColors.InkMuted)
+                    }
+                },
+                containerColor = CatalogColors.Surface
+            )
         }
     }
 }
