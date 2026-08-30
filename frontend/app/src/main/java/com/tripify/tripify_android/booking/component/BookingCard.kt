@@ -3,6 +3,8 @@ package com.tripify.tripify_android.booking.component
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,7 +65,8 @@ fun BookingCard(
     catalogViewModel: CatalogViewModel,
     onInviteClick: (Long) -> Unit,
     onCancelClick: (Long) -> Unit = {},
-    onAddPassengersClick: (Long) -> Unit = {}
+    onAddPassengersClick: (Long) -> Unit = {},
+    onShowBoardingPassClick: (Long) -> Unit = {}
 ) {
     Card(
         shape = CatalogShapes.Card,
@@ -164,6 +167,23 @@ fun BookingCard(
                     color = CatalogColors.InkMuted,
                     style = CatalogType.Body
                 )
+            }
+
+            // Visibile a leader e partecipanti: il biglietto serve a chiunque
+            // viaggi, non solo a chi ha pagato. Compare solo a prenotazione
+            // confermata (prima non c'è ancora nulla da mostrare al check-in).
+            if (booking.status == "CONFIRMED" && booking.lines.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = { onShowBoardingPassClick(booking.id) },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+                    shape = CatalogShapes.Field
+                ) {
+                    Icon(Icons.Filled.QrCode2, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Il mio biglietto", style = CatalogType.Button)
+                }
             }
         }
     }

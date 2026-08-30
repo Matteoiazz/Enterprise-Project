@@ -115,4 +115,9 @@ dependencies {
 
     // --- LIBRERIA APPAUTH PER KEYCLOAK ---
     implementation("net.openid:appauth:0.11.1")
+
+    // --- GENERAZIONE QR CODE (biglietto/check-in) ---
+    // Solo il modulo "core": qui serve solo codificare una stringa in
+    // un'immagine QR (biglietto in-app), non leggerla via fotocamera.
+    implementation("com.google.zxing:core:3.5.3")
 }

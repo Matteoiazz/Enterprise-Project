@@ -27,7 +27,8 @@ fun BookingScreen(
     cartViewModel: CartViewModel,
     catalogViewModel: CatalogViewModel,
     onNavigateToCart: () -> Unit = {},
-    onAddPassengersClick: (bookingId: Long) -> Unit = {}
+    onAddPassengersClick: (bookingId: Long) -> Unit = {},
+    onShowBoardingPassClick: (bookingId: Long) -> Unit = {}
 ) {
     // 1. Ascoltiamo lo stato dal ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -113,7 +114,8 @@ fun BookingScreen(
                                         bookingToCancel = bookingId
                                         showCancelDialog = true
                                     },
-                                    onAddPassengersClick = onAddPassengersClick
+                                    onAddPassengersClick = onAddPassengersClick,
+                                    onShowBoardingPassClick = onShowBoardingPassClick
                                 )
                             }
                         }
