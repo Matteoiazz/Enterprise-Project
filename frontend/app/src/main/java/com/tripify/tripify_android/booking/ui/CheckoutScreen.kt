@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.booking.component.CartItemCard
 import com.tripify.tripify_android.booking.model.CartState
 import com.tripify.tripify_android.booking.model.PaymentState
+import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
 import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
@@ -43,6 +44,13 @@ import java.util.Calendar
 // da un menu anche qui, non si indovina più dal numero carta, così il dato
 // salvato in Impostazioni è coerente con quello scelto durante il checkout.
 private val cardProviderOptions = listOf("Visa", "Mastercard", "American Express", "Maestro")
+
+// Stesse liste fisse di Impostazioni > Documenti di viaggio: tipo documento e
+// paese si scelgono da un menu anche qui invece di testo libero, così un
+// documento inserito qui è nello stesso formato di uno salvato in Impostazioni
+// (da cui viene anche precompilato, vedi CheckoutScreen).
+private val documentTypeOptions = listOf("Passaporto", "Carta d'Identità", "Patente di Guida")
+private val issuingCountryOptions = listOf("ITA", "USA", "GBR", "FRA", "ESP", "DEU")
 
 // Raggruppa il numero carta a blocchi di 4 solo per la visualizzazione: il valore
 // memorizzato resta la sequenza di sole cifre inviata al backend.
@@ -83,10 +91,12 @@ private class GuestFieldsState {
     var lastName by mutableStateOf("")
     var phoneNumber by mutableStateOf("")
     var taxCode by mutableStateOf("")
-    var documentType by mutableStateOf("")
+    // Stesso default di Impostazioni > Documenti di viaggio: sono scelti da un
+    // menu a opzioni fisse, non testo libero, quindi non sono mai "vuoti".
+    var documentType by mutableStateOf(documentTypeOptions.first())
     var documentNumber by mutableStateOf("")
     var documentExpirationDate by mutableStateOf("")
-    var issuingCountry by mutableStateOf("")
+    var issuingCountry by mutableStateOf(issuingCountryOptions.first())
 
     // Il documento deve restare valido oltre la data odierna: anche una
     // scadenza fissata a oggi non basta, deve essere strettamente successiva
@@ -158,6 +168,7 @@ private class GuestFieldsState {
 fun CheckoutScreen(
     viewModel: CartViewModel,
     catalogViewModel: CatalogViewModel,
+    bookingViewModel: BookingViewModel,
     onNavigateBack: () -> Unit = {},
     onPaymentSuccess: (bookingId: Long) -> Unit = {}
 ) {
@@ -165,6 +176,7 @@ fun CheckoutScreen(
     val paymentState by viewModel.paymentState.collectAsState()
     val savedMethods by viewModel.savedPaymentMethods.collectAsState()
     val selectedItemIds by viewModel.selectedItemIds.collectAsState()
+    val savedTravelDocuments by bookingViewModel.savedTravelDocuments.collectAsState()
 
     // null = "nuova carta" selezionata (o nessun metodo salvato ancora scelto);
     // altrimenti è l'id del metodo salvato scelto dall'utente.
@@ -217,6 +229,7 @@ fun CheckoutScreen(
         viewModel.fetchCart()
         viewModel.fetchSavedPaymentMethods()
         viewModel.resetPaymentState()
+        bookingViewModel.fetchSavedTravelDocuments()
     }
 
     // Appena arriva la lista, se l'utente non ha ancora scelto nulla preseleziona
@@ -247,6 +260,27 @@ fun CheckoutScreen(
     val guestsByItemId = remember(selectedItemIds) {
         selectedItems.associate { item -> item.id to List(item.quantity) { GuestFieldsState() } }
     }
+
+    // Precompila SOLO il primo ospite di ciascun articolo con il documento
+    // salvato in Impostazioni (se esiste): gli altri ospiti sono persone
+    // diverse, il loro documento va inserito a mano. Restano comunque
+    // modificabili: è solo un valore iniziale, non un valore bloccato. Il
+    // guard su documentNumber evita di sovrascrivere dati che l'utente ha già
+    // iniziato a digitare prima che la lista dei documenti salvati arrivasse
+    // dal server.
+    LaunchedEffect(savedTravelDocuments, selectedItemIds) {
+        val savedDocument = savedTravelDocuments.firstOrNull() ?: return@LaunchedEffect
+        guestsByItemId.values.forEach { guests ->
+            val firstGuest = guests.firstOrNull() ?: return@forEach
+            if (firstGuest.documentNumber.isBlank()) {
+                firstGuest.documentType = savedDocument.documentType
+                firstGuest.documentNumber = savedDocument.documentNumber
+                firstGuest.documentExpirationDate = savedDocument.expirationDate
+                firstGuest.issuingCountry = savedDocument.issuingCountry
+            }
+        }
+    }
+
     val allGuestsValid = guestsByItemId.values.all { guests -> guests.all { it.isValid } }
     val formValid = (if (selectedSavedMethodId != null) true else newCardValid) && allGuestsValid
 
@@ -641,6 +675,7 @@ private fun GuestFieldsForItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GuestFieldsCard(index: Int, state: GuestFieldsState, submitAttempted: Boolean) {
     val context = LocalContext.current
@@ -708,20 +743,73 @@ private fun GuestFieldsCard(index: Int, state: GuestFieldsState, submitAttempted
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = state.documentType, onValueChange = { state.documentType = it },
-                    label = { Text("Tipo documento") }, placeholder = { Text("Es. CARTA_IDENTITA") },
-                    isError = documentTypeError != null,
-                    supportingText = documentTypeError?.let { { Text(it) } },
-                    singleLine = true, modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = state.issuingCountry, onValueChange = { state.issuingCountry = it.uppercase().take(3) },
-                    label = { Text("Paese") }, placeholder = { Text("ITA") },
-                    isError = issuingCountryError != null,
-                    supportingText = issuingCountryError?.let { { Text(it) } },
-                    singleLine = true, modifier = Modifier.weight(1f)
-                )
+                // Stesso menu a opzioni fisse di Impostazioni > Documenti di
+                // viaggio, non più testo libero (vedi documentTypeOptions).
+                var documentTypeExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = documentTypeExpanded,
+                    onExpandedChange = { documentTypeExpanded = !documentTypeExpanded },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = state.documentType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Tipo documento") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = documentTypeExpanded) },
+                        isError = documentTypeError != null,
+                        supportingText = documentTypeError?.let { { Text(it) } },
+                        singleLine = true,
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = documentTypeExpanded,
+                        onDismissRequest = { documentTypeExpanded = false }
+                    ) {
+                        documentTypeOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    state.documentType = option
+                                    documentTypeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                var issuingCountryExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = issuingCountryExpanded,
+                    onExpandedChange = { issuingCountryExpanded = !issuingCountryExpanded },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = state.issuingCountry,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Paese") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = issuingCountryExpanded) },
+                        isError = issuingCountryError != null,
+                        supportingText = issuingCountryError?.let { { Text(it) } },
+                        singleLine = true,
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = issuingCountryExpanded,
+                        onDismissRequest = { issuingCountryExpanded = false }
+                    ) {
+                        issuingCountryOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    state.issuingCountry = option
+                                    issuingCountryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(

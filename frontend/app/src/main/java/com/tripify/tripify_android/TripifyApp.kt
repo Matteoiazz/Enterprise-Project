@@ -277,6 +277,7 @@ fun TripifyApp(
                 CheckoutScreen(
                     viewModel = cartViewModel,
                     catalogViewModel = catalogViewModel,
+                    bookingViewModel = bookingViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
                         // Stesso pattern deterministico delle tab della bottom bar (vedi
