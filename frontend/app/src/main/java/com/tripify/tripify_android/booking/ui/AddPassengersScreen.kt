@@ -21,6 +21,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tripify.tripify_android.booking.model.BookingState
+import com.tripify.tripify_android.booking.util.isDocumentNumberLengthValid
+import com.tripify.tripify_android.booking.util.isTaxCodeChecksumValid
+import com.tripify.tripify_android.booking.util.isTaxCodeFormatValid
 import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
@@ -211,9 +214,18 @@ private fun AddPassengerDialog(
         phoneNumber.length != 10 -> "Il numero di telefono deve avere 10 cifre"
         else -> null
     }
-    val taxCodeError = if (submitAttempted && taxCode.isBlank()) "Il codice fiscale è obbligatorio" else null
+    val taxCodeError = when {
+        taxCode.isBlank() -> if (submitAttempted) "Il codice fiscale è obbligatorio" else null
+        !isTaxCodeFormatValid(taxCode) -> "Codice fiscale non valido (16 caratteri, es. RSSMRA80A01H501U)"
+        !isTaxCodeChecksumValid(taxCode) -> "Codice fiscale non valido: il carattere di controllo non corrisponde"
+        else -> null
+    }
     val documentTypeError = if (submitAttempted && documentType.isBlank()) "Il tipo di documento è obbligatorio" else null
-    val documentNumberError = if (submitAttempted && documentNumber.isBlank()) "Il numero di documento è obbligatorio" else null
+    val documentNumberError = when {
+        documentNumber.isBlank() -> if (submitAttempted) "Il numero di documento è obbligatorio" else null
+        !isDocumentNumberLengthValid(documentNumber) -> "Il numero di documento deve avere tra 5 e 20 caratteri"
+        else -> null
+    }
     val expirationDateError = when {
         expirationDate.isBlank() -> if (submitAttempted) "Seleziona una data di scadenza" else null
         !expirationDateValid -> "Documento scaduto! Impossibile effettuare la prenotazione con questo documento."
@@ -275,7 +287,8 @@ private fun AddPassengerDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = taxCode, onValueChange = { taxCode = it.uppercase() },
+                    value = taxCode,
+                    onValueChange = { value -> taxCode = value.filter { it.isLetterOrDigit() }.uppercase().take(16) },
                     label = { Text("Codice fiscale") },
                     isError = taxCodeError != null,
                     supportingText = taxCodeError?.let { { Text(it) } },
@@ -306,7 +319,8 @@ private fun AddPassengerDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = documentNumber, onValueChange = { documentNumber = it },
+                    value = documentNumber,
+                    onValueChange = { value -> documentNumber = value.filter { it.isLetterOrDigit() }.uppercase().take(20) },
                     label = { Text("Numero documento") },
                     isError = documentNumberError != null,
                     supportingText = documentNumberError?.let { { Text(it) } },

@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.booking.component.CartItemCard
 import com.tripify.tripify_android.booking.model.CartState
 import com.tripify.tripify_android.booking.model.PaymentState
+import com.tripify.tripify_android.booking.util.isDocumentNumberLengthValid
+import com.tripify.tripify_android.booking.util.isTaxCodeChecksumValid
+import com.tripify.tripify_android.booking.util.isTaxCodeFormatValid
 import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
 import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
@@ -120,14 +123,21 @@ private class GuestFieldsState {
         else -> null
     }
 
-    fun taxCodeError(submitAttempted: Boolean): String? =
-        if (submitAttempted && taxCode.isBlank()) "Il codice fiscale è obbligatorio" else null
+    fun taxCodeError(submitAttempted: Boolean): String? = when {
+        taxCode.isBlank() -> if (submitAttempted) "Il codice fiscale è obbligatorio" else null
+        !isTaxCodeFormatValid(taxCode) -> "Codice fiscale non valido (16 caratteri, es. RSSMRA80A01H501U)"
+        !isTaxCodeChecksumValid(taxCode) -> "Codice fiscale non valido: il carattere di controllo non corrisponde"
+        else -> null
+    }
 
     fun documentTypeError(submitAttempted: Boolean): String? =
         if (submitAttempted && documentType.isBlank()) "Il tipo di documento è obbligatorio" else null
 
-    fun documentNumberError(submitAttempted: Boolean): String? =
-        if (submitAttempted && documentNumber.isBlank()) "Il numero di documento è obbligatorio" else null
+    fun documentNumberError(submitAttempted: Boolean): String? = when {
+        documentNumber.isBlank() -> if (submitAttempted) "Il numero di documento è obbligatorio" else null
+        !isDocumentNumberLengthValid(documentNumber) -> "Il numero di documento deve avere tra 5 e 20 caratteri"
+        else -> null
+    }
 
     fun documentExpirationDateError(submitAttempted: Boolean): String? = when {
         documentExpirationDate.isBlank() -> if (submitAttempted) "Seleziona una data di scadenza" else null
@@ -735,7 +745,8 @@ private fun GuestFieldsCard(index: Int, state: GuestFieldsState, submitAttempted
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = state.taxCode, onValueChange = { state.taxCode = it.uppercase() },
+                value = state.taxCode,
+                onValueChange = { value -> state.taxCode = value.filter { it.isLetterOrDigit() }.uppercase().take(16) },
                 label = { Text("Codice fiscale") },
                 isError = taxCodeError != null,
                 supportingText = taxCodeError?.let { { Text(it) } },
@@ -813,7 +824,8 @@ private fun GuestFieldsCard(index: Int, state: GuestFieldsState, submitAttempted
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = state.documentNumber, onValueChange = { state.documentNumber = it },
+                value = state.documentNumber,
+                onValueChange = { value -> state.documentNumber = value.filter { it.isLetterOrDigit() }.uppercase().take(20) },
                 label = { Text("Numero documento") },
                 isError = documentNumberError != null,
                 supportingText = documentNumberError?.let { { Text(it) } },
