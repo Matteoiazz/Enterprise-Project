@@ -29,9 +29,23 @@ class InboxViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 // 2. Chiamiamo il repository passando solo il token.
                 // Nessun ID finto: il server legge l'UUID dal token!
                 val rooms = ChatRepository.getUserChatRooms(authToken = token)
-                _chatRooms.value = rooms
+                val demoRooms = rooms.map {
+                    if (it.unreadCount == 0) it.copy(unreadCount = 1) else it
+                }
+
+                _chatRooms.value = demoRooms
+
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+    fun markAsRead(roomId: String) {
+        _chatRooms.value = _chatRooms.value.map { room ->
+            if (room.id == roomId) {
+                room.copy(unreadCount = 0)
+            } else {
+                room
             }
         }
     }

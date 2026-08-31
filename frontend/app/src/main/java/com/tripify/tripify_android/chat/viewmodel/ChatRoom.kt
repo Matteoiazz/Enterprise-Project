@@ -5,5 +5,6 @@ data class ChatRoom(
     val travelerId: String,
     val hostId: String,
     val title: String? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val unreadCount: Int = 0
 )
