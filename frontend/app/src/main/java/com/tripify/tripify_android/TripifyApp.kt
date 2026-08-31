@@ -81,10 +81,8 @@ fun TripifyApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Con launchMode="singleTask" un link aperto ad app già avviata non ricrea
-    // l'Activity: arriva qui come nuovo intent (vedi MainActivity.onNewIntent) e va
-    // passato esplicitamente al NavController, altrimenti resta ignorato e l'app
-    // si limita a tornare in primo piano sulla schermata dove si era rimasti.
+    // Con launchMode="singleTask" un deep link ad app già avviata arriva come nuovo
+    // intent (vedi MainActivity.onNewIntent) e va passato esplicitamente al NavController.
     LaunchedEffect(pendingDeepLinkIntent) {
         pendingDeepLinkIntent?.let { intent ->
             navController.handleDeepLink(intent)

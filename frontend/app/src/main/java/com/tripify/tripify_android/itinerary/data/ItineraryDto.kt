@@ -50,5 +50,5 @@ data class LikeResponse(val liked: Boolean)
 data class BookAllResultDto(val successCount: Int, val total: Int, val errors: List<String> = emptyList())
 
 // alsoRemoved: titoli dei componenti troncati insieme a quello richiesto perché
-// non erano più coerenti senza di esso (es. hotel rimasto senza il volo di andata).
+// non più coerenti senza di esso (es. hotel rimasto senza il volo di andata).
 data class RemoveItemResultDto(val alsoRemoved: List<String> = emptyList())

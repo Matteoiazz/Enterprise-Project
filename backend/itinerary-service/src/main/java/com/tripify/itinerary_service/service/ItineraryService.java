@@ -400,9 +400,9 @@ public class ItineraryService {
      * Cambia la visibilità di una lista. Per passare a PUBLIC serve una città esplicita
      * (non derivata dai componenti) e il requisito minimo di componenti (2 voli, 1 hotel,
      * 1 attività) — verificato interrogando catalog-service per ciascun componente.
-     * Non tocca il link di condivisione: è un controllo indipendente (vedi
-     * enableLinkSharing/disableLinkSharing), diventare pubblici ne crea uno se manca
-     * ancora, ma tornare privati non lo revoca più automaticamente.
+     * Il link di condivisione è un controllo indipendente dalla visibilità (vedi
+     * enableLinkSharing/disableLinkSharing): diventare pubblici ne genera uno se manca,
+     * ma tornare privati non lo disattiva.
      */
     public FavoriteList setVisibility(Long listId, Visibility newVisibility, String city, String requesterId) {
         FavoriteList list = getOwnedList(listId, requesterId);

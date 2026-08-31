@@ -11,8 +11,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 // I ruoli realm di Keycloak arrivano nel token come oggetto annidato
-// ("realm_access": {"roles": [...]}), non come lista piatta: il converter di
-// default di Spring Security non sa estrarli da soli. Letti direttamente dal
+// ("realm_access": {"roles": [...]}), non come lista piatta. Letti direttamente dal
 // JWT già validato, non da un header che il gateway dovrebbe (ma non sempre
 // riesce a) propagare.
 public class JwtRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {

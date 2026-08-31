@@ -4,9 +4,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// Palette Catalog: autosufficiente, non dipende da core/theme (che oggi ha due verdi
-// diversi tra Color.kt e TripifyApp.kt). L'accento verde-pino nasce dallo stesso tono
-// già usato per il marker della mappa in DetailScreen (0x1B4332), qui reso ufficiale.
 object CatalogColors {
     val Ink = Color(0xFF14201D)
     val InkMuted = Color(0xFF5F6F6B)

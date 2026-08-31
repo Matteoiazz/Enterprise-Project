@@ -8,8 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.data.TokenManager
 
-// Tasso fisso, nessun servizio di cambio reale collegato: stesso spirito mock
-// già usato altrove nel progetto (es. i pagamenti).
+// Tasso fisso, nessun servizio di cambio reale collegato.
 private const val EUR_TO_USD_RATE = 1.08
 
 object CatalogPriceFormatter {

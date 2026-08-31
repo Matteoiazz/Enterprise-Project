@@ -110,9 +110,7 @@ class CatalogViewModel(
     val recommendationsLabel: StateFlow<String> = _recommendationsLabel.asStateFlow()
 
     // Accumula ogni item mai visto (risultati di ricerca + raccomandazioni + fetch singoli),
-    // così DetailScreen può trovare un item anche se non è (più) nella lista risultati corrente:
-    // prima il lookup guardava solo catalogList, e le raccomandazioni ne sono sempre escluse
-    // per costruzione -> tap su una raccomandazione falliva sempre con "Elemento non trovato".
+    // così DetailScreen può trovare un item anche se non è più nella lista risultati corrente.
     private val _itemCache = MutableStateFlow<Map<Int, CatalogItem>>(emptyMap())
     val itemCache: StateFlow<Map<Int, CatalogItem>> = _itemCache.asStateFlow()
 
