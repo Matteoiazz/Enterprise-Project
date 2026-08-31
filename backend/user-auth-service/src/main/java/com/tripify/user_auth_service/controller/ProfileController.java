@@ -21,6 +21,13 @@ public class ProfileController {
 
     private final ProfileService profileService;
 
+    @ModelAttribute
+    public void syncKeycloakId(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt != null) {
+            profileService.saveTrueKeycloakId(jwt.getClaimAsString("email"), jwt.getSubject());
+        }
+    }
+
     // --- COMPANIONS ---
     @GetMapping("/companions")
     public ResponseEntity<List<CompanionDto>> getCompanions(@AuthenticationPrincipal Jwt jwt) {
@@ -82,7 +89,6 @@ public class ProfileController {
         String email = jwt.getClaimAsString("email");
         String keycloakId = jwt.getSubject();
 
-        profileService.saveTrueKeycloakId(email, keycloakId);
         com.tripify.user_auth_service.entity.User user = profileService.getUser(email);
 
         String displayNome = user.getName() != null ? user.getName() : "Utente";
@@ -153,6 +159,11 @@ public class ProfileController {
     @GetMapping("/organizers/{email}")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getOrganizerByEmail(@PathVariable String email) {
         return ResponseEntity.ok(profileService.getOrganizerById(email));
+    }
+
+    @GetMapping("/users/{id}/summary")
+    public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getUserSummary(@PathVariable String id) {
+        return ResponseEntity.ok(profileService.getUserSummary(id));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

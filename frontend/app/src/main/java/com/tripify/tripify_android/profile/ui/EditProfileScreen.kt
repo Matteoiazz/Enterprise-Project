@@ -1,6 +1,7 @@
 package com.tripify.tripify_android.profile.ui
 
 import android.util.Patterns
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -39,6 +41,8 @@ fun EditProfileScreen(
     onNavigateBack: () -> Unit,
     onSaveProfile: (String, String, String, String, String, String) -> Unit
 ) {
+    val context = LocalContext.current
+
     var name by remember(viewModel.name) { mutableStateOf(viewModel.name) }
     var surname by remember(viewModel.surname) { mutableStateOf(viewModel.surname) }
     var email by remember(viewModel.email) { mutableStateOf(viewModel.email) }
@@ -50,6 +54,12 @@ fun EditProfileScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(viewModel.errorMessage) {
+        viewModel.errorMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email).matches()
     val hasMinLength = newPassword.length >= 8

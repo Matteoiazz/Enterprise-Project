@@ -12,7 +12,7 @@
     </p>
     <a href="${link}" style="display: inline-block; background-color: #1B8A5A; color: #FFFFFF; text-decoration: none; padding: 16px 32px; border-radius: 14px; font-weight: bold; font-size: 16px;">Verifica Email e Crea Password</a>
     <p style="color: #B7BBB2; font-size: 12px; margin-top: 30px;">
-        Questo link scadrà tra 5 minuti.<br>Se non hai richiesto tu questa email, ignorala pure.
+        Per motivi di sicurezza questo link ha una validità limitata.<br>Se non hai richiesto tu questa email, ignorala pure.
     </p>
 </div>
 </body>
