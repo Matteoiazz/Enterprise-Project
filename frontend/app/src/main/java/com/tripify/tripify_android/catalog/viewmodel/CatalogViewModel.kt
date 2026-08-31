@@ -496,7 +496,6 @@ class CatalogViewModel(
 
 
     suspend fun getOrFetchItem(id: Int): CatalogItem? {
-        _itemCache.value[id]?.let { return it }
         return try {
             val item = mapDtoToItem(api.getItemById(id))
             cacheItems(listOf(item))
@@ -504,7 +503,7 @@ class CatalogViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            null
+            _itemCache.value[id]
         }
     }
 

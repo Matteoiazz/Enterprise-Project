@@ -111,7 +111,10 @@ fun InboxScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(CatalogShapes.Card)
-                                    .clickable { onChatRoomClick(room.id) },
+                                    .clickable {
+                                        viewModel.markAsRead(room.id) // Azzera il bollino visivamente
+                                        onChatRoomClick(room.id)      // Apre la chat
+                                    },
                                 color = CatalogColors.Surface,
                                 shape = CatalogShapes.Card,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
@@ -145,12 +148,21 @@ fun InboxScreen(
                                             style = CatalogType.LabelStrong,
                                             color = CatalogColors.Ink
                                         )
-                                        Spacer(modifier = Modifier.height(3.dp))
-                                        Text(
-                                            text = "ID: ${room.id.take(8)}...",
-                                            style = CatalogType.Caption,
-                                            color = CatalogColors.InkMuted
-                                        )
+
+                                    }
+                                    val unread = room.unreadCount ?: 0
+                                    if (unread > 0) {
+                                        Badge(
+                                            containerColor = CatalogColors.Alert, // Rosso
+                                            contentColor = androidx.compose.ui.graphics.Color.White,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = unread.toString(),
+                                                style = CatalogType.Caption,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }

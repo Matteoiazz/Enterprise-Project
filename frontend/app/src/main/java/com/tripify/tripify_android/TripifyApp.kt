@@ -44,8 +44,10 @@ import com.tripify.tripify_android.chat.viewmodel.InboxViewModelFactory
 import com.tripify.tripify_android.core.navigation.Route
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.notification.data.NotificationRepository
 import com.tripify.tripify_android.notification.ui.NotificationsScreen
 import com.tripify.tripify_android.notification.viewmodel.NotificationViewModel
+import com.tripify.tripify_android.notification.viewmodel.NotificationViewModelFactory
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
 import com.tripify.tripify_android.profile.ui.EditProfileScreen
 import com.tripify.tripify_android.profile.ui.PaymentMethodsScreen
@@ -161,6 +163,7 @@ fun TripifyApp(
             composable(Route.Home.path) {
                 HomeScreen(
                     viewModel = catalogViewModel,
+                    notificationViewModel = notificationViewModel,
                     onNavigateToAuth = { navController.navigate(Route.Auth.path) },
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") },
                     onNavigateToSaved = { navController.navigate("saved") },
@@ -240,8 +243,23 @@ fun TripifyApp(
             }
 
             composable("notifications") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+
+                // Creiamo il NotificationViewModel localmente con la sua factory pulita
+                val localNotificationViewModel: NotificationViewModel = viewModel(
+                    factory = NotificationViewModelFactory(
+                        repository = NotificationRepository(
+                            RetrofitClient.createNotificationApi(
+                                tokenManager
+                            )
+                        ),
+                        tokenManager = tokenManager
+                    )
+                )
+
                 NotificationsScreen(
-                    viewModel = notificationViewModel,
+                    viewModel = localNotificationViewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }
@@ -253,7 +271,8 @@ fun TripifyApp(
                     catalogViewModel = catalogViewModel,
                     onNavigateToCart = { navController.navigate(Route.Cart.path) },
                     onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) },
-                    onShowBoardingPassClick = { bookingId -> navController.navigate(Route.BoardingPass.path(bookingId)) }
+                    onShowBoardingPassClick = { bookingId -> navController.navigate(Route.BoardingPass.path(bookingId)) },
+                    onBookingClick = { bookingId -> navController.navigate(Route.BookingDetail.path(bookingId)) }
                 )
             }
 
@@ -261,6 +280,18 @@ fun TripifyApp(
             composable(Route.BoardingPass.path) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
                 com.tripify.tripify_android.booking.ui.BoardingPassScreen(
+                    viewModel = bookingViewModel,
+                    catalogViewModel = catalogViewModel,
+                    bookingId = bookingId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // ROTTA: Riepilogo completo di una prenotazione (solo confermate,
+            // vedi BookingCard)
+            composable(Route.BookingDetail.path) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
+                com.tripify.tripify_android.booking.ui.BookingDetailScreen(
                     viewModel = bookingViewModel,
                     catalogViewModel = catalogViewModel,
                     bookingId = bookingId,
@@ -291,6 +322,7 @@ fun TripifyApp(
                 CheckoutScreen(
                     viewModel = cartViewModel,
                     catalogViewModel = catalogViewModel,
+                    bookingViewModel = bookingViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
                         // Stesso pattern deterministico delle tab della bottom bar (vedi

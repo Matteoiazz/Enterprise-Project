@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -77,6 +78,10 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
 
                 loadDocuments()
                 onSuccess()
+            } catch (e: HttpException) {
+                val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
+                _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
+                Log.e("TravelDocsVM", "Error adding doc", e)
             } catch (e: Exception) {
                 _errorMessage.value = "Errore durante il salvataggio: ${e.localizedMessage}"
                 Log.e("TravelDocsVM", "Error adding doc", e)

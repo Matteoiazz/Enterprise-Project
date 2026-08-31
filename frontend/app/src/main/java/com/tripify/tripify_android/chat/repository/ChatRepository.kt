@@ -73,4 +73,21 @@ object ChatRepository {
             }
         }
     }
+    suspend fun markChatAsRead(roomId: String, authToken: String?) {
+        withContext(Dispatchers.IO) {
+            try {
+                val url = URL("$baseUrl/chat/rooms/$roomId/read")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "PUT"
+
+                if (!authToken.isNullOrBlank()) {
+                    connection.setRequestProperty("Authorization", "Bearer $authToken")
+                }
+
+                connection.responseCode // Esegue la chiamata al server
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "Errore markAsRead", e)
+            }
+        }
+    }
 }

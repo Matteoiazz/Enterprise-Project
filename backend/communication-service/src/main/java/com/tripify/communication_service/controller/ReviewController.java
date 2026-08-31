@@ -68,4 +68,9 @@ public class ReviewController {
     public ResponseEntity<String> handleForbidden(IllegalStateException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
     }
+
+    @ExceptionHandler(java.util.NoSuchElementException.class)
+    public ResponseEntity<String> handleNotFound(java.util.NoSuchElementException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
 }

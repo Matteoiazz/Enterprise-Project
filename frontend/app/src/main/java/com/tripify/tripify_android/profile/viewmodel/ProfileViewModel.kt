@@ -92,7 +92,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 if (response.isSuccessful && response.body() != null) {
                     profilePictureUrl = response.body()?.get("imageUrl")
                 } else {
-                    errorMessage = "Errore caricamento immagine: ${response.code()}"
+                    errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
+                        ?: "Errore caricamento immagine: ${response.code()}"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -152,7 +153,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     if (newAddress.isNotBlank()) address = newAddress
                     onSuccess()
                 } else {
-                    errorMessage = "Errore durante il salvataggio: ${response.code()}"
+                    errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
+                        ?: "Errore durante il salvataggio: ${response.code()}"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

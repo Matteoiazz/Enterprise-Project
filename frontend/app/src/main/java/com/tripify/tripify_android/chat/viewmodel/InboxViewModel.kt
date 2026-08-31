@@ -26,10 +26,32 @@ class InboxViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 // 1. Leggiamo il token JWT reale dal DataStore
                 val token = tokenManager.tokenFlow.first()
 
-                // 2. Chiamiamo il repository passando solo il token.
-                // Nessun ID finto: il server legge l'UUID dal token!
+                // 2. Chiamiamo il repository e assegniamo i dati REALI del server
                 val rooms = ChatRepository.getUserChatRooms(authToken = token)
                 _chatRooms.value = rooms
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+    fun markAsRead(roomId: String) {
+        // Aggiorna subito l'interfaccia (per essere fluidi)
+        _chatRooms.value = _chatRooms.value.map { room ->
+            if (room.id == roomId) {
+                room.copy(unreadCount = 0)
+            } else {
+                room
+            }
+        }
+
+        // Manda la richiesta di lettura al backend in background
+        viewModelScope.launch {
+            try {
+                val token = tokenManager.tokenFlow.first()
+                if (!token.isNullOrBlank()) {
+                    ChatRepository.markChatAsRead(roomId, token)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

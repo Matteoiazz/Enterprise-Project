@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,9 @@ public class ReviewService {
         }
         if (comment == null || comment.isBlank()) {
             throw new IllegalArgumentException("Il commento non può essere vuoto");
+        }
+        if (comment.length() > 1000) {
+            throw new IllegalArgumentException("Il commento non può superare i 1000 caratteri");
         }
 
         boolean hasBooked = bookingClient.hasUserBookedItem(catalogItemId);
@@ -44,7 +48,7 @@ public class ReviewService {
 
     public Review updateReview(Long id, Integer rating, String comment, String travelerId) {
         Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recensione non trovata"));
+                .orElseThrow(() -> new NoSuchElementException("Recensione non trovata"));
 
         if (!review.getTravelerId().equals(travelerId)) {
             throw new IllegalStateException("Non puoi modificare la recensione di un altro utente");
@@ -55,6 +59,9 @@ public class ReviewService {
         if (comment == null || comment.isBlank()) {
             throw new IllegalArgumentException("Il commento non può essere vuoto");
         }
+        if (comment.length() > 1000) {
+            throw new IllegalArgumentException("Il commento non può superare i 1000 caratteri");
+        }
 
         review.setRating(rating);
         review.setComment(comment);
@@ -63,7 +70,7 @@ public class ReviewService {
 
     public void deleteReview(Long id, String travelerId) {
         Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recensione non trovata"));
+                .orElseThrow(() -> new NoSuchElementException("Recensione non trovata"));
 
         if (!review.getTravelerId().equals(travelerId)) {
             throw new IllegalStateException("Non puoi cancellare la recensione di un altro utente");

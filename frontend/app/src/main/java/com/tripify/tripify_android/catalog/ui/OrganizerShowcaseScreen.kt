@@ -35,6 +35,7 @@ import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.UserResponse
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,6 +50,8 @@ fun OrganizerShowcaseScreen(
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var organizerProfile by remember { mutableStateOf<UserResponse?>(null) }
     var organizerItems by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
@@ -71,6 +74,7 @@ fun OrganizerShowcaseScreen(
 
     Scaffold(
         containerColor = CatalogColors.Background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -168,7 +172,23 @@ fun OrganizerShowcaseScreen(
                         Spacer(modifier = Modifier.height(28.dp))
 
                         Button(
-                            onClick = { onChatWithOrganizer(org.email) },
+                            onClick = {
+                                scope.launch {
+                                    val token = tokenManager.tokenFlow.first()
+                                    if (token.isNullOrBlank()) {
+                                        snackbarHostState.showSnackbar("Devi accedere per contattare l'organizzatore")
+                                        return@launch
+                                    }
+                                    val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
+                                        hostId = org.id, title = "Organizzatore $displayName", authToken = token
+                                    )
+                                    if (chatRoom != null) {
+                                        onChatWithOrganizer(chatRoom.id)
+                                    } else {
+                                        snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                    }
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(54.dp),

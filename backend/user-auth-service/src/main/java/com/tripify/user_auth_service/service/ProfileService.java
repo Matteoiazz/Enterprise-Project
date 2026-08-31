@@ -10,6 +10,8 @@ import com.tripify.user_auth_service.entity.Role;
 import com.tripify.user_auth_service.entity.TravelDocument;
 import com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO;
 import com.tripify.user_auth_service.entity.User;
+import com.tripify.user_auth_service.exception.ResourceNotFoundException;
+import com.tripify.user_auth_service.exception.UnauthorizedActionException;
 import com.tripify.user_auth_service.repository.CompanionRepository;
 import com.tripify.user_auth_service.repository.PaymentMethodRepository;
 import com.tripify.user_auth_service.repository.TravelDocumentRepository;
@@ -101,23 +103,27 @@ public class ProfileService {
                 String userType = getAttributeValue(kcUser, "userType");
 
                 if (userType != null && userType.toLowerCase().contains("organizer")) {
-                    user.setRole(Role.ROLE_ORGANIZER);
-
                     String company = getAttributeValue(kcUser, "companyName");
-                    if (company != null) user.setCompanyName(company);
-
                     String vat = getAttributeValue(kcUser, "vatNumber");
-                    if (vat != null) user.setVatNumber(vat);
-
                     String pec = getAttributeValue(kcUser, "pec");
-                    if (pec != null) user.setPec(pec);
+
+                    String businessDataError = validateBusinessData(company, vat, pec);
+                    if (businessDataError != null) {
+                        log.warn("Richiesta ruolo ROLE_ORGANIZER respinta per {}: {}", email, businessDataError);
+                        return user;
+                    }
+
+                    user.setRole(Role.ROLE_ORGANIZER);
+                    user.setCompanyName(company);
+                    user.setVatNumber(vat);
+                    user.setPec(pec);
 
                     try {
                         RoleRepresentation organizerRole = keycloak.realm("tripify").roles().get("ROLE_ORGANIZER").toRepresentation();
                         keycloak.realm("tripify").users().get(kcUser.getId()).roles().realmLevel().add(List.of(organizerRole));
                         log.info("Ruolo ROLE_ORGANIZER assegnato con successo su Keycloak per l'utente {}", email);
 
-                        return userRepository.save(user); // Salva sul DB locale solo se Keycloak ha successo
+                        return userRepository.save(user);
                     } catch (Exception roleAssignmentFailed) {
                         log.warn("Impossibile assegnare il ruolo realm ROLE_ORGANIZER a {}: {}", email, roleAssignmentFailed.getMessage());
                     }
@@ -127,6 +133,38 @@ public class ProfileService {
             log.warn("Sincronizzazione ruolo fallita per {}: {}", email, e.getMessage());
         }
         return user;
+    }
+
+    private String validateBusinessData(String companyName, String vatNumber, String pec) {
+        if (companyName == null || companyName.trim().length() < 2 || companyName.trim().length() > 255) {
+            return "ragione sociale non valida";
+        }
+        if (vatNumber == null || !isValidItalianVatNumber(vatNumber.trim())) {
+            return "partita IVA non valida";
+        }
+        if (pec == null || !pec.trim().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            return "PEC non valida";
+        }
+        return null;
+    }
+
+    private boolean isValidItalianVatNumber(String vatNumber) {
+        String cleaned = vatNumber.toUpperCase().startsWith("IT") ? vatNumber.substring(2) : vatNumber;
+        if (!cleaned.matches("\\d{11}")) {
+            return false;
+        }
+        int sum = 0;
+        for (int i = 0; i < 10; i++) {
+            int digit = cleaned.charAt(i) - '0';
+            if (i % 2 == 0) {
+                sum += digit;
+            } else {
+                int doubled = digit * 2;
+                sum += doubled > 9 ? doubled - 9 : doubled;
+            }
+        }
+        int checkDigit = (10 - (sum % 10)) % 10;
+        return checkDigit == (cleaned.charAt(10) - '0');
     }
 
     private User backfillMissingProfileFieldsFromKeycloak(User user, String email) {
@@ -190,6 +228,7 @@ public class ProfileService {
         return syncRoleFromKeycloak(savedUser, email);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<CompanionDto> getCompanions(String userEmail) {
         return companionRepository.findByUser(getUser(userEmail)).stream()
                 .map(c -> CompanionDto.builder().id(c.getId()).firstName(c.getFirstName())
@@ -210,6 +249,9 @@ public class ProfileService {
         if (dto.getDateOfBirth().isAfter(java.time.LocalDate.now())) {
             throw new IllegalArgumentException("La data di nascita non può essere nel futuro");
         }
+        if (java.time.Period.between(dto.getDateOfBirth(), java.time.LocalDate.now()).getYears() < 18) {
+            throw new IllegalArgumentException("Il compagno di viaggio deve essere maggiorenne (almeno 18 anni)");
+        }
 
         Companion saved = companionRepository.save(Companion.builder()
                 .firstName(dto.getFirstName()).lastName(dto.getLastName())
@@ -220,14 +262,15 @@ public class ProfileService {
 
     public void deleteCompanion(String userEmail, UUID companionId) {
         Companion companion = companionRepository.findById(companionId)
-                .orElseThrow(() -> new RuntimeException("Compagno non trovato"));
+                .orElseThrow(() -> new ResourceNotFoundException("Compagno non trovato"));
 
         if (!companion.getUser().getId().equals(getUser(userEmail).getId())) {
-            throw new RuntimeException("Non autorizzato");
+            throw new UnauthorizedActionException("Non autorizzato");
         }
         companionRepository.delete(companion);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<TravelDocumentDto> getTravelDocuments(String userEmail) {
         User user = getUser(userEmail);
         return documentRepository.findByUser_Id(user.getId()).stream()
@@ -275,14 +318,15 @@ public class ProfileService {
     public void deleteTravelDocument(String userEmail, UUID id) {
         User user = getUser(userEmail);
         TravelDocument doc = documentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Documento non trovato"));
+                .orElseThrow(() -> new ResourceNotFoundException("Documento non trovato"));
 
         if (!doc.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Non autorizzato");
+            throw new UnauthorizedActionException("Non autorizzato");
         }
         documentRepository.delete(doc);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<PaymentMethodDto> getPaymentMethods(String userEmail) {
         return paymentMethodRepository.findByUser(getUser(userEmail)).stream()
                 .map(p -> PaymentMethodDto.builder().id(p.getId()).cardProvider(p.getCardProvider())
@@ -321,10 +365,10 @@ public class ProfileService {
     public void deletePaymentMethod(String userEmail, UUID id) {
         User user = getUser(userEmail);
         PaymentMethod method = paymentMethodRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Metodo di pagamento non trovato"));
+                .orElseThrow(() -> new ResourceNotFoundException("Metodo di pagamento non trovato"));
 
         if (!method.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Non autorizzato");
+            throw new UnauthorizedActionException("Non autorizzato");
         }
         paymentMethodRepository.delete(method);
     }
@@ -410,6 +454,7 @@ public class ProfileService {
     }
 
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
                 .map(u -> new com.tripify.user_auth_service.dto.response.UserResponse(
@@ -427,6 +472,7 @@ public class ProfileService {
                 .toList();
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getOrganizerById(String identifier) {
         User u;
         if (identifier.contains("@")) {
@@ -440,11 +486,11 @@ public class ProfileService {
                             return java.util.Optional.empty();
                         }
                     })
-                    .orElseThrow(() -> new RuntimeException("Utente non trovato nel database locale"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato nel database locale"));
         }
 
         if (u.getRole() != Role.ROLE_ORGANIZER) {
-            throw new RuntimeException("L'utente richiesto non è un organizzatore");
+            throw new ResourceNotFoundException("L'utente richiesto non è un organizzatore");
         }
 
         String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
@@ -452,6 +498,39 @@ public class ProfileService {
         return new com.tripify.user_auth_service.dto.response.UserResponse(
                 kcId,
                 u.getName() != null ? u.getName() : "Organizzatore",
+                u.getSurname() != null ? u.getSurname() : "",
+                u.getEmail(),
+                u.getProfilePictureUrl(),
+                u.getPhone(),
+                u.getAddress(),
+                u.getCompanyName(),
+                u.getVatNumber(),
+                u.getPec()
+        );
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
+        User u;
+        if (identifier.contains("@")) {
+            u = getUser(identifier);
+        } else {
+            u = userRepository.findByUsername(identifier)
+                    .or(() -> {
+                        try {
+                            return userRepository.findById(UUID.fromString(identifier));
+                        } catch (IllegalArgumentException notAUuid) {
+                            return java.util.Optional.empty();
+                        }
+                    })
+                    .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
+        }
+
+        String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
+
+        return new com.tripify.user_auth_service.dto.response.UserResponse(
+                kcId,
+                u.getName() != null ? u.getName() : "Utente",
                 u.getSurname() != null ? u.getSurname() : "",
                 u.getEmail(),
                 u.getProfilePictureUrl(),
@@ -476,15 +555,7 @@ public class ProfileService {
         User u = userRepository.findByEmail(email).orElse(null);
         if (u == null) return;
 
-        if (u.getUsername() != null && !u.getUsername().equals(kcId)) {
-            companionRepository.deleteAll(companionRepository.findByUser(u));
-            paymentMethodRepository.deleteAll(paymentMethodRepository.findByUser(u));
-            documentRepository.deleteAll(documentRepository.findByUser_Id(u.getId()));
-            userRepository.delete(u);
-            return;
-        }
-
-        if (u.getUsername() == null) {
+        if (kcId != null && !kcId.equals(u.getUsername())) {
             u.setUsername(kcId);
             userRepository.save(u);
         }

@@ -1,6 +1,7 @@
 package com.tripify.tripify_android.booking.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,13 +67,23 @@ fun BookingCard(
     onInviteClick: (Long) -> Unit,
     onCancelClick: (Long) -> Unit = {},
     onAddPassengersClick: (Long) -> Unit = {},
-    onShowBoardingPassClick: (Long) -> Unit = {}
+    onShowBoardingPassClick: (Long) -> Unit = {},
+    onCardClick: (Long) -> Unit = {}
 ) {
+    // Il riepilogo completo apre solo dalle prenotazioni CONFERMATE: una
+    // PENDING non ha ancora ospiti/QR definitivi, un'annullata non compare
+    // proprio più in lista (vedi BookingViewModel). I bottoni interni
+    // (Annulla/Invita/...) restano cliccabili normalmente: Compose non fa
+    // risalire il loro click al clickable della Card che li contiene.
+    val cardModifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).let {
+        if (booking.status == "CONFIRMED") it.clickable { onCardClick(booking.id) } else it
+    }
+
     Card(
         shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+        modifier = cardModifier
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(

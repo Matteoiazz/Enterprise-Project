@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -13,10 +14,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.tripify.tripify_android.booking.model.BookingState
+import com.tripify.tripify_android.booking.util.isDocumentNumberLengthValid
+import com.tripify.tripify_android.booking.util.isTaxCodeChecksumValid
+import com.tripify.tripify_android.booking.util.isTaxCodeFormatValid
 import com.tripify.tripify_android.booking.viewmodel.BookingViewModel
+import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
@@ -80,16 +89,6 @@ fun AddPassengersScreen(
                 modifier = Modifier.padding(innerPadding).fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
-                item {
-                    Text(
-                        "Viaggio #${booking.id}",
-                        style = CatalogType.Section,
-                        color = CatalogColors.Ink,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
                 items(booking.lines, key = { it.id }) { line ->
                     BookingLineRow(
                         line = line,
@@ -124,9 +123,9 @@ fun AddPassengersScreen(
 
 @Composable
 private fun BookingLineRow(line: BookingLineDTO, catalogViewModel: CatalogViewModel, onAddPassengerClick: () -> Unit) {
-    var title by remember(line.catalogItemId) { mutableStateOf<String?>(null) }
+    var resolved by remember(line.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
     LaunchedEffect(line.catalogItemId) {
-        title = catalogViewModel.getOrFetchItem(line.catalogItemId.toInt())?.title
+        resolved = catalogViewModel.getOrFetchItem(line.catalogItemId.toInt())
     }
 
     val maxPassengers = line.quantity
@@ -138,8 +137,27 @@ private fun BookingLineRow(line: BookingLineDTO, catalogViewModel: CatalogViewMo
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(title ?: "Articolo #${line.catalogItemId}", style = CatalogType.CardTitle, color = CatalogColors.Ink)
-            Spacer(modifier = Modifier.height(4.dp))
+            // Stessa riga foto+nome usata in CartItemCard/BookingCard: qui non
+            // deve comparire nessun identificativo della prenotazione, solo cosa
+            // si sta prenotando.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = resolved?.imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = resolved?.title ?: "Articolo #${line.catalogItemId}",
+                    style = CatalogType.CardTitle,
+                    color = CatalogColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = "Passeggeri: ${line.passengerCount}${maxPassengers?.let { "/$it" } ?: ""}",
                 style = CatalogType.Body,
@@ -196,9 +214,18 @@ private fun AddPassengerDialog(
         phoneNumber.length != 10 -> "Il numero di telefono deve avere 10 cifre"
         else -> null
     }
-    val taxCodeError = if (submitAttempted && taxCode.isBlank()) "Il codice fiscale è obbligatorio" else null
+    val taxCodeError = when {
+        taxCode.isBlank() -> if (submitAttempted) "Il codice fiscale è obbligatorio" else null
+        !isTaxCodeFormatValid(taxCode) -> "Codice fiscale non valido (16 caratteri, es. RSSMRA80A01H501U)"
+        !isTaxCodeChecksumValid(taxCode) -> "Codice fiscale non valido: il carattere di controllo non corrisponde"
+        else -> null
+    }
     val documentTypeError = if (submitAttempted && documentType.isBlank()) "Il tipo di documento è obbligatorio" else null
-    val documentNumberError = if (submitAttempted && documentNumber.isBlank()) "Il numero di documento è obbligatorio" else null
+    val documentNumberError = when {
+        documentNumber.isBlank() -> if (submitAttempted) "Il numero di documento è obbligatorio" else null
+        !isDocumentNumberLengthValid(documentNumber) -> "Il numero di documento deve avere tra 5 e 20 caratteri"
+        else -> null
+    }
     val expirationDateError = when {
         expirationDate.isBlank() -> if (submitAttempted) "Seleziona una data di scadenza" else null
         !expirationDateValid -> "Documento scaduto! Impossibile effettuare la prenotazione con questo documento."
@@ -260,7 +287,8 @@ private fun AddPassengerDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = taxCode, onValueChange = { taxCode = it.uppercase() },
+                    value = taxCode,
+                    onValueChange = { value -> taxCode = value.filter { it.isLetterOrDigit() }.uppercase().take(16) },
                     label = { Text("Codice fiscale") },
                     isError = taxCodeError != null,
                     supportingText = taxCodeError?.let { { Text(it) } },
@@ -291,7 +319,8 @@ private fun AddPassengerDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = documentNumber, onValueChange = { documentNumber = it },
+                    value = documentNumber,
+                    onValueChange = { value -> documentNumber = value.filter { it.isLetterOrDigit() }.uppercase().take(20) },
                     label = { Text("Numero documento") },
                     isError = documentNumberError != null,
                     supportingText = documentNumberError?.let { { Text(it) } },
