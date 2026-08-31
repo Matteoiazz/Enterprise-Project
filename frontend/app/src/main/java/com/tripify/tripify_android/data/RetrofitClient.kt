@@ -6,90 +6,49 @@ import com.tripify.tripify_android.notification.data.NotificationApi
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     private val BASE_URL = BuildConfig.BASE_URL
+    @Volatile
+    private var okHttpClient: OkHttpClient? = null
 
-    // Funzione originale di Dario (NON TOCCARE)
-    fun createApi(tokenManager: TokenManager): AuthApi {
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenManager))
-            .build()
-
-        return Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(AuthApi::class.java)
+    private fun httpClient(tokenManager: TokenManager): OkHttpClient {
+        return okHttpClient ?: synchronized(this) {
+            okHttpClient ?: OkHttpClient.Builder()
+                .addInterceptor(AuthInterceptor(tokenManager))
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .callTimeout(45, TimeUnit.SECONDS)
+                .build()
+                .also { okHttpClient = it }
+        }
     }
 
-    // --- FUNZIONE PER IL CATALOGO ---
-    fun createCatalogApi(tokenManager: TokenManager): CatalogApi {
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenManager))
-            .build()
-
+    private fun <T> build(tokenManager: TokenManager, service: Class<T>): T {
         return Retrofit.Builder()
             .baseUrl(BASE_URL)
-            .client(okHttpClient)
+            .client(httpClient(tokenManager))
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(CatalogApi::class.java)
+            .create(service)
     }
 
-    // --- LA NUOVA FUNZIONE PER IL BOOKING ---
-    fun createBookingApi(tokenManager: TokenManager): BookingApi {
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenManager))
-            .build()
+    fun createApi(tokenManager: TokenManager): AuthApi =
+        build(tokenManager, AuthApi::class.java)
 
-        return Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(BookingApi::class.java)
-    }
+    fun createCatalogApi(tokenManager: TokenManager): CatalogApi =
+        build(tokenManager, CatalogApi::class.java)
 
-    // --- LA FUNZIONE PER IL PROFILO ---
-    fun createProfileApi(tokenManager: TokenManager): com.tripify.tripify_android.profile.api.ProfileApiService {
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenManager))
-            .build()
+    fun createBookingApi(tokenManager: TokenManager): BookingApi =
+        build(tokenManager, BookingApi::class.java)
 
-        return Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(com.tripify.tripify_android.profile.api.ProfileApiService::class.java)
-    }
+    fun createProfileApi(tokenManager: TokenManager): com.tripify.tripify_android.profile.api.ProfileApiService =
+        build(tokenManager, com.tripify.tripify_android.profile.api.ProfileApiService::class.java)
 
-    // --- LA FUNZIONE PER LE NOTIFICHE ---
-    fun createNotificationApi(tokenManager: TokenManager): NotificationApi {
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenManager))
-            .build()
+    fun createNotificationApi(tokenManager: TokenManager): NotificationApi =
+        build(tokenManager, NotificationApi::class.java)
 
-        return Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(NotificationApi::class.java)
-    }
-
-    fun createReviewApi(tokenManager: TokenManager): com.tripify.tripify_android.data.ReviewApi {
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(tokenManager))
-            .build()
-
-        return Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(com.tripify.tripify_android.data.ReviewApi::class.java)
-    }
+    fun createReviewApi(tokenManager: TokenManager): com.tripify.tripify_android.data.ReviewApi =
+        build(tokenManager, com.tripify.tripify_android.data.ReviewApi::class.java)
 }

@@ -1,15 +1,20 @@
 package com.tripify.communication_service.controller;
 
-import com.tripify.communication_service.entity.Review;
+import com.tripify.communication_service.dto.CreateReviewRequest;
+import com.tripify.communication_service.dto.ReviewResponse;
+import com.tripify.communication_service.dto.UpdateReviewRequest;
 import com.tripify.communication_service.service.ReviewService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/reviews")
@@ -19,26 +24,24 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @PostMapping
-    public ResponseEntity<Review> addReview(
+    public ResponseEntity<ReviewResponse> addReview(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestParam Integer rating,
-            @RequestParam String comment,
-            @RequestParam Long catalogItemId) {
+            @Valid @RequestBody CreateReviewRequest request) {
 
         String travelerId = jwt.getSubject();
-        Review savedReview = reviewService.createReview(rating, comment, travelerId, catalogItemId);
+        ReviewResponse savedReview = reviewService.createReview(
+                request.rating(), request.comment(), travelerId, request.catalogItemId());
         return ResponseEntity.ok(savedReview);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Review> updateReview(
+    public ResponseEntity<ReviewResponse> updateReview(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id,
-            @RequestParam Integer rating,
-            @RequestParam String comment) {
+            @Valid @RequestBody UpdateReviewRequest request) {
 
         String travelerId = jwt.getSubject();
-        Review updatedReview = reviewService.updateReview(id, rating, comment, travelerId);
+        ReviewResponse updatedReview = reviewService.updateReview(id, request.rating(), request.comment(), travelerId);
         return ResponseEntity.ok(updatedReview);
     }
 
@@ -50,16 +53,24 @@ public class ReviewController {
     }
 
     @GetMapping("/item/{catalogItemId}")
-    public ResponseEntity<List<Review>> getReviewsForItem(@PathVariable Long catalogItemId) {
+    public ResponseEntity<List<ReviewResponse>> getReviewsForItem(@PathVariable Long catalogItemId) {
         return ResponseEntity.ok(reviewService.getReviewsByItem(catalogItemId));
     }
 
     @GetMapping("/traveler/{travelerId}")
-    public ResponseEntity<List<Review>> getReviewsByTraveler(@AuthenticationPrincipal Jwt jwt, @PathVariable String travelerId) {
+    public ResponseEntity<List<ReviewResponse>> getReviewsByTraveler(@AuthenticationPrincipal Jwt jwt, @PathVariable String travelerId) {
         if (!jwt.getSubject().equals(travelerId)) {
             throw new IllegalStateException("Non autorizzato a visualizzare le recensioni di un altro utente");
         }
         return ResponseEntity.ok(reviewService.getReviewsByTraveler(travelerId));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<String> handleInvalidBody(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getDefaultMessage())
+                .collect(Collectors.joining("; "));
+        return ResponseEntity.badRequest().body(message.isBlank() ? "Dati non validi" : message);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -75,5 +86,11 @@ public class ReviewController {
     @ExceptionHandler(java.util.NoSuchElementException.class)
     public ResponseEntity<String> handleNotFound(java.util.NoSuchElementException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
+
+    @ExceptionHandler(feign.FeignException.class)
+    public ResponseEntity<String> handleDownstreamUnavailable(feign.FeignException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body("Servizio di prenotazioni non raggiungibile, riprova più tardi.");
     }
 }

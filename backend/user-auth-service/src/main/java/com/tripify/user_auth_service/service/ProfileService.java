@@ -236,11 +236,16 @@ public class ProfileService {
             log.warn("Impossibile contattare Keycloak per l'utente {}, uso i valori di default: {}", email, e.getMessage());
         }
 
-        User savedUser = userRepository.save(userBuilder.build());
+        User savedUser;
+        try {
+            savedUser = userRepository.save(userBuilder.build());
+        } catch (org.springframework.dao.DataIntegrityViolationException raceLost) {
+            savedUser = userRepository.findByEmail(email).orElseThrow(() -> raceLost);
+        }
         return syncRoleFromKeycloak(savedUser, email);
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public List<CompanionDto> getCompanions(String userEmail) {
         return companionRepository.findByUser(getUser(userEmail)).stream()
                 .map(c -> CompanionDto.builder().id(c.getId()).firstName(c.getFirstName())
@@ -282,7 +287,7 @@ public class ProfileService {
         companionRepository.delete(companion);
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public List<TravelDocumentDto> getTravelDocuments(String userEmail) {
         User user = getUser(userEmail);
         return documentRepository.findByUser_Id(user.getId()).stream()
@@ -338,7 +343,7 @@ public class ProfileService {
         documentRepository.delete(doc);
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public List<PaymentMethodDto> getPaymentMethods(String userEmail) {
         return paymentMethodRepository.findByUser(getUser(userEmail)).stream()
                 .map(p -> PaymentMethodDto.builder().id(p.getId()).cardProvider(p.getCardProvider())
@@ -408,7 +413,12 @@ public class ProfileService {
         if (request.getSurname() != null) user.setSurname(request.getSurname());
         if (request.getPhone() != null) user.setPhone(request.getPhone());
         if (request.getAddress() != null) user.setAddress(request.getAddress());
-        if (request.getEmail() != null) user.setEmail(request.getEmail());
+        if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new IllegalArgumentException("Email già in uso da un altro account");
+            }
+            user.setEmail(request.getEmail());
+        }
 
         userRepository.save(user);
 
@@ -479,88 +489,55 @@ public class ProfileService {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
-                .map(u -> new com.tripify.user_auth_service.dto.response.UserResponse(
-                        (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString(),
-                        u.getName() != null ? u.getName() : "Organizzatore",
-                        u.getSurname() != null ? u.getSurname() : "",
-                        u.getEmail(),
-                        u.getProfilePictureUrl(),
-                        u.getPhone(),
-                        u.getAddress(),
-                        u.getCompanyName(),
-                        u.getVatNumber(),
-                        u.getPec()
-                ))
+                .map(u -> toPublicResponse(u, "Organizzatore"))
                 .toList();
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getOrganizerById(String identifier) {
-        User u;
-        if (identifier.contains("@")) {
-            u = getUser(identifier);
-        } else {
-            u = userRepository.findByUsername(identifier)
-                    .or(() -> {
-                        try {
-                            return userRepository.findById(UUID.fromString(identifier));
-                        } catch (IllegalArgumentException notAUuid) {
-                            return java.util.Optional.empty();
-                        }
-                    })
-                    .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato nel database locale"));
-        }
+        User u = findExistingUser(identifier)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
 
         if (u.getRole() != Role.ROLE_ORGANIZER) {
             throw new ResourceNotFoundException("L'utente richiesto non è un organizzatore");
         }
-
-        String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
-
-        return new com.tripify.user_auth_service.dto.response.UserResponse(
-                kcId,
-                u.getName() != null ? u.getName() : "Organizzatore",
-                u.getSurname() != null ? u.getSurname() : "",
-                u.getEmail(),
-                u.getProfilePictureUrl(),
-                u.getPhone(),
-                u.getAddress(),
-                u.getCompanyName(),
-                u.getVatNumber(),
-                u.getPec()
-        );
+        return toPublicResponse(u, "Organizzatore");
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
-        User u;
-        if (identifier.contains("@")) {
-            u = getUser(identifier);
-        } else {
-            u = userRepository.findByUsername(identifier)
-                    .or(() -> {
-                        try {
-                            return userRepository.findById(UUID.fromString(identifier));
-                        } catch (IllegalArgumentException notAUuid) {
-                            return java.util.Optional.empty();
-                        }
-                    })
-                    .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
+        User u = findExistingUser(identifier)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
+        return toPublicResponse(u, "Utente");
+    }
+
+    private java.util.Optional<User> findExistingUser(String identifier) {
+        if (identifier != null && identifier.contains("@")) {
+            return userRepository.findByEmail(identifier);
         }
+        return userRepository.findByUsername(identifier)
+                .or(() -> {
+                    try {
+                        return userRepository.findById(UUID.fromString(identifier));
+                    } catch (IllegalArgumentException notAUuid) {
+                        return java.util.Optional.empty();
+                    }
+                });
+    }
 
+    private com.tripify.user_auth_service.dto.response.UserResponse toPublicResponse(User u, String fallbackName) {
         String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
-
         return new com.tripify.user_auth_service.dto.response.UserResponse(
                 kcId,
-                u.getName() != null ? u.getName() : "Utente",
+                u.getName() != null ? u.getName() : fallbackName,
                 u.getSurname() != null ? u.getSurname() : "",
                 u.getEmail(),
                 u.getProfilePictureUrl(),
-                u.getPhone(),
-                u.getAddress(),
+                null,
+                null,
                 u.getCompanyName(),
-                u.getVatNumber(),
-                u.getPec()
+                null,
+                null
         );
     }
 
