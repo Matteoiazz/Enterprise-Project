@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +30,12 @@ fun NotificationsScreen(
 ) {
     val notifications = viewModel.notifications
     val isLoading = viewModel.isLoading
+
+    LaunchedEffect(notifications) {
+        notifications.filter { !it.isRead }.forEach { notification ->
+            viewModel.markAsRead(notification.id)
+        }
+    }
 
     Scaffold(
         containerColor = CatalogColors.Background,

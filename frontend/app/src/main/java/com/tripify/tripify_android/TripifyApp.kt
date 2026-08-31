@@ -44,8 +44,10 @@ import com.tripify.tripify_android.chat.viewmodel.InboxViewModelFactory
 import com.tripify.tripify_android.core.navigation.Route
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.notification.data.NotificationRepository
 import com.tripify.tripify_android.notification.ui.NotificationsScreen
 import com.tripify.tripify_android.notification.viewmodel.NotificationViewModel
+import com.tripify.tripify_android.notification.viewmodel.NotificationViewModelFactory
 import com.tripify.tripify_android.profile.ui.CompanionsScreen
 import com.tripify.tripify_android.profile.ui.EditProfileScreen
 import com.tripify.tripify_android.profile.ui.PaymentMethodsScreen
@@ -163,6 +165,7 @@ fun TripifyApp(
             composable(Route.Home.path) {
                 HomeScreen(
                     viewModel = catalogViewModel,
+                    notificationViewModel = notificationViewModel,
                     onNavigateToAuth = { navController.navigate(Route.Auth.path) },
                     onNavigateToDetail = { itemId -> navController.navigate("detail/$itemId") },
                     onNavigateToSaved = { navController.navigate("saved") },
@@ -242,8 +245,23 @@ fun TripifyApp(
             }
 
             composable("notifications") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+
+                // Creiamo il NotificationViewModel localmente con la sua factory pulita
+                val localNotificationViewModel: NotificationViewModel = viewModel(
+                    factory = NotificationViewModelFactory(
+                        repository = NotificationRepository(
+                            RetrofitClient.createNotificationApi(
+                                tokenManager
+                            )
+                        ),
+                        tokenManager = tokenManager
+                    )
+                )
+
                 NotificationsScreen(
-                    viewModel = notificationViewModel,
+                    viewModel = localNotificationViewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }

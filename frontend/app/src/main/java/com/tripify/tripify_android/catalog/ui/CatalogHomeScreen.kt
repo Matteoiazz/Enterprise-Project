@@ -33,6 +33,7 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.notification.viewmodel.NotificationViewModel
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -43,6 +44,7 @@ private const val HERO_IMAGE = "https://picsum.photos/seed/epic_travel/1200/900"
 @Composable
 fun HomeScreen(
     viewModel: CatalogViewModel,
+    notificationViewModel: NotificationViewModel,
     onNavigateToAuth: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToSaved: () -> Unit = {},
@@ -52,6 +54,7 @@ fun HomeScreen(
     onNavigateToNotifications: () -> Unit = {}
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val unreadCount = notificationViewModel.unreadCount
     val catalogItems by viewModel.catalogList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -83,6 +86,10 @@ fun HomeScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+
+    LaunchedEffect(Unit) {
+        notificationViewModel.loadUnreadCount()
+    }
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -134,7 +141,27 @@ fun HomeScreen(
                                 Icon(Icons.Filled.ChatBubbleOutline, contentDescription = "Messaggi", tint = CatalogColors.AccentDark)
                             }
                             IconButton(onClick = onNavigateToNotifications) {
-                                Icon(Icons.Filled.Notifications, contentDescription = "Notifiche", tint = CatalogColors.AccentDark)
+                                BadgedBox(
+                                    badge = {
+                                        if (unreadCount > 0) {
+                                            Badge(
+                                                containerColor = CatalogColors.Alert,
+                                                contentColor = Color.White
+                                            ) {
+                                                Text(
+                                                    text = unreadCount.toString(),
+                                                    style = CatalogType.Caption
+                                                )
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Notifications,
+                                        contentDescription = "Notifiche",
+                                        tint = CatalogColors.AccentDark
+                                    )
+                                }
                             }
                         }
                     },
