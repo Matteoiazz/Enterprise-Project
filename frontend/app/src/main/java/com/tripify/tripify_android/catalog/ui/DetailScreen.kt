@@ -690,16 +690,22 @@ private fun DetailContent(
 
                                 val hostUuid = item.hostId
 
-                                val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
-                                    hostId = hostUuid,
-                                    title = "Organizzatore ${item.title}",
-                                    authToken = token
-                                )
+                                try {
+                                    // Chiamata di rete protetta dal try/catch
+                                    val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
+                                        hostId = hostUuid,
+                                        title = "Organizzatore ${item.title}",
+                                        authToken = token
+                                    )
 
-                                if (chatRoom != null) {
-                                    onChatWithOrganizer(chatRoom.id)
-                                } else {
-                                    snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                    if (chatRoom != null) {
+                                        onChatWithOrganizer(chatRoom.id)
+                                    } else {
+                                        snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                    }
+                                } catch (e: Exception) {
+                                    // Gestione dell'eccezione imprevista con feedback visivo
+                                    snackbarHostState.showSnackbar("Errore di connessione: impossibile avviare la chat")
                                 }
                             }
                         },
