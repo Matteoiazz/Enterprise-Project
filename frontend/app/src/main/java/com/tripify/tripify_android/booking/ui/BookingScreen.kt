@@ -29,7 +29,8 @@ fun BookingScreen(
     onNavigateToCart: () -> Unit = {},
     onAddPassengersClick: (bookingId: Long) -> Unit = {},
     onShowBoardingPassClick: (bookingId: Long) -> Unit = {},
-    onBookingClick: (bookingId: Long) -> Unit = {}
+    onBookingClick: (bookingId: Long) -> Unit = {},
+    onRetryPaymentClick: (bookingId: Long) -> Unit = {}
 ) {
     // 1. Ascoltiamo lo stato dal ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -123,7 +124,8 @@ fun BookingScreen(
                                     },
                                     onAddPassengersClick = onAddPassengersClick,
                                     onShowBoardingPassClick = onShowBoardingPassClick,
-                                    onCardClick = onBookingClick
+                                    onCardClick = onBookingClick,
+                                    onRetryPaymentClick = onRetryPaymentClick
                                 )
                             }
                         }

@@ -24,7 +24,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.tripify.tripify_android.booking.component.CardPaymentFormState
 import com.tripify.tripify_android.booking.component.CartItemCard
+import com.tripify.tripify_android.booking.component.PaymentMethodSection
 import com.tripify.tripify_android.booking.model.CartState
 import com.tripify.tripify_android.booking.model.PaymentState
 import com.tripify.tripify_android.booking.util.isDocumentNumberLengthValid
@@ -43,47 +45,12 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Calendar
 
-// Stessa lista di Impostazioni > Metodi di pagamento: il circuito si sceglie
-// da un menu anche qui, non si indovina più dal numero carta, così il dato
-// salvato in Impostazioni è coerente con quello scelto durante il checkout.
-private val cardProviderOptions = listOf("Visa", "Mastercard", "American Express", "Maestro")
-
 // Stesse liste fisse di Impostazioni > Documenti di viaggio: tipo documento e
 // paese si scelgono da un menu anche qui invece di testo libero, così un
 // documento inserito qui è nello stesso formato di uno salvato in Impostazioni
 // (da cui viene anche precompilato, vedi CheckoutScreen).
 private val documentTypeOptions = listOf("Passaporto", "Carta d'Identità", "Patente di Guida")
 private val issuingCountryOptions = listOf("ITA", "USA", "GBR", "FRA", "ESP", "DEU")
-
-// Raggruppa il numero carta a blocchi di 4 solo per la visualizzazione: il valore
-// memorizzato resta la sequenza di sole cifre inviata al backend.
-private class CardNumberVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val digits = text.text
-        val formatted = digits.chunked(4).joinToString(" ")
-
-        // Niente formula arbitraria: chunked(4) non aggiunge uno spazio finale
-        // quando la lunghezza è multipla di 4 (es. 4, 8, 12, 16 cifre), quindi
-        // una formula fissa "offset + offset/4" può restituire una posizione
-        // oltre la fine del testo formattato in quei casi - Compose la considera
-        // un mapping invalido e l'app crasha. Contare gli spazi realmente
-        // presenti è sempre corretto, qualunque sia la lunghezza.
-        val offsetMapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                if (offset <= 0) return 0
-                val groupsBefore = (offset - 1) / 4
-                return (offset + groupsBefore).coerceIn(0, formatted.length)
-            }
-
-            override fun transformedToOriginal(offset: Int): Int {
-                if (offset <= 0) return 0
-                val spacesBefore = formatted.take(offset).count { it == ' ' }
-                return (offset - spacesBefore).coerceIn(0, digits.length)
-            }
-        }
-        return TransformedText(AnnotatedString(formatted), offsetMapping)
-    }
-}
 
 // Dati di un ospite/partecipante raccolti PRIMA del pagamento (vedi
 // CheckoutScreen): oggetto semplice con proprietà mutableStateOf, così le
@@ -188,17 +155,9 @@ fun CheckoutScreen(
     val selectedItemIds by viewModel.selectedItemIds.collectAsState()
     val savedTravelDocuments by bookingViewModel.savedTravelDocuments.collectAsState()
 
-    // null = "nuova carta" selezionata (o nessun metodo salvato ancora scelto);
-    // altrimenti è l'id del metodo salvato scelto dall'utente.
-    var selectedSavedMethodId by remember { mutableStateOf<String?>(null) }
-    var hasAutoSelected by remember { mutableStateOf(false) }
-
-    var cardProvider by remember { mutableStateOf(cardProviderOptions.first()) }
-    var cardNumber by remember { mutableStateOf("") }
-    var cardholderName by remember { mutableStateOf("") }
-    var expiry by remember { mutableStateOf("") }
-    var cvv by remember { mutableStateOf("") }
-    var saveNewCard by remember { mutableStateOf(false) }
+    // Stato del metodo di pagamento (salvato o carta nuova) e la sua
+    // validazione: condiviso con RetryPaymentScreen, vedi CardPaymentForm.kt.
+    val paymentFormState = remember { CardPaymentFormState() }
 
     // Diventa true al primo tentativo di pagamento con dati non validi: da lì in
     // poi ogni campo obbligatorio ancora vuoto si segnala in rosso. I campi
@@ -206,49 +165,11 @@ fun CheckoutScreen(
     // senza aspettare un tentativo di pagamento.
     var submitAttempted by remember { mutableStateOf(false) }
 
-    // Stessa validazione della scadenza usata in Impostazioni > Metodi di pagamento:
-    // mese 1-12, e l'anno corrente è accettato solo se il mese è quello corrente o
-    // successivo (YearMonth.isBefore confronta mese+anno insieme, non l'anno da solo).
-    val expiryMonth = expiry.take(2).toIntOrNull()
-    val expiryYear = expiry.drop(2).toIntOrNull()
-    val expiryValid = expiry.length == 4 && expiryMonth != null && expiryMonth in 1..12 &&
-        expiryYear != null && !YearMonth.of(2000 + expiryYear, expiryMonth).isBefore(YearMonth.now())
-    val newCardValid = cardNumber.length == 16 && cardholderName.isNotBlank() && expiryValid && cvv.length == 3
-
-    val cardholderNameError: String? =
-        if (submitAttempted && cardholderName.isBlank()) "L'intestatario della carta è obbligatorio" else null
-    val cardNumberError: String? = when {
-        cardNumber.isBlank() -> if (submitAttempted) "Il numero della carta è obbligatorio" else null
-        cardNumber.length != 16 -> "Il numero della carta deve avere 16 cifre"
-        else -> null
-    }
-    val expiryError: String? = when {
-        expiry.isBlank() -> if (submitAttempted) "La data di scadenza è obbligatoria" else null
-        expiry.length < 4 -> null
-        expiryMonth == null || expiryMonth !in 1..12 -> "Mese non valido"
-        !expiryValid -> "La carta è scaduta"
-        else -> null
-    }
-    val cvvError: String? = when {
-        cvv.isBlank() -> if (submitAttempted) "Il CVV è obbligatorio" else null
-        cvv.length != 3 -> "Il CVV deve avere 3 cifre"
-        else -> null
-    }
-
     LaunchedEffect(Unit) {
         viewModel.fetchCart()
         viewModel.fetchSavedPaymentMethods()
         viewModel.resetPaymentState()
         bookingViewModel.fetchSavedTravelDocuments()
-    }
-
-    // Appena arriva la lista, se l'utente non ha ancora scelto nulla preseleziona
-    // il primo metodo salvato (se esiste), invece di partire sempre dal form manuale.
-    LaunchedEffect(savedMethods) {
-        if (!hasAutoSelected && savedMethods.isNotEmpty()) {
-            selectedSavedMethodId = savedMethods.first().id
-            hasAutoSelected = true
-        }
     }
 
     LaunchedEffect(paymentState) {
@@ -292,7 +213,7 @@ fun CheckoutScreen(
     }
 
     val allGuestsValid = guestsByItemId.values.all { guests -> guests.all { it.isValid } }
-    val formValid = (if (selectedSavedMethodId != null) true else newCardValid) && allGuestsValid
+    val formValid = paymentFormState.isValid && allGuestsValid
 
     Scaffold(
         containerColor = CatalogColors.Background,
@@ -328,15 +249,15 @@ fun CheckoutScreen(
                                     submitAttempted = true
                                 } else {
                                     val guestsRequest = guestsByItemId.mapValues { (_, guests) -> guests.map { it.toRequest() } }
-                                    val savedId = selectedSavedMethodId
+                                    val savedId = paymentFormState.selectedSavedMethodId
                                     if (savedId != null) {
                                         viewModel.payWithSavedMethod(savedId, guestsRequest)
                                     } else {
                                         viewModel.payWithNewCard(
-                                            cardNumber = cardNumber,
-                                            cardProvider = cardProvider,
-                                            expirationMonthYear = "${expiry.take(2)}/${expiry.drop(2)}",
-                                            saveCard = saveNewCard,
+                                            cardNumber = paymentFormState.cardNumber,
+                                            cardProvider = paymentFormState.cardProvider,
+                                            expirationMonthYear = paymentFormState.expirationMonthYear(),
+                                            saveCard = paymentFormState.saveNewCard,
                                             guestsByCartItemId = guestsRequest
                                         )
                                     }
@@ -425,162 +346,12 @@ fun CheckoutScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                items(savedMethods, key = { it.id ?: it.hashCode() }) { method ->
-                    SavedPaymentMethodRow(
-                        method = method,
-                        selected = selectedSavedMethodId == method.id,
-                        onClick = { selectedSavedMethodId = method.id }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 item {
-                    NewCardOptionRow(
-                        selected = selectedSavedMethodId == null,
-                        onClick = { selectedSavedMethodId = null }
+                    PaymentMethodSection(
+                        state = paymentFormState,
+                        savedMethods = savedMethods,
+                        submitAttempted = submitAttempted
                     )
-
-                    if (selectedSavedMethodId == null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        var providerExpanded by remember { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
-                            expanded = providerExpanded,
-                            onExpandedChange = { providerExpanded = !providerExpanded },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = cardProvider,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Circuito") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
-                                singleLine = true,
-                                shape = CatalogShapes.Field,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = CatalogColors.Accent,
-                                    unfocusedBorderColor = CatalogColors.Hairline
-                                ),
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = providerExpanded,
-                                onDismissRequest = { providerExpanded = false }
-                            ) {
-                                cardProviderOptions.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option) },
-                                        onClick = {
-                                            cardProvider = option
-                                            providerExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = cardholderName,
-                            onValueChange = { cardholderName = it },
-                            label = { Text("Intestatario carta") },
-                            placeholder = { Text("Es. Mario Rossi") },
-                            isError = cardholderNameError != null,
-                            supportingText = cardholderNameError?.let { { Text(it) } },
-                            singleLine = true,
-                            shape = CatalogShapes.Field,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CatalogColors.Accent,
-                                unfocusedBorderColor = CatalogColors.Hairline
-                            ),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = cardNumber,
-                            onValueChange = { value -> cardNumber = value.filter { it.isDigit() }.take(16) },
-                            label = { Text("Numero carta") },
-                            placeholder = { Text("Es. 4111 1111 1111 1111") },
-                            leadingIcon = { Icon(Icons.Filled.CreditCard, contentDescription = null, tint = CatalogColors.Accent) },
-                            isError = cardNumberError != null,
-                            supportingText = cardNumberError?.let { { Text(it) } },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            visualTransformation = CardNumberVisualTransformation(),
-                            singleLine = true,
-                            shape = CatalogShapes.Field,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CatalogColors.Accent,
-                                unfocusedBorderColor = CatalogColors.Hairline
-                            ),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = expiry,
-                                onValueChange = { value -> expiry = value.filter { it.isDigit() }.take(4) },
-                                label = { Text("Scadenza") },
-                                placeholder = { Text("MM/AA") },
-                                isError = expiryError != null,
-                                supportingText = expiryError?.let { { Text(it) } },
-                                visualTransformation = { text ->
-                                    val digits = text.text
-                                    val formatted = if (digits.length > 2) "${digits.take(2)}/${digits.drop(2)}" else digits
-                                    val offsetMapping = object : OffsetMapping {
-                                        override fun originalToTransformed(offset: Int): Int = if (offset > 2) offset + 1 else offset
-                                        override fun transformedToOriginal(offset: Int): Int = if (offset > 3) offset - 1 else offset.coerceAtMost(2)
-                                    }
-                                    TransformedText(AnnotatedString(formatted), offsetMapping)
-                                },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                shape = CatalogShapes.Field,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = CatalogColors.Accent,
-                                    unfocusedBorderColor = CatalogColors.Hairline
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedTextField(
-                                value = cvv,
-                                onValueChange = { value -> cvv = value.filter { it.isDigit() }.take(3) },
-                                label = { Text("CVV") },
-                                placeholder = { Text("123") },
-                                isError = cvvError != null,
-                                supportingText = cvvError?.let { { Text(it) } },
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                singleLine = true,
-                                shape = CatalogShapes.Field,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = CatalogColors.Accent,
-                                    unfocusedBorderColor = CatalogColors.Hairline
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable { saveNewCard = !saveNewCard }
-                        ) {
-                            Checkbox(
-                                checked = saveNewCard,
-                                onCheckedChange = { saveNewCard = it },
-                                colors = CheckboxDefaults.colors(checkedColor = CatalogColors.AccentDark)
-                            )
-                            Text(
-                                "Salva questo metodo di pagamento per i prossimi acquisti",
-                                style = CatalogType.Body,
-                                color = CatalogColors.InkMuted
-                            )
-                        }
-                    }
 
                     val paymentError = paymentState
                     if (paymentError is PaymentState.Error) {
@@ -596,63 +367,6 @@ fun CheckoutScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SavedPaymentMethodRow(method: PaymentMethodDto, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = CatalogShapes.Field,
-        color = if (selected) CatalogColors.AccentSoft else CatalogColors.Surface,
-        border = BorderStroke(1.dp, if (selected) CatalogColors.AccentDark else CatalogColors.Hairline),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Filled.CreditCard, contentDescription = null, tint = CatalogColors.Accent)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    "${method.cardProvider} •••• ${method.lastFourDigits ?: "----"}",
-                    style = CatalogType.BodyStrong,
-                    color = CatalogColors.Ink
-                )
-                Text("Scadenza ${method.expirationMonthYear}", style = CatalogType.Caption, color = CatalogColors.InkMuted)
-            }
-        }
-    }
-}
-
-@Composable
-private fun NewCardOptionRow(selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = CatalogShapes.Field,
-        color = if (selected) CatalogColors.AccentSoft else CatalogColors.Surface,
-        border = BorderStroke(1.dp, if (selected) CatalogColors.AccentDark else CatalogColors.Hairline),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Filled.AddCircleOutline, contentDescription = null, tint = CatalogColors.Accent)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text("Nuova carta", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
         }
     }
 }

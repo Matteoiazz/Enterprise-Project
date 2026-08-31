@@ -114,6 +114,9 @@ public class ShoppingCartService {
         if (request.roomTypeId() != null && (request.checkIn() == null || request.checkOut() == null)) {
             throw new IllegalArgumentException("checkIn e checkOut sono obbligatori per prenotare una camera d'hotel.");
         }
+        if (request.roomTypeId() != null && !request.checkOut().isAfter(request.checkIn())) {
+            throw new IllegalArgumentException("La data di check-out deve essere successiva alla data di check-in.");
+        }
 
         BigDecimal price = resolveRealPrice(catalogItem, request);
         String holdId = null;
