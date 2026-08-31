@@ -1,15 +1,19 @@
+-- Le DELETE sono scoped al seed statico (id 1-62) e alla fascia riservata ai voli
+-- ricorrenti generati più sotto (id >= 100000): un item creato da un organizzatore
+-- tramite l'app riceve sempre un id fuori da queste due fasce (vedi i setval in
+-- fondo al file), quindi resta intatto tra un riavvio e l'altro.
 DELETE FROM room_holds;
 DELETE FROM seat_holds;
-DELETE FROM room_type_images;
-DELETE FROM room_type_benefits;
-DELETE FROM room_types;
-DELETE FROM fare_classes;
-DELETE FROM catalog_images;
-DELETE FROM hotel_amenities;
-DELETE FROM flight_details;
-DELETE FROM hotel_details;
-DELETE FROM activity_details;
-DELETE FROM catalog_items;
+DELETE FROM room_type_images WHERE room_type_id IN (SELECT id FROM room_types WHERE hotel_id <= 62);
+DELETE FROM room_type_benefits WHERE room_type_id IN (SELECT id FROM room_types WHERE hotel_id <= 62);
+DELETE FROM room_types WHERE hotel_id <= 62;
+DELETE FROM fare_classes WHERE flight_id <= 62 OR flight_id >= 100000;
+DELETE FROM catalog_images WHERE catalog_item_id <= 62 OR catalog_item_id >= 100000;
+DELETE FROM hotel_amenities WHERE hotel_id <= 62;
+DELETE FROM flight_details WHERE id <= 62 OR id >= 100000;
+DELETE FROM hotel_details WHERE id <= 62;
+DELETE FROM activity_details WHERE id <= 62;
+DELETE FROM catalog_items WHERE id <= 62 OR id >= 100000;
 
 -- ==========================================
 -- VOLI (id 1-12)
@@ -680,12 +684,108 @@ INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
     ('https://images.unsplash.com/photo-1591604466107-ec97de577aff?q=80&w=1000&auto=format&fit=crop', 54);
 
 -- ==========================================
+-- HOTEL (id 55-58): coprono Napoli, Londra, Parigi e Barcellona, città già
+-- raggiungibili dai voli sopra ma finora senza un hotel a catalogo.
+-- ==========================================
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (55, 'Golfo di Napoli Hotel', 'Hotel panoramico affacciato sul golfo, a due passi da Piazza del Plebiscito.', 100.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
+INSERT INTO hotel_details (id, location_lat, location_lng, address, city) VALUES
+    (55, 40.8518, 14.2681, 'Via Partenope 20, 80121 Napoli', 'Napoli');
+INSERT INTO hotel_amenities (hotel_id, amenity) VALUES (55, 'Wi-Fi'), (55, 'Vista Mare'), (55, 'Colazione Inclusa');
+INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max_occupancy) VALUES
+    (58, 55, 'Doppia Vista Golfo', 'Camera doppia con vista sul golfo di Napoli.', 100.00, 6, 2),
+    (59, 55, 'Suite Plebiscito', 'Suite con terrazza e vista sul Vesuvio.', 165.00, 2, 3);
+INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (58, 'Vista golfo'), (59, 'Terrazza privata'), (59, 'Vista Vesuvio');
+INSERT INTO room_type_images (room_type_id, image_url) VALUES (58, 'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=1000&auto=format&fit=crop'), (59, 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?q=80&w=1000&auto=format&fit=crop');
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+                                                            ('https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?q=80&w=1000&auto=format&fit=crop', 55),
+                                                            ('https://images.unsplash.com/photo-1519821172141-b5d8342c2a24?q=80&w=1000&auto=format&fit=crop', 55);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (56, 'Thames View Hotel', 'Hotel boutique sul Tamigi, a pochi passi da Westminster e dal London Eye.', 160.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
+INSERT INTO hotel_details (id, location_lat, location_lng, address, city) VALUES
+    (56, 51.5007, -0.1246, 'York Road 15, London SE1 7NX', 'Londra');
+INSERT INTO hotel_amenities (hotel_id, amenity) VALUES (56, 'Wi-Fi'), (56, 'Colazione Inclusa'), (56, 'Bar');
+INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max_occupancy) VALUES
+    (60, 56, 'Doppia Standard', 'Camera doppia in stile londinese.', 160.00, 8, 2),
+    (61, 56, 'Suite Westminster', 'Suite con vista su Westminster e sul London Eye.', 260.00, 3, 3);
+INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (60, 'Stile londinese'), (61, 'Vista Westminster'), (61, 'Vista London Eye');
+INSERT INTO room_type_images (room_type_id, image_url) VALUES (60, 'https://images.unsplash.com/photo-1595576508898-0ad5c879a061?q=80&w=1000&auto=format&fit=crop'), (61, 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?q=80&w=1000&auto=format&fit=crop');
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+                                                            ('https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1000&auto=format&fit=crop', 56),
+                                                            ('https://images.unsplash.com/photo-1520986606214-8b456906c813?q=80&w=1000&auto=format&fit=crop', 56);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (57, 'Le Marais Boutique Hotel', 'Hotel elegante nel quartiere del Marais, vicino al Louvre e a Notre-Dame.', 175.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 5);
+INSERT INTO hotel_details (id, location_lat, location_lng, address, city) VALUES
+    (57, 48.8606, 2.3376, 'Rue de Rivoli 30, 75004 Paris', 'Parigi');
+INSERT INTO hotel_amenities (hotel_id, amenity) VALUES (57, 'Wi-Fi'), (57, 'Colazione Inclusa'), (57, 'Room Service');
+INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max_occupancy) VALUES
+    (62, 57, 'Doppia Marais', 'Camera doppia in stile parigino.', 175.00, 5, 2),
+    (63, 57, 'Suite Louvre', 'Suite con vista sui tetti di Parigi.', 290.00, 2, 3);
+INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (62, 'Stile parigino'), (63, 'Vista sui tetti'), (63, 'Vicino al Louvre');
+INSERT INTO room_type_images (room_type_id, image_url) VALUES (62, 'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=1000&auto=format&fit=crop'), (63, 'https://images.unsplash.com/photo-1595576508898-0ad5c879a061?q=80&w=1000&auto=format&fit=crop');
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+                                                            ('https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1000&auto=format&fit=crop', 57),
+                                                            ('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000&auto=format&fit=crop', 57);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (58, 'Gaudí Central Hotel', 'Hotel moderno a pochi passi dalla Sagrada Família e dal Passeig de Gràcia.', 118.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
+INSERT INTO hotel_details (id, location_lat, location_lng, address, city) VALUES
+    (58, 41.4036, 2.1744, 'Carrer de Mallorca 401, 08013 Barcelona', 'Barcellona');
+INSERT INTO hotel_amenities (hotel_id, amenity) VALUES (58, 'Wi-Fi'), (58, 'Piscina'), (58, 'Colazione Inclusa');
+INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max_occupancy) VALUES
+    (64, 58, 'Doppia Sagrada', 'Camera doppia con vista sulla Sagrada Família.', 118.00, 7, 2),
+    (65, 58, 'Suite Passeig', 'Suite con terrazza sul Passeig de Gràcia.', 195.00, 3, 3);
+INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (64, 'Vista Sagrada Família'), (65, 'Terrazza privata'), (65, 'Vista Passeig de Gràcia');
+INSERT INTO room_type_images (room_type_id, image_url) VALUES (64, 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?q=80&w=1000&auto=format&fit=crop'), (65, 'https://images.unsplash.com/photo-1595576508898-0ad5c879a061?q=80&w=1000&auto=format&fit=crop');
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+                                                            ('https://images.unsplash.com/photo-1583422409516-2895a77efded?q=80&w=1000&auto=format&fit=crop', 58),
+                                                            ('https://images.unsplash.com/photo-1523531294919-4bcd7c65e216?q=80&w=1000&auto=format&fit=crop', 58);
+
+-- ==========================================
+-- ATTIVITÀ (id 59-62): coprono Firenze, Milano, Torino e Bologna, città già
+-- presenti tra gli hotel/voli ma finora senza un'attività a catalogo.
+-- ==========================================
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (59, 'Tour degli Uffizi e Ponte Vecchio', 'Visita guidata alla Galleria degli Uffizi e passeggiata fino a Ponte Vecchio.', 48.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (59, 'Cultura e Storia', '3 ore', 'Piazzale degli Uffizi', 'Firenze', 18, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1543429257-3e7c2c6d4d9b?q=80&w=1000&auto=format&fit=crop', 59);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (60, 'Passeggiata Serale nel Quadrilatero della Moda', 'Tour a piedi tra le vie dello shopping di lusso, con arrivo in Piazza Duomo al tramonto.', 30.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 4);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (60, 'Tour Urbano', '2 ore', 'Piazza Duomo', 'Milano', 20, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1512149673953-4e0a0dfbe8e0?q=80&w=1000&auto=format&fit=crop', 60);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (61, 'Tour del Cioccolato Torinese', 'Degustazione guidata nelle storiche cioccolaterie del centro di Torino.', 38.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (61, 'Enogastronomia', '2 ore e mezza', 'Piazza Castello', 'Torino', 14, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1481391319762-47dff72954d9?q=80&w=1000&auto=format&fit=crop', 61);
+
+INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
+    (62, 'Tour Gastronomico dei Portici', 'Degustazione itinerante tra le botteghe storiche sotto i portici di Bologna.', 45.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
+INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
+    (62, 'Enogastronomia', '3 ore', 'Piazza Maggiore', 'Bologna', 16, true);
+INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
+    ('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1000&auto=format&fit=crop', 62);
+
+-- ==========================================
 -- VOLI RICORRENTI (Roma<->New York, New York<->Toronto, Toronto<->Roma)
 -- Un volo al giorno per 60 giorni da oggi, così un itinerario costruito con
 -- date scelte liberamente dall'utente trova sempre un volo compatibile.
--- Gli id vengono calcolati a partire dal MAX(id) attuale (catturato UNA sola
--- volta in una tabella temporanea) per non collidere con i dati sopra, anche
--- se in futuro si aggiungono altri item prima di questo blocco.
+-- Gli id (catalog_items/flight_details a partire da 100000, fare_classes a
+-- partire da 100000) sono fissi e riservati a questo blocco, indipendenti da
+-- quanti item il seed statico o gli organizzatori aggiungono altrove: questo
+-- è ciò che permette alla DELETE in testa al file di rigenerarli ogni avvio
+-- senza toccare i dati creati dagli organizzatori.
 -- ==========================================
 
 CREATE TEMP TABLE tmp_recurring_flights AS
@@ -702,7 +802,7 @@ days AS (
     SELECT generate_series(CURRENT_DATE + 1, CURRENT_DATE + 60, INTERVAL '1 day')::date AS the_day
 )
 SELECT
-    (SELECT MAX(id) FROM catalog_items) + (route_order * 60)
+    100000 + (route_order * 60)
         + (ROW_NUMBER() OVER (PARTITION BY route_order ORDER BY the_day)) AS item_id,
     ROW_NUMBER() OVER (ORDER BY route_order, the_day) AS seq,
     dep_airport, arr_airport, dep_city, arr_city,
@@ -722,10 +822,10 @@ SELECT item_id, dep_airport, arr_airport, dep_city, arr_city, dep_ts, arr_ts, 12
 FROM tmp_recurring_flights;
 
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats)
-SELECT (SELECT MAX(id) FROM fare_classes) + (seq * 2) - 1, item_id, 'Economy', base_price, 96
+SELECT 100000 + (seq * 2) - 1, item_id, 'Economy', base_price, 96
 FROM tmp_recurring_flights
 UNION ALL
-SELECT (SELECT MAX(id) FROM fare_classes) + (seq * 2), item_id, 'Business', round(base_price * 2.2, 2), 24
+SELECT 100000 + (seq * 2), item_id, 'Business', round(base_price * 2.2, 2), 24
 FROM tmp_recurring_flights;
 
 DROP TABLE tmp_recurring_flights;
@@ -734,8 +834,12 @@ DROP TABLE tmp_recurring_flights;
 
 -- ==========================================
 -- SINCRONIZZAZIONE SEQUENZE POSTGRESQL
+-- Per catalog_items e fare_classes la sequenza si basa solo sugli id sotto la
+-- fascia 100000 (riservata ai voli ricorrenti sopra): così un item creato da
+-- un organizzatore riceve sempre un id fuori da quella fascia, e la DELETE
+-- scoped in testa al file non lo tocca mai.
 -- ==========================================
-SELECT setval(pg_get_serial_sequence('catalog_items', 'id'), (SELECT MAX(id) FROM catalog_items));
+SELECT setval(pg_get_serial_sequence('catalog_items', 'id'), GREATEST(999, (SELECT COALESCE(MAX(id), 0) FROM catalog_items WHERE id < 100000)));
 SELECT setval(pg_get_serial_sequence('catalog_images', 'id'), COALESCE((SELECT MAX(id) FROM catalog_images), 1));
 SELECT setval(pg_get_serial_sequence('room_types', 'id'), (SELECT MAX(id) FROM room_types));
-SELECT setval(pg_get_serial_sequence('fare_classes', 'id'), (SELECT MAX(id) FROM fare_classes));
+SELECT setval(pg_get_serial_sequence('fare_classes', 'id'), GREATEST(999, (SELECT COALESCE(MAX(id), 0) FROM fare_classes WHERE id < 100000)));
