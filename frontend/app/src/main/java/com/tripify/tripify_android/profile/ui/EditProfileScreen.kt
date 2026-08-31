@@ -49,6 +49,7 @@ fun EditProfileScreen(
 
     var phone by remember(viewModel.phone) { mutableStateOf(viewModel.phone) }
     var address by remember(viewModel.address) { mutableStateOf(viewModel.address) }
+    var pec by remember(viewModel.pec) { mutableStateOf(viewModel.pec) }
 
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -62,6 +63,7 @@ fun EditProfileScreen(
     }
 
     val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    val isPecValid = pec.isBlank() || Patterns.EMAIL_ADDRESS.matcher(pec).matches()
     val hasMinLength = newPassword.length >= 8
     val hasUpper = newPassword.any { it.isUpperCase() }
     val hasDigit = newPassword.any { it.isDigit() }
@@ -71,6 +73,7 @@ fun EditProfileScreen(
     val isFormValid = isEmailValid && isPasswordValid && passwordsMatch
 
     val cardOverlap = 32.dp
+    val securityOffset = if (viewModel.companyName.isNotBlank()) 0.dp else -cardOverlap + 16.dp
 
     Scaffold(
         containerColor = CatalogColors.Background,
@@ -151,8 +154,47 @@ fun EditProfileScreen(
                 }
             }
 
+            if (viewModel.companyName.isNotBlank()) {
+                item(key = "business_data") {
+                    Box(modifier = Modifier.offset(y = -cardOverlap + 16.dp).padding(horizontal = CatalogSpacing.Gutter)) {
+                        ProfileContentCard {
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                ProfileSectionHeader("Dati Aziendali")
+
+                                ProfileOutlinedTextField(
+                                    value = pec,
+                                    label = "PEC",
+                                    icon = Icons.Default.Mail,
+                                    isError = !isPecValid,
+                                    supportingText = if (!isPecValid) "Formato non valido" else null,
+                                    keyboardType = KeyboardType.Email,
+                                    onValueChange = { pec = it }
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Button(
+                                    onClick = { viewModel.updatePec(pec) {} },
+                                    enabled = isPecValid && pec.isNotBlank() && pec != viewModel.pec,
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CatalogColors.AccentDark,
+                                        disabledContainerColor = CatalogColors.SurfaceMuted,
+                                        disabledContentColor = CatalogColors.InkSubtle
+                                    ),
+                                    shape = CatalogShapes.Pill,
+                                    elevation = ButtonDefaults.buttonElevation(0.dp)
+                                ) {
+                                    Text("SALVA PEC", style = CatalogType.Button)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item(key = "security") {
-                Box(modifier = Modifier.offset(y = -cardOverlap + 16.dp).padding(horizontal = CatalogSpacing.Gutter)) {
+                Box(modifier = Modifier.offset(y = securityOffset).padding(horizontal = CatalogSpacing.Gutter)) {
                     ProfileContentCard {
                         Column(modifier = Modifier.padding(24.dp)) {
                             ProfileSectionHeader("Sicurezza")

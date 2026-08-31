@@ -125,6 +125,17 @@ public class ProfileController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/me/pec")
+    public ResponseEntity<Void> updateMyPec(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody com.tripify.user_auth_service.dto.request.UpdatePecRequestDTO request) {
+
+        String email = jwt.getClaimAsString("email");
+        profileService.updatePec(email, request.getPec());
+
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/me/picture")
     public ResponseEntity<java.util.Map<String, String>> uploadProfilePicture(
             @AuthenticationPrincipal Jwt jwt,

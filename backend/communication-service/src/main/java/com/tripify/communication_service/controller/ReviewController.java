@@ -55,7 +55,10 @@ public class ReviewController {
     }
 
     @GetMapping("/traveler/{travelerId}")
-    public ResponseEntity<List<Review>> getReviewsByTraveler(@PathVariable String travelerId) {
+    public ResponseEntity<List<Review>> getReviewsByTraveler(@AuthenticationPrincipal Jwt jwt, @PathVariable String travelerId) {
+        if (!jwt.getSubject().equals(travelerId)) {
+            throw new IllegalStateException("Non autorizzato a visualizzare le recensioni di un altro utente");
+        }
         return ResponseEntity.ok(reviewService.getReviewsByTraveler(travelerId));
     }
 

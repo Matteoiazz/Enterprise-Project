@@ -11,7 +11,9 @@ import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.BuildConfig
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.data.model.UpdatePecRequest
 import com.tripify.tripify_android.data.model.UpdateProfileRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
@@ -31,6 +33,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     var phone by mutableStateOf("")
     var address by mutableStateOf("")
+    var companyName by mutableStateOf("")
+    var pec by mutableStateOf("")
 
     var isLoading by mutableStateOf(false)
     var isUploadingImage by mutableStateOf(false)
@@ -58,11 +62,15 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     profilePictureUrl = user.profilePictureUrl
                     phone = user.phone ?: ""
                     address = user.address ?: ""
+                    companyName = user.companyName ?: ""
+                    pec = user.pec ?: ""
 
                     tokenManager.refreshAccessToken()
                 } else {
                     errorMessage = "Impossibile recuperare i dati. Errore: ${response.code()}"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
                 errorMessage = "Errore: ${e.localizedMessage}"
@@ -95,6 +103,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
                         ?: "Errore caricamento immagine: ${response.code()}"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
                 errorMessage = "Errore di rete: ${e.localizedMessage}"
@@ -156,6 +166,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
                         ?: "Errore durante il salvataggio: ${response.code()}"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
                 errorMessage = "Errore di rete: ${e.localizedMessage}"
@@ -209,10 +221,36 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             isLoadingOrganizers = true
             try {
                 organizersList = profileApi.getOrganizers()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
                 isLoadingOrganizers = false
+            }
+        }
+    }
+
+    fun updatePec(newPec: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                val response = profileApi.updatePec(UpdatePecRequest(newPec))
+                if (response.isSuccessful) {
+                    pec = newPec
+                    onSuccess()
+                } else {
+                    errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
+                        ?: "Errore durante il salvataggio: ${response.code()}"
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+                errorMessage = "Errore di rete: ${e.localizedMessage}"
+            } finally {
+                isLoading = false
             }
         }
     }
