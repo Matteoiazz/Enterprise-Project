@@ -255,7 +255,8 @@ fun TripifyApp(
                     catalogViewModel = catalogViewModel,
                     onNavigateToCart = { navController.navigate(Route.Cart.path) },
                     onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) },
-                    onShowBoardingPassClick = { bookingId -> navController.navigate(Route.BoardingPass.path(bookingId)) }
+                    onShowBoardingPassClick = { bookingId -> navController.navigate(Route.BoardingPass.path(bookingId)) },
+                    onBookingClick = { bookingId -> navController.navigate(Route.BookingDetail.path(bookingId)) }
                 )
             }
 
@@ -263,6 +264,18 @@ fun TripifyApp(
             composable(Route.BoardingPass.path) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
                 com.tripify.tripify_android.booking.ui.BoardingPassScreen(
+                    viewModel = bookingViewModel,
+                    catalogViewModel = catalogViewModel,
+                    bookingId = bookingId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // ROTTA: Riepilogo completo di una prenotazione (solo confermate,
+            // vedi BookingCard)
+            composable(Route.BookingDetail.path) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
+                com.tripify.tripify_android.booking.ui.BookingDetailScreen(
                     viewModel = bookingViewModel,
                     catalogViewModel = catalogViewModel,
                     bookingId = bookingId,
@@ -293,6 +306,7 @@ fun TripifyApp(
                 CheckoutScreen(
                     viewModel = cartViewModel,
                     catalogViewModel = catalogViewModel,
+                    bookingViewModel = bookingViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onPaymentSuccess = {
                         // Stesso pattern deterministico delle tab della bottom bar (vedi
