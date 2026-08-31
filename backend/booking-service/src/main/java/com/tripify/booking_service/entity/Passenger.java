@@ -59,5 +59,6 @@ public class Passenger {
     private String qrCodeData;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean checkedIn = false;
 }

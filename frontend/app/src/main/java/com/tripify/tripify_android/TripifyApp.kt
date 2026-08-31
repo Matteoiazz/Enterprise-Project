@@ -272,7 +272,8 @@ fun TripifyApp(
                     onNavigateToCart = { navController.navigate(Route.Cart.path) },
                     onAddPassengersClick = { bookingId -> navController.navigate(Route.AddPassengers.path(bookingId)) },
                     onShowBoardingPassClick = { bookingId -> navController.navigate(Route.BoardingPass.path(bookingId)) },
-                    onBookingClick = { bookingId -> navController.navigate(Route.BookingDetail.path(bookingId)) }
+                    onBookingClick = { bookingId -> navController.navigate(Route.BookingDetail.path(bookingId)) },
+                    onRetryPaymentClick = { bookingId -> navController.navigate(Route.RetryPayment.path(bookingId)) }
                 )
             }
 
@@ -306,6 +307,19 @@ fun TripifyApp(
                     catalogViewModel = catalogViewModel,
                     bookingId = bookingId,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // ROTTA: riprova il pagamento di una prenotazione rimasta PENDING
+            // (es. carta rifiutata al primo tentativo), senza rifare il checkout.
+            composable(Route.RetryPayment.path) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId")?.toLongOrNull() ?: 0L
+                com.tripify.tripify_android.booking.ui.RetryPaymentScreen(
+                    viewModel = bookingViewModel,
+                    catalogViewModel = catalogViewModel,
+                    bookingId = bookingId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onPaymentSuccess = { navController.popBackStack() }
                 )
             }
 

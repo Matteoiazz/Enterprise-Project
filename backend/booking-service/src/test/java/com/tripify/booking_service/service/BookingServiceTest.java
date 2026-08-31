@@ -5,12 +5,15 @@ import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
 import com.tripify.booking_service.dto.HoldResultDTO;
+import com.tripify.booking_service.entity.Booking;
 import com.tripify.booking_service.entity.BookingStatus;
 import com.tripify.booking_service.exception.AccessDeniedException;
 import com.tripify.booking_service.exception.EmptyCartException;
 import com.tripify.booking_service.exception.InvalidBookingStateException;
 import com.tripify.booking_service.exception.PaymentValidationException;
 import com.tripify.booking_service.messaging.BookingEventPublisher;
+import com.tripify.booking_service.repository.BookingRepository;
+import feign.FeignException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +53,8 @@ class BookingServiceTest {
     private BookingService bookingService;
     @Autowired
     private ShoppingCartService cartService;
+    @Autowired
+    private BookingRepository bookingRepository;
     @MockitoBean
     private CatalogClient catalogClient;
     @MockitoBean
@@ -168,6 +173,29 @@ class BookingServiceTest {
                 .isInstanceOf(InvalidBookingStateException.class);
     }
 
+    // Simula il caso reale del retry di un pagamento su una Booking rimasta
+    // PENDING a lungo: nel frattempo il blocco su catalog-service è scaduto
+    // (409 sul confirm), quindi la conferma deve fallire con un messaggio
+    // chiaro invece di un errore di integrazione generico, e la Booking deve
+    // restare PENDING (nessuna conferma parziale).
+    @Test
+    void confirmPaymentSegnalaChiaramenteUnHoldNonPiuDisponibile() {
+        when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, 7L, null, null));
+        BookingResponseDTO booking = bookingService.checkout(LEADER_ID);
+
+        FeignException expired = mock(FeignException.class);
+        when(expired.status()).thenReturn(409);
+        doThrow(expired).when(catalogClient).confirmHold("seat-1");
+
+        assertThatThrownBy(() -> bookingService.confirmPayment(booking.id(), LEADER_ID, booking.totalAmount()))
+                .isInstanceOf(InvalidBookingStateException.class)
+                .hasMessageContaining("non sono più disponibili");
+
+        Booking stillPending = bookingRepository.findById(booking.id()).orElseThrow();
+        assertThat(stillPending.getStatus()).isEqualTo(BookingStatus.PENDING);
+    }
+
     @Test
     void cancelBookingRilasciaGliHoldSeNonEraAncoraConfermata() {
         when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
@@ -220,6 +248,15 @@ class BookingServiceTest {
     }
 
     @Test
+    void inviteFriendRifiutaSeLaPrenotazioneEAnnullata() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        bookingService.cancelBooking(booking.id(), LEADER_ID);
+
+        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, "amico-1"))
+                .isInstanceOf(InvalidBookingStateException.class);
+    }
+
+    @Test
     void addPassengerRispettaIlLimiteDiQuantityDellaRiga() {
         BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID); // quantity = 2
         Long lineId = booking.lines().get(0).id();
@@ -248,6 +285,16 @@ class BookingServiceTest {
 
         assertThatThrownBy(() -> bookingService.addPassenger(lineId, OTHER_USER_ID, passengerRequest("Mario", "Rossi")))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void addPassengerRifiutaSeLaPrenotazioneEAnnullata() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        Long lineId = booking.lines().get(0).id();
+        bookingService.cancelBooking(booking.id(), LEADER_ID);
+
+        assertThatThrownBy(() -> bookingService.addPassenger(lineId, LEADER_ID, passengerRequest("Mario", "Rossi")))
+                .isInstanceOf(InvalidBookingStateException.class);
     }
 
     @Test

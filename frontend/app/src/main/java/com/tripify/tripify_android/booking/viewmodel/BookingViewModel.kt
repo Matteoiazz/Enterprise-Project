@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.booking.model.BoardingPassState
 import com.tripify.tripify_android.booking.model.BookingState
+import com.tripify.tripify_android.booking.model.PaymentState
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.BookingResponseDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
+import com.tripify.tripify_android.data.model.PaymentMethodDto
+import com.tripify.tripify_android.data.model.PaymentRequestDTO
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.data.parseErrorMessage // AGGIUNTO L'IMPORT PER LA MAGIA!
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -164,6 +167,76 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } catch (e: Exception) {
                 onError("Nessuna connessione: ${e.message}")
             }
+        }
+    }
+
+    // 4. Riprova il pagamento di una prenotazione rimasta PENDING (es. carta
+    // rifiutata al primo tentativo): a differenza del checkout in CartViewModel,
+    // qui la Booking esiste già, si chiama solo /payments/process direttamente
+    // sul suo id. Se nel frattempo il blocco di una camera/posto è scaduto,
+    // il backend rifiuta con un messaggio chiaro (vedi BookingService.confirmPayment)
+    // invece di confermare qualcosa che potrebbe essere stato preso da altri.
+    private val _paymentState = MutableStateFlow<PaymentState>(PaymentState.Idle)
+    val paymentState: StateFlow<PaymentState> = _paymentState
+
+    private val _savedPaymentMethods = MutableStateFlow<List<PaymentMethodDto>>(emptyList())
+    val savedPaymentMethods: StateFlow<List<PaymentMethodDto>> = _savedPaymentMethods
+
+    fun fetchSavedPaymentMethods() {
+        viewModelScope.launch {
+            try {
+                val response = api.getSavedPaymentMethods()
+                if (response.isSuccessful && response.body() != null) {
+                    _savedPaymentMethods.value = response.body()!!
+                }
+            } catch (e: Exception) {
+                // Il pagamento resta possibile inserendo una carta nuova.
+            }
+        }
+    }
+
+    fun resetPaymentState() {
+        _paymentState.value = PaymentState.Idle
+    }
+
+    fun retryPaymentWithSavedMethod(bookingId: Long, amount: Double, paymentMethodId: String) {
+        viewModelScope.launch {
+            _paymentState.value = PaymentState.Processing
+            try {
+                val response = api.processPayment(
+                    PaymentRequestDTO(bookingId = bookingId, amount = amount, paymentMethodId = paymentMethodId)
+                )
+                handleRetryPaymentResponse(bookingId, response)
+            } catch (e: Exception) {
+                _paymentState.value = PaymentState.Error("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
+
+    fun retryPaymentWithNewCard(bookingId: Long, amount: Double, cardNumber: String) {
+        viewModelScope.launch {
+            _paymentState.value = PaymentState.Processing
+            try {
+                val response = api.processPayment(
+                    PaymentRequestDTO(bookingId = bookingId, amount = amount, cardNumber = cardNumber)
+                )
+                handleRetryPaymentResponse(bookingId, response)
+            } catch (e: Exception) {
+                _paymentState.value = PaymentState.Error("Nessuna connessione: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun handleRetryPaymentResponse(
+        bookingId: Long,
+        response: retrofit2.Response<com.tripify.tripify_android.data.model.PaymentResultDTO>
+    ) {
+        if (response.isSuccessful && response.body()?.success == true) {
+            _paymentState.value = PaymentState.Success(bookingId)
+            fetchUserBookings()
+        } else {
+            val message = response.body()?.message ?: response.parseErrorMessage()
+            _paymentState.value = PaymentState.Error(message)
         }
     }
 }

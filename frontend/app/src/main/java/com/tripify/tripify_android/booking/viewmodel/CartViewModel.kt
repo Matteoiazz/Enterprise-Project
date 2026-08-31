@@ -163,9 +163,15 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // guestsByCartItemId: dati degli ospiti raccolti in CheckoutScreen PRIMA di
     // pagare, inviati SUBITO DOPO un pagamento riuscito (servono gli id delle
     // BookingLine appena create, che non esistono prima). L'abbinamento tra
-    // articolo del carrello e riga della Booking è per posizione: entrambe le
-    // liste derivano dallo stesso ordine di cart.getItems() lato backend, quindi
-    // filtrarle allo stesso modo mantiene la corrispondenza.
+    // articolo del carrello e riga della Booking NON può essere per posizione:
+    // se un articolo scade (hold purge) tra il caricamento del carrello mostrato
+    // in CheckoutScreen e questa chiamata, il checkout lato server produce meno
+    // righe di quelle previste e uno zip per indice sposterebbe gli ospiti sulla
+    // riga sbagliata. Si abbina invece per "firma" (stesso catalogItemId/
+    // roomTypeId/fareClassId/checkIn/checkOut), consumando ogni riga una sola
+    // volta: un articolo senza più una riga corrispondente perde solo i suoi
+    // ospiti (recuperabili dopo da "Le mie prenotazioni"), non li assegna a un
+    // altro articolo.
     private suspend fun checkoutThenPay(
         guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap(),
         buildRequest: (booking: BookingResponseDTO) -> PaymentRequestDTO
@@ -186,7 +192,18 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
         return if (paymentResponse.isSuccessful && paymentResponse.body()?.success == true) {
             _paymentState.value = PaymentState.Success(booking.id)
 
-            orderedSelectedItems.zip(booking.lines).forEach { (cartItem, line) ->
+            val remainingLines = booking.lines.toMutableList()
+            orderedSelectedItems.forEach { cartItem ->
+                val lineIndex = remainingLines.indexOfFirst { line ->
+                    line.catalogItemId == cartItem.catalogItemId &&
+                        line.roomTypeId == cartItem.roomTypeId &&
+                        line.fareClassId == cartItem.fareClassId &&
+                        line.checkIn == cartItem.checkIn &&
+                        line.checkOut == cartItem.checkOut
+                }
+                if (lineIndex == -1) return@forEach
+                val line = remainingLines.removeAt(lineIndex)
+
                 guestsByCartItemId[cartItem.id].orEmpty().forEach { guest ->
                     try {
                         api.addPassenger(line.id, guest)
