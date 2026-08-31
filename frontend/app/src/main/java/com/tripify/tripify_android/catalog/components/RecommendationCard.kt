@@ -6,16 +6,20 @@ import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.formattedPrice
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 
 @Composable
 fun RecommendationCard(
     item: CatalogItem,
     onClick: () -> Unit
 ) {
+    val currency by rememberCatalogCurrency()
     PhotoCard(
         imageUrl = item.imageUrl,
         eyebrow = when (item) {
@@ -23,7 +27,7 @@ fun RecommendationCard(
             is CatalogItem.Hotel -> "Hotel"
             is CatalogItem.Excursion -> item.activityType
         },
-        price = item.price,
+        price = item.formattedPrice(currency),
         title = item.title,
         onClick = onClick,
         modifier = Modifier.width(158.dp),

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Tour
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,12 +20,15 @@ import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.formattedPrice
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 
 @Composable
 fun ExcursionResultCard(
     excursion: CatalogItem.Excursion,
     onClick: () -> Unit
 ) {
+    val currency by rememberCatalogCurrency()
     Card(
         shape = CatalogShapes.Card,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -78,7 +82,7 @@ fun ExcursionResultCard(
 
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = excursion.price,
+                        text = excursion.formattedPrice(currency),
                         style = CatalogType.Price,
                         color = CatalogColors.AccentDark
                     )

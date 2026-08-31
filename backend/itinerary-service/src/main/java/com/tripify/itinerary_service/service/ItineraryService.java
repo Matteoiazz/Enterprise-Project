@@ -55,7 +55,7 @@ public class ItineraryService {
     }
 
     public void addItemToList(Long listId, AddListItemRequestDTO request, String requesterId) {
-        FavoriteList list = getOwnedList(listId, requesterId);
+        FavoriteList list = getEditableList(listId, requesterId);
         FavoriteListItem newItem = FavoriteListItem.builder()
                 .catalogItemId(request.catalogItemId())
                 .quantity(request.quantity() != null ? request.quantity() : 1)
@@ -99,7 +99,7 @@ public class ItineraryService {
      * tornano nel risultato così il chiamante può avvisare l'utente.
      */
     public RemoveItemResultDTO removeItemFromList(Long listId, int index, String requesterId) {
-        FavoriteList list = getOwnedList(listId, requesterId);
+        FavoriteList list = getEditableList(listId, requesterId);
         if (index < 0 || index >= list.getItems().size()) {
             throw new IllegalArgumentException("Componente non trovato in questa lista");
         }
@@ -380,10 +380,10 @@ public class ItineraryService {
         return list;
     }
 
+    /** L'accesso via link non dipende dalla visibilità: basta un token valido (vedi enableLinkSharing). */
     public FavoriteList getByPublicToken(String token) {
         return repository.findByPublicToken(token)
-                .filter(list -> list.getVisibility() == Visibility.PUBLIC)
-                .orElseThrow(() -> new ListNotFoundException("Nessuna lista pubblica trovata per questo link"));
+                .orElseThrow(() -> new ListNotFoundException("Link non valido o non più attivo"));
     }
 
     /** Valorizza likedByMe su una lista in base a chi sta guardando (null se non autenticato). */
@@ -400,6 +400,9 @@ public class ItineraryService {
      * Cambia la visibilità di una lista. Per passare a PUBLIC serve una città esplicita
      * (non derivata dai componenti) e il requisito minimo di componenti (2 voli, 1 hotel,
      * 1 attività) — verificato interrogando catalog-service per ciascun componente.
+     * Non tocca il link di condivisione: è un controllo indipendente (vedi
+     * enableLinkSharing/disableLinkSharing), diventare pubblici ne crea uno se manca
+     * ancora, ma tornare privati non lo revoca più automaticamente.
      */
     public FavoriteList setVisibility(Long listId, Visibility newVisibility, String city, String requesterId) {
         FavoriteList list = getOwnedList(listId, requesterId);
@@ -410,11 +413,84 @@ public class ItineraryService {
             }
             validatePublishRequirements(list);
             list.setCity(city.trim());
-            // Un nuovo link a ogni pubblicazione: se la lista era stata resa privata,
-            // un vecchio link salvato da qualcuno non deve tornare valido da solo.
-            list.setPublicToken(UUID.randomUUID().toString());
+            ensureLinkToken(list);
         }
         list.setVisibility(newVisibility);
+        return repository.save(list);
+    }
+
+    /**
+     * Attiva il link di condivisione (capabilities) su una lista privata o condivisa,
+     * senza richiedere i requisiti minimi di pubblicazione né renderla ricercabile
+     * nel feed pubblico: è un controllo indipendente dalla visibilità, per poter
+     * mandare a qualcuno un itinerario ancora in bozza senza esporlo a tutti.
+     */
+    public FavoriteList enableLinkSharing(Long listId, String requesterId) {
+        FavoriteList list = getOwnedList(listId, requesterId);
+        ensureLinkToken(list);
+        return repository.save(list);
+    }
+
+    /** Revoca il link: chi lo aveva salvato non potrà più usarlo. La visibilità non cambia. */
+    public FavoriteList disableLinkSharing(Long listId, String requesterId) {
+        FavoriteList list = getOwnedList(listId, requesterId);
+        list.setPublicToken(null);
+        return repository.save(list);
+    }
+
+    private void ensureLinkToken(FavoriteList list) {
+        if (list.getPublicToken() == null) {
+            list.setPublicToken(UUID.randomUUID().toString());
+        }
+    }
+
+    /**
+     * Attiva il link di invito: chi lo apre da loggato (vedi joinAsCollaborator) può
+     * modificare la lista, non solo vederla — un accesso ben più ampio del link di
+     * sola visualizzazione, quindi un token separato.
+     */
+    public FavoriteList enableCollabInvite(Long listId, String requesterId) {
+        FavoriteList list = getOwnedList(listId, requesterId);
+        if (list.getCollabToken() == null) {
+            list.setCollabToken(UUID.randomUUID().toString());
+        }
+        return repository.save(list);
+    }
+
+    /** Revoca l'invito: chi lo aveva salvato non può più usarlo per unirsi. I collaboratori già aggiunti restano. */
+    public FavoriteList disableCollabInvite(Long listId, String requesterId) {
+        FavoriteList list = getOwnedList(listId, requesterId);
+        list.setCollabToken(null);
+        return repository.save(list);
+    }
+
+    /**
+     * Chi apre il link di invito da loggato entra come collaboratore (può modificare
+     * la lista): stesso meccanismo di shareList, ma è chi si unisce ad agire su se
+     * stesso, non il proprietario ad aggiungere qualcuno che conosce già.
+     */
+    @Transactional
+    public FavoriteList joinAsCollaborator(String collabToken, String joinerId) {
+        FavoriteList list = repository.findByCollabToken(collabToken)
+                .orElseThrow(() -> new ListNotFoundException("Link di invito non valido o non più attivo"));
+
+        if (!list.getOwnerId().equals(joinerId) && !list.getSharedUserIds().contains(joinerId)) {
+            list.getSharedUserIds().add(joinerId);
+            if (list.getVisibility() == Visibility.PRIVATE) {
+                list.setVisibility(Visibility.SHARED);
+            }
+            repository.save(list);
+        }
+        return list;
+    }
+
+    /** Rinomina la lista: solo il proprietario, come le altre modifiche "strutturali". */
+    public FavoriteList renameList(Long listId, String newName, String requesterId) {
+        if (newName == null || newName.isBlank()) {
+            throw new IllegalArgumentException("Il nome dell'itinerario non può essere vuoto");
+        }
+        FavoriteList list = getOwnedList(listId, requesterId);
+        list.setName(newName.trim());
         return repository.save(list);
     }
 
@@ -478,10 +554,12 @@ public class ItineraryService {
     /**
      * Incrementa il contatore "prenotazioni tentate" quando l'utente preme "prenota
      * tutto": è un contatore best-effort, non collegato all'esito reale del pagamento
-     * in booking-service (che itinerary-service non tocca).
+     * in booking-service (che itinerary-service non tocca). Richiede lo stesso accesso
+     * di lettura della lista (pubblica, propria o condivisa), altrimenti chiunque con
+     * un JWT valido potrebbe gonfiare il contatore di un itinerario altrui a piacere.
      */
-    public void registerBookingAttempt(Long listId) {
-        FavoriteList list = getById(listId);
+    public void registerBookingAttempt(Long listId, String requesterId) {
+        FavoriteList list = getAccessibleById(listId, requesterId);
         list.setBookingsCount(list.getBookingsCount() + 1);
         repository.save(list);
     }
@@ -513,7 +591,7 @@ public class ItineraryService {
         }
 
         if (successCount > 0) {
-            registerBookingAttempt(listId);
+            registerBookingAttempt(listId, requesterId);
         }
         return new BookAllResultDTO(successCount, list.getItems().size(), errors);
     }
@@ -522,6 +600,16 @@ public class ItineraryService {
         FavoriteList list = getById(listId);
         if (!list.getOwnerId().equals(requesterId)) {
             throw new NotListOwnerException();
+        }
+        return list;
+    }
+
+    /** Come getOwnedList, ma ammette anche i collaboratori (sharedUserIds) per le modifiche di contenuto. */
+    private FavoriteList getEditableList(Long listId, String requesterId) {
+        FavoriteList list = getById(listId);
+        boolean canEdit = list.getOwnerId().equals(requesterId) || list.getSharedUserIds().contains(requesterId);
+        if (!canEdit) {
+            throw new NotListOwnerException("Non hai i permessi per modificare questa lista");
         }
         return list;
     }

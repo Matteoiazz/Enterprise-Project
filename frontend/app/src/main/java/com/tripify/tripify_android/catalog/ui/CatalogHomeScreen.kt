@@ -67,8 +67,8 @@ fun HomeScreen(
     val directOnly by viewModel.directOnly.collectAsState()
     val guideOnly by viewModel.guideOnly.collectAsState()
 
-    val hasSearched by viewModel.hasSearched.collectAsState()
     val recommendedItems by viewModel.recommendedItems.collectAsState()
+    val recommendationsLabel by viewModel.recommendationsLabel.collectAsState()
     val isLoggedIn by viewModel.isLoggedInState.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -217,11 +217,11 @@ fun HomeScreen(
                 )
             }
 
-            if (hasSearched && recommendedItems.isNotEmpty()) {
+            if (recommendedItems.isNotEmpty()) {
                 item(key = "recommendations") {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "In base alle tue ultime ricerche",
+                            text = recommendationsLabel,
                             style = CatalogType.Section,
                             color = CatalogColors.Ink,
                             modifier = Modifier.padding(horizontal = CatalogSpacing.Gutter, vertical = 12.dp)

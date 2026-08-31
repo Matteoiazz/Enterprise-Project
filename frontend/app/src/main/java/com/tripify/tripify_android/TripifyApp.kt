@@ -19,6 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 
 import com.tripify.tripify_android.auth.ui.LoginScreen
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
@@ -319,6 +320,57 @@ fun TripifyApp(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToComponent = { itemId -> navController.navigate("detail/$itemId") },
                     onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
+                )
+            }
+
+            // Apertura di un itinerario pubblico tramite link condiviso (capabilities):
+            // nessun login richiesto, vedi ItineraryViewModel.loadDetailByPublicToken.
+            composable(
+                route = "itinerary_public/{token}",
+                deepLinks = listOf(navDeepLink { uriPattern = "tripify://itinerary/public/{token}" })
+            ) { backStackEntry ->
+                val token = backStackEntry.arguments?.getString("token") ?: return@composable
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
+                    factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
+                )
+
+                com.tripify.tripify_android.itinerary.ui.ItineraryDetailScreen(
+                    publicToken = token,
+                    viewModel = itineraryViewModel,
+                    catalogViewModel = catalogViewModel,
+                    tokenManager = tokenManager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToComponent = { itemId -> navController.navigate("detail/$itemId") },
+                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
+                )
+            }
+
+            // Link di invito a collaborare: chi lo apre da loggato entra come collaboratore
+            // (può modificare la lista, non solo vederla) e viene mandato al dettaglio normale.
+            composable(
+                route = "itinerary_join/{token}",
+                deepLinks = listOf(navDeepLink { uriPattern = "tripify://itinerary/join/{token}" })
+            ) { backStackEntry ->
+                val token = backStackEntry.arguments?.getString("token") ?: return@composable
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
+                    factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
+                )
+
+                com.tripify.tripify_android.itinerary.ui.JoinCollabScreen(
+                    token = token,
+                    viewModel = itineraryViewModel,
+                    tokenManager = tokenManager,
+                    onJoined = { listId ->
+                        navController.navigate("itinerary_detail/$listId") {
+                            popUpTo("itinerary_join/{token}") { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = { navController.navigate(Route.Auth.path) },
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

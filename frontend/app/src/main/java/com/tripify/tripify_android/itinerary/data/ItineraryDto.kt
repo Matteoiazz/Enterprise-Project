@@ -22,6 +22,7 @@ data class FavoriteListDto(
     val items: List<FavoriteListItemDto> = emptyList(),
     val visibility: String,
     val publicToken: String?,
+    val collabToken: String?,
     val city: String?,
     val likesCount: Int = 0,
     val bookingsCount: Int = 0,

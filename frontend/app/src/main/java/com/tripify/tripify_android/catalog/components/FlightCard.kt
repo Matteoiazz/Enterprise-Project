@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.formattedPrice
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 
 @Composable
 fun FlightCard(
@@ -31,11 +34,12 @@ fun FlightCard(
     onClick: () -> Unit
 ) {
     val lowSeats = flight.availableSeats in 1..4
+    val currency by rememberCatalogCurrency()
 
     PhotoCard(
         imageUrl = flight.imageUrl,
         eyebrow = if (flight.isDirect) "Volo diretto" else "Volo",
-        price = flight.price,
+        price = flight.formattedPrice(currency),
         title = flight.title,
         onClick = onClick
     ) {

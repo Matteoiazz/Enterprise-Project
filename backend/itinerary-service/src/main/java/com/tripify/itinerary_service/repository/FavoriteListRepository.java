@@ -17,6 +17,8 @@ public interface FavoriteListRepository extends JpaRepository<FavoriteList, Long
 
     Optional<FavoriteList> findByPublicToken(String publicToken);
 
+    Optional<FavoriteList> findByCollabToken(String collabToken);
+
     // Feed pubblico: solo liste PUBLIC, opzionalmente filtrate per città
     List<FavoriteList> findByVisibilityOrderByLikesCountDesc(Visibility visibility);
 

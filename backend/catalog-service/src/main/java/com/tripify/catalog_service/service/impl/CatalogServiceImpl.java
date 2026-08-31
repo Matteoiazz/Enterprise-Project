@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,13 +28,6 @@ public class CatalogServiceImpl implements CatalogService {
     private final CatalogItemRepository catalogItemRepository;
     private final CatalogMapper catalogMapper;
     private final AvailabilityService availabilityService;
-
-    @Override
-    public List<CatalogItemDTO> getAllItems() {
-        return catalogItemRepository.findAll().stream()
-                .map(catalogMapper::toDto)
-                .collect(Collectors.toList());
-    }
 
     @Override
     public CatalogItemDTO getItemById(Long id) {
@@ -96,7 +88,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     public List<CatalogItem> getItemsByHost(UUID hostId) {
-        return catalogItemRepository.findByHostId(hostId);
+        return catalogItemRepository.findByHostIdAndIsActiveTrue(hostId);
     }
 
     @Override

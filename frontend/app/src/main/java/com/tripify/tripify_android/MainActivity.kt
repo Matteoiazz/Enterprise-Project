@@ -6,9 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel // <-- IMPORT AGGIUNTO PER IL VIEWMODEL IN COMPOSE
+import androidx.lifecycle.viewmodel.compose.viewModel
 
-// Import fondamentali
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.auth.viewmodel.LoginViewModel
@@ -21,7 +20,6 @@ import com.tripify.tripify_android.profile.viewmodel.CompanionsViewModel
 import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModel
 import com.tripify.tripify_android.profile.viewmodel.PaymentMethodsViewModelFactory
 
-// Import per il Profilo e Documenti
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
 import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModelFactory
