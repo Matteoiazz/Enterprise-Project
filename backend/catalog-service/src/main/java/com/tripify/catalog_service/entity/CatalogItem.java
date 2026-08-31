@@ -9,7 +9,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -23,8 +22,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 
+// Niente @SQLRestriction qui: filtrerebbe anche il fetch diretto per id, rendendo
+// irraggiungibile un item disattivato per chi lo ha già prenotato o salvato in un
+// itinerario. Il filtro "is_active" va applicato solo dove si fa discovery (ricerca,
+// annunci di un host) — vedi CatalogItemSpecification e findByHostIdAndIsActiveTrue.
 @SQLDelete(sql = "UPDATE catalog_items SET is_active = false WHERE id = ?")
-@SQLRestriction("is_active = true")
 public abstract class CatalogItem {
 
     @Id

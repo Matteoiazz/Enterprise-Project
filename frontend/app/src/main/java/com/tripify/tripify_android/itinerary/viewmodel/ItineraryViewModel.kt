@@ -95,6 +95,23 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    /** Apertura via link condiviso (capabilities): nessuna autenticazione richiesta. */
+    fun loadDetailByPublicToken(token: String) {
+        viewModelScope.launch {
+            _detailState.value = ItineraryDetailState.Loading
+            try {
+                val response = api.getByPublicToken(token)
+                _detailState.value = if (response.isSuccessful && response.body() != null) {
+                    ItineraryDetailState.Success(response.body()!!)
+                } else {
+                    ItineraryDetailState.Error("Link non valido o itinerario non più pubblico")
+                }
+            } catch (e: Exception) {
+                _detailState.value = ItineraryDetailState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
     /** Elimina l'intero itinerario. */
     fun deleteList(listId: Long, onResult: (success: Boolean) -> Unit) {
         viewModelScope.launch {
@@ -152,23 +169,103 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    /** Attiva il link di condivisione, anche su una lista privata o condivisa. Nessun requisito minimo. */
+    fun enableLinkSharing(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.enableLinkSharing(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Revoca il link: la visibilità non cambia, solo il token viene invalidato. */
+    fun disableLinkSharing(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.disableLinkSharing(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Link di invito: chi lo apre da loggato entra come collaboratore (può modificare la lista). */
+    fun enableCollabInvite(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.enableCollabInvite(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun disableCollabInvite(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.disableCollabInvite(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Apertura di un link di invito: se riesce, l'id della lista serve a navigare al dettaglio. */
+    fun joinAsCollaborator(token: String, onResult: (listId: Long?, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.joinAsCollaborator(token)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.id, null)
+                } else {
+                    onResult(null, "Link di invito non valido o non più attivo")
+                }
+            } catch (e: Exception) {
+                onResult(null, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    fun renameList(id: Long, newName: String, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.renameList(id, CreateListRequest(newName))
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
     /**
      * Aggiunge ogni componente della lista al carrello reale su booking-service.
      * Il loop e la propagazione del token avvengono lato itinerary-service (vedi
      * ItineraryService.bookAllItems), qui c'è solo una chiamata all'endpoint dedicato.
      */
-    fun bookAll(list: FavoriteListDto, onResult: (successCount: Int, total: Int) -> Unit) {
+    fun bookAll(list: FavoriteListDto, onResult: (successCount: Int, total: Int, errors: List<String>) -> Unit) {
         viewModelScope.launch {
             try {
                 val response = api.bookAll(list.id)
                 val body = response.body()
                 if (response.isSuccessful && body != null) {
-                    onResult(body.successCount, body.total)
+                    onResult(body.successCount, body.total, body.errors)
                 } else {
-                    onResult(0, list.items.size)
+                    onResult(0, list.items.size, emptyList())
                 }
             } catch (e: Exception) {
-                onResult(0, list.items.size)
+                onResult(0, list.items.size, emptyList())
             }
         }
     }

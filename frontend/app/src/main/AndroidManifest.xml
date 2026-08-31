@@ -31,6 +31,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Link di condivisione per gli itinerari pubblici (capabilities): apre
+                 l'app direttamente sull'itinerario, senza richiedere login. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tripify" android:host="itinerary" />
+            </intent-filter>
         </activity>
 
     </application>

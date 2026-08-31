@@ -33,11 +33,6 @@ public class CatalogController {
     private final CatalogService catalogService;
     private final CatalogMapper catalogMapper;
 
-    @GetMapping("/items")
-    public ResponseEntity<List<CatalogItemDTO>> getAllItems() {
-        return ResponseEntity.ok(catalogService.getAllItems());
-    }
-
     @GetMapping("/items/{id}")
     public ResponseEntity<CatalogItemDTO> getItemById(@PathVariable Long id) {
         return ResponseEntity.ok(catalogService.getItemById(id));
@@ -102,7 +97,7 @@ public class CatalogController {
      */
     @PutMapping("/items/flights/{id}")
     public ResponseEntity<CatalogItemDTO> updateFlight(@PathVariable Long id, @Valid @RequestBody Flight incoming, @AuthenticationPrincipal Jwt jwt) {
-        Flight existing = (Flight) requireOwnedItem(id, jwt);
+        Flight existing = requireOwnedItem(id, jwt, Flight.class);
         existing.setTitle(incoming.getTitle());
         existing.setDescription(incoming.getDescription());
         existing.setPrice(incoming.getPrice());
@@ -122,7 +117,7 @@ public class CatalogController {
 
     @PutMapping("/items/hotels/{id}")
     public ResponseEntity<CatalogItemDTO> updateHotel(@PathVariable Long id, @Valid @RequestBody Hotel incoming, @AuthenticationPrincipal Jwt jwt) {
-        Hotel existing = (Hotel) requireOwnedItem(id, jwt);
+        Hotel existing = requireOwnedItem(id, jwt, Hotel.class);
         existing.setTitle(incoming.getTitle());
         existing.setDescription(incoming.getDescription());
         existing.setPrice(incoming.getPrice());
@@ -139,7 +134,7 @@ public class CatalogController {
 
     @PutMapping("/items/activities/{id}")
     public ResponseEntity<CatalogItemDTO> updateActivity(@PathVariable Long id, @Valid @RequestBody Activity incoming, @AuthenticationPrincipal Jwt jwt) {
-        Activity existing = (Activity) requireOwnedItem(id, jwt);
+        Activity existing = requireOwnedItem(id, jwt, Activity.class);
         existing.setTitle(incoming.getTitle());
         existing.setDescription(incoming.getDescription());
         existing.setPrice(incoming.getPrice());
@@ -183,18 +178,21 @@ public class CatalogController {
         return item;
     }
 
+    /** Come requireOwnedItem, ma verifica anche che l'annuncio sia del tipo atteso prima del cast. */
+    private <T extends CatalogItem> T requireOwnedItem(Long id, Jwt jwt, Class<T> type) {
+        CatalogItem item = requireOwnedItem(id, jwt);
+        if (!type.isInstance(item)) {
+            throw new IllegalArgumentException("Questo annuncio non è di tipo " + type.getSimpleName());
+        }
+        return type.cast(item);
+    }
+
     @GetMapping("/cities")
     public ResponseEntity<List<String>> getCitySuggestions(@RequestParam String query) {
         if (query == null || query.trim().length() < 2) {
             return ResponseEntity.ok(List.of());
         }
         return ResponseEntity.ok(catalogService.getCitySuggestions(query.trim()));
-    }
-
-    @GetMapping("/{itemId}/price")
-    public ResponseEntity<Double> getItemPrice(@PathVariable Long itemId) {
-        BigDecimal price = catalogService.getItemById(itemId).getPrice();
-        return ResponseEntity.ok(price != null ? price.doubleValue() : null);
     }
 
     @GetMapping("/items/host/{hostId}")

@@ -7,18 +7,22 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Tour
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.util.formattedPrice
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 
 @Composable
 fun ExcursionCard(
     excursion: CatalogItem.Excursion,
     onClick: () -> Unit
 ) {
+    val currency by rememberCatalogCurrency()
     PhotoCard(
         imageUrl = excursion.imageUrl,
         eyebrow = excursion.activityType,
-        price = excursion.price,
+        price = excursion.formattedPrice(currency),
         title = excursion.title,
         onClick = onClick
     ) {

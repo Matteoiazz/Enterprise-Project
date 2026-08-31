@@ -59,6 +59,44 @@ public class ItineraryController {
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * Attiva il link di condivisione (capabilities), indipendentemente dalla visibilità:
+     * funziona anche su una lista privata o condivisa, senza i requisiti di pubblicazione.
+     */
+    @PostMapping("/{id}/link")
+    public ResponseEntity<FavoriteList> enableLinkSharing(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.enableLinkSharing(id, jwt.getSubject()));
+    }
+
+    @DeleteMapping("/{id}/link")
+    public ResponseEntity<FavoriteList> disableLinkSharing(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.disableLinkSharing(id, jwt.getSubject()));
+    }
+
+    /** Link di invito: chi lo apre da loggato entra come collaboratore (vedi join sotto). */
+    @PostMapping("/{id}/collab-link")
+    public ResponseEntity<FavoriteList> enableCollabInvite(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.enableCollabInvite(id, jwt.getSubject()));
+    }
+
+    @DeleteMapping("/{id}/collab-link")
+    public ResponseEntity<FavoriteList> disableCollabInvite(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.disableCollabInvite(id, jwt.getSubject()));
+    }
+
+    /** Chi chiama (autenticato, per via di .anyRequest().authenticated()) entra come collaboratore. */
+    @PostMapping("/collab-link/{token}/join")
+    public ResponseEntity<FavoriteList> joinAsCollaborator(@PathVariable String token, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.joinAsCollaborator(token, jwt.getSubject()));
+    }
+
+    @PatchMapping("/{id}/name")
+    public ResponseEntity<FavoriteList> renameList(@PathVariable Long id,
+                                                    @Valid @RequestBody CreateListRequestDTO request,
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(service.renameList(id, request.name(), jwt.getSubject()));
+    }
+
     @GetMapping("/mine")
     public ResponseEntity<List<FavoriteList>> getMyLists(@AuthenticationPrincipal Jwt jwt) {
         List<FavoriteList> lists = service.getUserLists(jwt.getSubject());
@@ -109,8 +147,8 @@ public class ItineraryController {
     }
 
     @PostMapping("/{id}/booked")
-    public ResponseEntity<Void> registerBookingAttempt(@PathVariable Long id) {
-        service.registerBookingAttempt(id);
+    public ResponseEntity<Void> registerBookingAttempt(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        service.registerBookingAttempt(id, jwt.getSubject());
         return ResponseEntity.ok().build();
     }
 

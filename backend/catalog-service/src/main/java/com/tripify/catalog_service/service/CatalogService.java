@@ -12,8 +12,6 @@ import java.util.UUID;
 
 public interface CatalogService {
 
-    List<CatalogItemDTO> getAllItems();
-
     CatalogItemDTO getItemById(Long id);
 
     // Firma estesa con i filtri, paginata
@@ -42,7 +40,7 @@ public interface CatalogService {
     /** Entità grezza (non mappata a DTO): serve per i controlli di proprietà e per l'update. */
     CatalogItem getRawItemById(Long id);
 
-    /** Disattiva l'item (soft delete: vedi @SQLDelete/@SQLRestriction su CatalogItem). */
+    /** Disattiva l'item (soft delete: vedi @SQLDelete su CatalogItem). */
     void deactivateItem(Long id);
 
     List<String> getCitySuggestions(String query);

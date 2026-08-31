@@ -16,6 +16,8 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.CatalogPriceFormatter
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 
 private val AVAILABLE_AMENITIES = listOf(
     "Wi-Fi", "Palestra", "Room Service", "Aria Condizionata",
@@ -43,6 +45,7 @@ fun ComplexFilterBottomSheet(
     var selectedAmenities by remember { mutableStateOf(initialAmenities.toSet()) }
     var directFlightOnly by remember { mutableStateOf(initialDirectOnly) }
     var guideIncludedOnly by remember { mutableStateOf(initialGuideOnly) }
+    val currency by rememberCatalogCurrency()
 
     val showHotelSection = currentCategory == "Tutti" || currentCategory == "Hotel"
     val showFlightSection = currentCategory == "Tutti" || currentCategory == "Voli"
@@ -94,7 +97,7 @@ fun ComplexFilterBottomSheet(
                 }
 
                 FilterSection("Budget massimo") {
-                    Text(text = if (maxPrice >= NO_PRICE_LIMIT) "Nessun limite" else "Fino a €${maxPrice.toInt()}", style = CatalogType.Section, color = CatalogColors.AccentDark)
+                    Text(text = if (maxPrice >= NO_PRICE_LIMIT) "Nessun limite" else "Fino a ${CatalogPriceFormatter.format(maxPrice.toDouble(), currency)}", style = CatalogType.Section, color = CatalogColors.AccentDark)
                     Slider(
                         value = maxPrice, onValueChange = { maxPrice = it }, valueRange = 50f..NO_PRICE_LIMIT, steps = 18,
                         colors = SliderDefaults.colors(thumbColor = CatalogColors.AccentDark, activeTrackColor = CatalogColors.AccentDark, inactiveTrackColor = CatalogColors.Hairline)

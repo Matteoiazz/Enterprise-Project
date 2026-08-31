@@ -33,6 +33,10 @@ public class CatalogItemSpecification {
             List<Predicate> predicates = new ArrayList<>();
             query.distinct(true);
 
+            // 0. Solo annunci attivi: non più garantito da @SQLRestriction (rimosso per
+            // non bloccare il fetch diretto per id di un item disattivato).
+            predicates.add(cb.isTrue(root.get("isActive")));
+
             // 1. Categoria
             if (category != null && !category.equalsIgnoreCase("Tutti")) {
                 predicates.add(cb.equal(cb.lower(root.get("category")), category.toLowerCase()));

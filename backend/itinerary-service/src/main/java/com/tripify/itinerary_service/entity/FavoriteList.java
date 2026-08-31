@@ -56,11 +56,19 @@ public class FavoriteList {
     private Visibility visibility = Visibility.PRIVATE;
 
     /**
-     * Token opaco generato solo quando la lista diventa PUBLIC: è il link con
-     * capabilities richiesto dalla traccia, dà accesso al dettaglio senza login.
+     * Token opaco per il link di sola visualizzazione: dà accesso al dettaglio senza
+     * login, indipendentemente dalla visibilità (vedi enableLinkSharing).
      */
     @Column(name = "public_token", unique = true)
     private String publicToken;
+
+    /**
+     * Token opaco per il link di invito: chi lo apre da loggato viene aggiunto a
+     * sharedUserIds con diritto di modifica (vedi joinAsCollaborator). Distinto dal
+     * link di sola visualizzazione perché concede un accesso molto più ampio.
+     */
+    @Column(name = "collab_token", unique = true)
+    private String collabToken;
 
     /**
      * Città di riferimento, richiesta esplicitamente quando si pubblica la lista

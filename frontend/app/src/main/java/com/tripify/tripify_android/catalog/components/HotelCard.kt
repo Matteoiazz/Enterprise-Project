@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.formattedPrice
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 import java.util.Locale
 
 @Composable
@@ -23,10 +26,11 @@ fun HotelCard(
     hotel: CatalogItem.Hotel,
     onClick: () -> Unit
 ) {
+    val currency by rememberCatalogCurrency()
     PhotoCard(
         imageUrl = hotel.imageUrl,
         eyebrow = "Hotel",
-        price = hotel.price,
+        price = hotel.formattedPrice(currency),
         title = hotel.title,
         onClick = onClick
     ) {

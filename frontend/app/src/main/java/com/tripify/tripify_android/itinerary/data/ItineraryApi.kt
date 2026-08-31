@@ -49,6 +49,26 @@ interface ItineraryApi {
     @PATCH("api/v1/itinerary/{id}/visibility")
     suspend fun updateVisibility(@Path("id") id: Long, @Body request: UpdateVisibilityRequest): Response<FavoriteListDto>
 
+    /** Link di condivisione indipendente dalla visibilità: funziona anche su liste private/condivise. */
+    @POST("api/v1/itinerary/{id}/link")
+    suspend fun enableLinkSharing(@Path("id") id: Long): Response<FavoriteListDto>
+
+    @DELETE("api/v1/itinerary/{id}/link")
+    suspend fun disableLinkSharing(@Path("id") id: Long): Response<FavoriteListDto>
+
+    /** Link di invito: chi lo apre da loggato entra come collaboratore (può modificare la lista). */
+    @POST("api/v1/itinerary/{id}/collab-link")
+    suspend fun enableCollabInvite(@Path("id") id: Long): Response<FavoriteListDto>
+
+    @DELETE("api/v1/itinerary/{id}/collab-link")
+    suspend fun disableCollabInvite(@Path("id") id: Long): Response<FavoriteListDto>
+
+    @POST("api/v1/itinerary/collab-link/{token}/join")
+    suspend fun joinAsCollaborator(@Path("token") token: String): Response<FavoriteListDto>
+
+    @PATCH("api/v1/itinerary/{id}/name")
+    suspend fun renameList(@Path("id") id: Long, @Body request: CreateListRequest): Response<FavoriteListDto>
+
     @POST("api/v1/itinerary/{id}/like")
     suspend fun toggleLike(@Path("id") id: Long): Response<LikeResponse>
 

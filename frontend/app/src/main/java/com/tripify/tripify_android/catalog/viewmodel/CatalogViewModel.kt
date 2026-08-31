@@ -7,11 +7,13 @@ import com.tripify.tripify_android.catalog.model.FareClassUi
 import com.tripify.tripify_android.catalog.model.RoomTypeUi
 import com.tripify.tripify_android.catalog.ui.components.NO_PRICE_LIMIT
 import com.tripify.tripify_android.data.CatalogApi
+import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.CatalogItemDto
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.RoomHoldRequest
 import com.tripify.tripify_android.data.model.SeatHoldRequest
+import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -106,6 +110,9 @@ class CatalogViewModel(
     private val _recommendedItems = MutableStateFlow<List<CatalogItem>>(emptyList())
     val recommendedItems: StateFlow<List<CatalogItem>> = _recommendedItems.asStateFlow()
 
+    private val _recommendationsLabel = MutableStateFlow("In base alle tue ultime ricerche")
+    val recommendationsLabel: StateFlow<String> = _recommendationsLabel.asStateFlow()
+
     // Accumula ogni item mai visto (risultati di ricerca + raccomandazioni + fetch singoli),
     // così DetailScreen può trovare un item anche se non è (più) nella lista risultati corrente:
     // prima il lookup guardava solo catalogList, e le raccomandazioni ne sono sempre escluse
@@ -131,6 +138,20 @@ class CatalogViewModel(
 
     init {
         fetchCatalogData(isUserSearch = false)
+        viewModelScope.launch { fetchRecommendations(category = "Tutti", excludeIds = emptySet()) }
+
+        // Il segnale di preferenza è calcolato una sola volta (vedi resolvePreferenceSignal),
+        // ma va ricalcolato se cambia l'utente loggato (logout/login con account diverso
+        // nella stessa sessione), altrimenti resterebbero i "consigliati" di qualcun altro.
+        tokenManager?.let { tm ->
+            viewModelScope.launch {
+                tm.tokenFlow.drop(1).distinctUntilChanged().collect {
+                    preferenceSignalResolved = false
+                    preferenceSignalCache = null
+                    fetchRecommendations(category = "Tutti", excludeIds = emptySet())
+                }
+            }
+        }
     }
 
     fun searchNow() {
@@ -351,34 +372,110 @@ class CatalogViewModel(
         }
     }
 
+    private fun categoryLabelOf(item: CatalogItem) = when (item) {
+        is CatalogItem.Flight -> "Voli"
+        is CatalogItem.Hotel -> "Hotel"
+        is CatalogItem.Excursion -> "Attività"
+    }
+
+    private fun cityLabelOf(item: CatalogItem): String? = when (item) {
+        is CatalogItem.Flight -> item.arrivalCity
+        is CatalogItem.Hotel -> item.city
+        is CatalogItem.Excursion -> null
+    }
+
+    private fun ratingOf(item: CatalogItem): Double = when (item) {
+        is CatalogItem.Hotel -> item.rating
+        is CatalogItem.Flight -> item.rating ?: 0.0
+        is CatalogItem.Excursion -> item.rating ?: 0.0
+    }
+
+    private data class PreferenceSignal(val category: String, val city: String?, val signalIds: Set<Int>)
+
+    private var preferenceSignalResolved = false
+    private var preferenceSignalCache: PreferenceSignal? = null
+
+    // Dedotto una sola volta per sessione da like (itinerary-service) e prenotazioni
+    // passate (booking-service, sola lettura): categoria e città più ricorrenti tra
+    // quegli item. Calcolarlo una volta sola evita che i "consigliati" cambino ad
+    // ogni ricerca dell'utente. Nessun segnale -> null, si ricade sulla categoria
+    // dell'ultima ricerca (comportamento per utenti anonimi o senza storico).
+    private suspend fun resolvePreferenceSignal(): PreferenceSignal? {
+        if (preferenceSignalResolved) return preferenceSignalCache
+        preferenceSignalResolved = true
+
+        val tm = tokenManager ?: return null
+        if (!isLoggedIn()) return null
+
+        // Entrambi gli endpoint restituiscono già "più recenti prima".
+        val likedIds = runCatching {
+            ItineraryRetrofit.create(tm).getLikedCatalogItemIds().takeIf { it.isSuccessful }?.body()
+        }.getOrNull() ?: emptyList()
+
+        val bookedIds = runCatching {
+            RetrofitClient.createBookingApi(tm).getUserBookings(size = 20).takeIf { it.isSuccessful }?.body()?.content
+        }.getOrNull()?.flatMap { it.lines.map { line -> line.catalogItemId } } ?: emptyList()
+
+        val signalIds = (likedIds + bookedIds).distinct().take(15).map { it.toInt() }
+        if (signalIds.isEmpty()) return null
+
+        val resolvedItems = signalIds.mapNotNull { id ->
+            _itemCache.value[id] ?: runCatching { mapDtoToItem(api.getItemById(id)) }.getOrNull()?.also { cacheItems(listOf(it)) }
+        }
+        if (resolvedItems.isEmpty()) return null
+
+        val topCategory = resolvedItems.groupingBy { categoryLabelOf(it) }.eachCount().maxByOrNull { it.value }?.key
+            ?: return null
+        val topCity = resolvedItems.mapNotNull { cityLabelOf(it) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+
+        return PreferenceSignal(topCategory, topCity, signalIds.toSet()).also { preferenceSignalCache = it }
+    }
+
+    private suspend fun queryRecommendations(category: String, city: String?, excludeIds: Set<Int>): List<CatalogItem> {
+        val dtos = api.searchCatalog(
+            category = category,
+            query = "",
+            maxPrice = null,
+            minRating = 0,
+            destination = city,
+            departure = null,
+            guideIncluded = null,
+            amenities = null,
+            directOnly = null,
+            page = 0,
+            size = 20
+        )
+        return dtos.content
+            .filter { it.id !in excludeIds }
+            .map { mapDtoToItem(it) }
+            .sortedByDescending { ratingOf(it) }
+            .take(6)
+    }
+
     private suspend fun fetchRecommendations(category: String, excludeIds: Set<Int>) {
         try {
-            val recommendationCategory = category.ifBlank { "Tutti" }
-            val dtos = api.searchCatalog(
-                category = recommendationCategory,
-                query = "",
-                maxPrice = null,
-                minRating = 0,
-                destination = null,
-                departure = null,
-                guideIncluded = null,
-                amenities = null,
-                directOnly = null,
-                page = 0,
-                size = 20
-            )
+            val preference = resolvePreferenceSignal()
+            val allExcludeIds = excludeIds + (preference?.signalIds ?: emptySet())
+            _recommendationsLabel.value = when {
+                preference != null -> "Consigliati per te"
+                _hasSearched.value -> "In base alle tue ultime ricerche"
+                else -> "I più apprezzati"
+            }
 
-            val recommendations = dtos.content
-                .filter { it.id !in excludeIds }
-                .map { mapDtoToItem(it) }
-                .sortedByDescending {
-                    when (it) {
-                        is CatalogItem.Hotel -> it.rating
-                        is CatalogItem.Flight -> it.rating ?: 0.0
-                        is CatalogItem.Excursion -> it.rating ?: 0.0
-                    }
-                }
-                .take(6)
+            var recommendations = queryRecommendations(
+                category = preference?.category ?: category.ifBlank { "Tutti" },
+                city = preference?.city,
+                excludeIds = allExcludeIds
+            )
+            // Filtro categoria+città troppo stretto: allarga prima alla sola
+            // categoria, poi a "Tutti", così la sezione non sparisce mai per un
+            // utente con storico reale.
+            if (recommendations.size < 3 && preference?.city != null) {
+                recommendations = queryRecommendations(preference.category, null, allExcludeIds)
+            }
+            if (recommendations.isEmpty() && preference != null) {
+                recommendations = queryRecommendations("Tutti", null, allExcludeIds)
+            }
 
             cacheItems(recommendations)
             _recommendedItems.value = recommendations

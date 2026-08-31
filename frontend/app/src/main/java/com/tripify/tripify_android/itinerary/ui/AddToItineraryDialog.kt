@@ -364,6 +364,7 @@ private fun FareClassPicker(
     selectedId: Int?,
     onSelect: (Int) -> Unit
 ) {
+    val currency by com.tripify.tripify_android.catalog.util.rememberCatalogCurrency()
     Column {
         Text("Tariffa", style = CatalogType.Caption, color = CatalogColors.InkMuted)
         fareClasses.forEach { fareClass ->
@@ -379,7 +380,7 @@ private fun FareClassPicker(
                     colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark, unselectedColor = CatalogColors.InkSubtle)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("${fareClass.name} — €${fareClass.price}", style = CatalogType.Body, color = CatalogColors.Ink)
+                Text("${fareClass.name} — ${com.tripify.tripify_android.catalog.util.CatalogPriceFormatter.format(fareClass.price, currency)}", style = CatalogType.Body, color = CatalogColors.Ink)
             }
         }
     }
@@ -391,6 +392,7 @@ private fun RoomTypePicker(
     selectedId: Int?,
     onSelect: (Int) -> Unit
 ) {
+    val currency by com.tripify.tripify_android.catalog.util.rememberCatalogCurrency()
     Column {
         Text("Camera", style = CatalogType.Caption, color = CatalogColors.InkMuted)
         roomTypes.forEach { roomType ->
@@ -406,7 +408,7 @@ private fun RoomTypePicker(
                     colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark, unselectedColor = CatalogColors.InkSubtle)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("${roomType.name} — €${roomType.price}/notte", style = CatalogType.Body, color = CatalogColors.Ink)
+                Text("${roomType.name} — ${com.tripify.tripify_android.catalog.util.CatalogPriceFormatter.format(roomType.price, currency)}/notte", style = CatalogType.Body, color = CatalogColors.Ink)
             }
         }
     }

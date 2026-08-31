@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.itinerary.ui
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,8 @@ import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.CatalogPriceFormatter
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.chat.repository.ChatRepository
 import com.tripify.tripify_android.data.TokenManager
@@ -37,7 +40,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItineraryDetailScreen(
-    listId: Long,
+    listId: Long? = null,
+    publicToken: String? = null,
     viewModel: ItineraryViewModel,
     catalogViewModel: CatalogViewModel,
     tokenManager: TokenManager,
@@ -49,6 +53,7 @@ fun ItineraryDetailScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val detailState by viewModel.detailState.collectAsState()
+    val currency by tokenManager.currencyFlow.collectAsState(initial = "EUR")
 
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var isBooking by remember { mutableStateOf(false) }
@@ -59,12 +64,17 @@ fun ItineraryDetailScreen(
     var indexToRemove by remember { mutableStateOf<Int?>(null) }
     var showDeleteListDialog by remember { mutableStateOf(false) }
     var isDeletingList by remember { mutableStateOf(false) }
+    var bookAllErrors by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val currentList = (detailState as? ItineraryDetailState.Success)?.list
     val isOwnerTopLevel = currentUserId != null && currentUserId == currentList?.ownerId
 
-    LaunchedEffect(listId) {
-        viewModel.loadDetail(listId)
+    LaunchedEffect(listId, publicToken) {
+        if (publicToken != null) {
+            viewModel.loadDetailByPublicToken(publicToken)
+        } else if (listId != null) {
+            viewModel.loadDetail(listId)
+        }
         val token = tokenManager.tokenFlow.first()
         currentUserId = token?.let { extractUserIdFromToken(it) }
     }
@@ -81,6 +91,19 @@ fun ItineraryDetailScreen(
                     }
                 },
                 actions = {
+                    val shareToken = currentList?.publicToken
+                    if (!shareToken.isNullOrBlank()) {
+                        IconButton(onClick = {
+                            val link = "tripify://itinerary/public/$shareToken"
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "Guarda il mio itinerario \"${currentList?.name}\" su Tripify: $link")
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Condividi itinerario"))
+                        }) {
+                            Icon(Icons.Filled.Share, contentDescription = "Condividi", tint = CatalogColors.Ink)
+                        }
+                    }
                     if (isOwnerTopLevel) {
                         IconButton(onClick = { showDeleteListDialog = true }) {
                             Icon(Icons.Filled.DeleteOutline, contentDescription = "Elimina itinerario", tint = CatalogColors.Alert)
@@ -105,6 +128,23 @@ fun ItineraryDetailScreen(
             is ItineraryDetailState.Success -> {
                 val list = state.list
                 val isOwner = currentUserId != null && currentUserId == list.ownerId
+                // Un collaboratore (sharedUserIds) può modificare i componenti della lista,
+                // ma non le azioni strutturali (elimina, visibilità, link) che restano owner-only.
+                val canEdit = isOwner || (currentUserId != null && list.sharedUserIds.contains(currentUserId))
+                var showRenameDialog by remember { mutableStateOf(false) }
+
+                if (showRenameDialog) {
+                    RenameDialog(
+                        currentName = list.name,
+                        onDismiss = { showRenameDialog = false },
+                        onConfirm = { newName ->
+                            showRenameDialog = false
+                            viewModel.renameList(list.id, newName) { success ->
+                                if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile rinominare l'itinerario") }
+                            }
+                        }
+                    )
+                }
 
                 if (showPublishDialog) {
                     PublishDialog(
@@ -218,7 +258,18 @@ fun ItineraryDetailScreen(
                             Text((list.city ?: "ITINERARIO").uppercase(), style = CatalogType.Overline, color = CatalogColors.InkMuted)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(list.name, style = CatalogType.DetailTitle, color = CatalogColors.Ink)
+                        if (isOwner) {
+                            Row(
+                                modifier = Modifier.clickable { showRenameDialog = true },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(list.name, style = CatalogType.DetailTitle, color = CatalogColors.Ink)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.Filled.Edit, contentDescription = "Rinomina", tint = CatalogColors.InkSubtle, modifier = Modifier.size(16.dp))
+                            }
+                        } else {
+                            Text(list.name, style = CatalogType.DetailTitle, color = CatalogColors.Ink)
+                        }
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -234,10 +285,13 @@ fun ItineraryDetailScreen(
                         if (list.totalPrice != null) {
                             Spacer(modifier = Modifier.height(14.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Euro, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                                Icon(
+                                    if (currency == "USD") Icons.Filled.AttachMoney else Icons.Filled.Euro,
+                                    contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp)
+                                )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    "Totale: €%.2f".format(list.totalPrice),
+                                    "Totale: ${CatalogPriceFormatter.symbolFor(currency)}%.2f".format(CatalogPriceFormatter.convert(list.totalPrice.toDouble(), currency)),
                                     style = CatalogType.BodyStrong, color = CatalogColors.Ink
                                 )
                             }
@@ -256,6 +310,80 @@ fun ItineraryDetailScreen(
                             }
                         }
 
+                        // Indipendente dalla visibilità: un link funziona anche su una lista
+                        // privata o condivisa, senza i requisiti minimi di pubblicazione.
+                        if (isOwner) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            if (list.publicToken.isNullOrBlank()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.enableLinkSharing(list.id) { success ->
+                                            if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile generare il link") }
+                                        }
+                                    },
+                                    shape = CatalogShapes.Field,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                                ) {
+                                    Icon(Icons.Filled.Link, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Genera link di condivisione", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
+                                }
+                            } else {
+                                TextButton(onClick = {
+                                    viewModel.disableLinkSharing(list.id) { success ->
+                                        if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile disattivare il link") }
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.LinkOff, contentDescription = null, tint = CatalogColors.Alert, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Disattiva link di condivisione", style = CatalogType.LabelStrong, color = CatalogColors.Alert)
+                                }
+                            }
+                        }
+
+                        // Link di invito: diverso da quello sopra, concede diritto di modifica
+                        // (non solo visualizzazione) a chi lo apre da loggato.
+                        if (isOwner) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            if (list.collabToken.isNullOrBlank()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.enableCollabInvite(list.id) { success ->
+                                            if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile generare l'invito") }
+                                        }
+                                    },
+                                    shape = CatalogShapes.Field,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                                ) {
+                                    Icon(Icons.Filled.GroupAdd, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Invita collaboratori", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = {
+                                        val link = "tripify://itinerary/join/${list.collabToken}"
+                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, "Aiutami a pianificare \"${list.name}\" su Tripify: $link")
+                                        }
+                                        context.startActivity(Intent.createChooser(sendIntent, "Invita a collaborare"))
+                                    }) {
+                                        Icon(Icons.Filled.GroupAdd, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Invita ancora", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                                    }
+                                    TextButton(onClick = {
+                                        viewModel.disableCollabInvite(list.id) { success ->
+                                            if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile disattivare l'invito") }
+                                        }
+                                    }) {
+                                        Text("Disattiva", style = CatalogType.LabelStrong, color = CatalogColors.Alert)
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(22.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -263,7 +391,7 @@ fun ItineraryDetailScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("TAPPE", style = CatalogType.Overline, color = CatalogColors.InkMuted)
-                            if (isOwner) {
+                            if (canEdit) {
                                 Row(
                                     modifier = Modifier.clickable { showItemPickerDialog = true },
                                     verticalAlignment = Alignment.CenterVertically
@@ -276,7 +404,7 @@ fun ItineraryDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        if (isOwner) {
+                        if (canEdit) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -302,7 +430,7 @@ fun ItineraryDetailScreen(
                                 ItineraryComponentRow(
                                     item = item,
                                     catalogViewModel = catalogViewModel,
-                                    isOwner = isOwner,
+                                    canRemove = canEdit,
                                     onClick = { onNavigateToComponent(item.catalogItemId.toString()) },
                                     onRemove = { indexToRemove = index }
                                 )
@@ -318,13 +446,14 @@ fun ItineraryDetailScreen(
                                     return@Button
                                 }
                                 isBooking = true
-                                viewModel.bookAll(list) { success, total ->
+                                viewModel.bookAll(list) { success, total, errors ->
                                     isBooking = false
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (success == total) "Aggiunte $success tappe al carrello!"
-                                            else "Aggiunte $success su $total tappe al carrello"
-                                        )
+                                    if (success == total) {
+                                        scope.launch { snackbarHostState.showSnackbar("Aggiunte $success tappe al carrello!") }
+                                    } else if (errors.isNotEmpty()) {
+                                        bookAllErrors = errors
+                                    } else {
+                                        scope.launch { snackbarHostState.showSnackbar("Aggiunte $success su $total tappe al carrello") }
                                     }
                                 }
                             },
@@ -413,20 +542,45 @@ fun ItineraryDetailScreen(
             }
         )
     }
+
+    if (bookAllErrors.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { bookAllErrors = emptyList() },
+            containerColor = CatalogColors.Surface,
+            shape = CatalogShapes.Card,
+            title = { Text("Alcune tappe non sono state aggiunte", style = CatalogType.Section, color = CatalogColors.Ink) },
+            text = {
+                Column {
+                    bookAllErrors.forEach { error ->
+                        Text("• $error", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { bookAllErrors = emptyList() }) {
+                    Text("Ho capito", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun ItineraryComponentRow(
     item: FavoriteListItemDto,
     catalogViewModel: CatalogViewModel,
-    isOwner: Boolean,
+    canRemove: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
     var resolvedItem by remember(item.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
+    var isResolving by remember(item.catalogItemId) { mutableStateOf(true) }
+    val currency by rememberCatalogCurrency()
 
     LaunchedEffect(item.catalogItemId) {
+        isResolving = true
         resolvedItem = catalogViewModel.getOrFetchItem(item.catalogItemId.toInt())
+        isResolving = false
     }
 
     val resolved = resolvedItem
@@ -437,10 +591,19 @@ private fun ItineraryComponentRow(
         modifier = Modifier.fillMaxWidth().clickable(enabled = resolved != null) { onClick() }
     ) {
         Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (resolved == null) {
+            if (resolved == null && isResolving) {
                 Box(modifier = Modifier.size(52.dp).clip(CatalogShapes.Badge).background(CatalogColors.SurfaceMuted))
                 Spacer(modifier = Modifier.width(12.dp))
                 Text("Caricamento…", style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            } else if (resolved == null) {
+                Box(
+                    modifier = Modifier.size(52.dp).clip(CatalogShapes.Badge).background(CatalogColors.SurfaceMuted),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.QuestionMark, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Componente non più disponibile", style = CatalogType.Caption, color = CatalogColors.InkMuted)
             } else {
                 AsyncImage(
                     model = resolved.imageUrl,
@@ -501,12 +664,12 @@ private fun ItineraryComponentRow(
                 }
                 if (item.price != null) {
                     Text(
-                        "€%.2f".format(item.price),
+                        "${CatalogPriceFormatter.symbolFor(currency)}%.2f".format(CatalogPriceFormatter.convert(item.price.toDouble(), currency)),
                         style = CatalogType.BodyStrong, color = CatalogColors.AccentDark,
                         maxLines = 1, modifier = Modifier.padding(end = 6.dp)
                     )
                 }
-                if (isOwner) {
+                if (canRemove) {
                     IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Filled.DeleteOutline, contentDescription = "Rimuovi", tint = CatalogColors.Alert, modifier = Modifier.size(18.dp))
                     }
@@ -564,6 +727,43 @@ private fun PublishDialog(onDismiss: () -> Unit, onConfirm: (city: String) -> Un
         confirmButton = {
             TextButton(onClick = { if (city.isNotBlank()) onConfirm(city.trim()) }) {
                 Text("Pubblica", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) }
+        }
+    )
+}
+
+@Composable
+private fun RenameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (name: String) -> Unit) {
+    var name by remember { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CatalogColors.Surface,
+        shape = CatalogShapes.Card,
+        title = { Text("Rinomina itinerario", style = CatalogType.Section, color = CatalogColors.Ink) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                shape = CatalogShapes.Field,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CatalogColors.Accent,
+                    unfocusedBorderColor = CatalogColors.Hairline,
+                    focusedContainerColor = CatalogColors.Surface,
+                    unfocusedContainerColor = CatalogColors.Surface,
+                    cursorColor = CatalogColors.AccentDark,
+                    focusedTextColor = CatalogColors.Ink,
+                    unfocusedTextColor = CatalogColors.Ink
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { if (name.isNotBlank()) onConfirm(name.trim()) }) {
+                Text("Salva", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
             }
         },
         dismissButton = {

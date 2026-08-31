@@ -47,6 +47,9 @@ import com.tripify.tripify_android.catalog.ui.components.*
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.CatalogPriceFormatter
+import com.tripify.tripify_android.catalog.util.formattedPrice
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.viewmodel.HoldOutcome
@@ -130,6 +133,7 @@ private fun DetailContent(
     val hasBooked by viewModel.hasBookedCurrentItem.collectAsState()
     val isLoggedIn by viewModel.isLoggedInState.collectAsState()
 
+    val currency by rememberCatalogCurrency()
     val itineraryApi = remember { ItineraryRetrofit.create(com.tripify.tripify_android.data.TokenManager(context)) }
     LaunchedEffect(item.id) {
         try {
@@ -240,19 +244,19 @@ private fun DetailContent(
             val roomType = selectedRoomType
             if (roomType != null && nights != null) {
                 totalLabel = if (nights == 1L) "TOTALE · 1 NOTTE" else "TOTALE · $nights NOTTI"
-                totalPriceText = "€ ${(roomType.price * quantity * nights).toInt()}"
+                totalPriceText = CatalogPriceFormatter.format(roomType.price * quantity * nights, currency)
             } else {
                 totalLabel = "PREZZO A NOTTE"
-                totalPriceText = roomType?.let { "€ ${it.price.toInt()}" } ?: item.price
+                totalPriceText = roomType?.let { CatalogPriceFormatter.format(it.price, currency) } ?: item.formattedPrice(currency)
             }
         }
         is CatalogItem.Flight -> {
             totalLabel = "TOTALE"
-            totalPriceText = selectedFareClass?.let { "€ ${(it.price * quantity).toInt()}" } ?: item.price
+            totalPriceText = selectedFareClass?.let { CatalogPriceFormatter.format(it.price * quantity, currency) } ?: item.formattedPrice(currency)
         }
         is CatalogItem.Excursion -> {
             totalLabel = "TOTALE"
-            totalPriceText = item.price
+            totalPriceText = item.formattedPrice(currency)
         }
     }
 
@@ -526,6 +530,7 @@ private fun DetailContent(
                                     fareClass = fareClass,
                                     isSelected = selectedFareClass?.id == fareClass.id,
                                     available = seatAvailability[fareClass.id],
+                                    currency = currency,
                                     onClick = { selectedFareClass = fareClass }
                                 )
                             }
@@ -559,6 +564,7 @@ private fun DetailContent(
                                     roomType = roomType,
                                     isSelected = selectedRoomType?.id == roomType.id,
                                     available = if (checkInDate != null && checkOutDate != null) roomAvailability[roomType.id] else null,
+                                    currency = currency,
                                     onClick = { selectedRoomType = roomType }
                                 )
                             }
@@ -929,7 +935,7 @@ private fun RemainingBadge(count: Int, modifier: Modifier = Modifier) {
  * prezzo a notte e disponibilità vera per le date scelte (non un numero statico).
  */
 @Composable
-private fun RoomTypeOption(roomType: RoomTypeUi, isSelected: Boolean, available: Int?, onClick: () -> Unit) {
+private fun RoomTypeOption(roomType: RoomTypeUi, isSelected: Boolean, available: Int?, currency: String, onClick: () -> Unit) {
     val soldOut = available != null && available <= 0
     Surface(
         shape = CatalogShapes.Field,
@@ -968,7 +974,7 @@ private fun RoomTypeOption(roomType: RoomTypeUi, isSelected: Boolean, available:
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (soldOut) "Non disponibile per queste date" else "€ ${roomType.price.toInt()} / notte",
+                    text = if (soldOut) "Non disponibile per queste date" else "${CatalogPriceFormatter.format(roomType.price, currency)} / notte",
                     style = CatalogType.Caption.copy(fontWeight = FontWeight.SemiBold),
                     color = if (soldOut) CatalogColors.Alert else CatalogColors.AccentDark
                 )
@@ -979,7 +985,7 @@ private fun RoomTypeOption(roomType: RoomTypeUi, isSelected: Boolean, available:
 }
 
 @Composable
-private fun FareClassOption(fareClass: FareClassUi, isSelected: Boolean, available: Int?, onClick: () -> Unit) {
+private fun FareClassOption(fareClass: FareClassUi, isSelected: Boolean, available: Int?, currency: String, onClick: () -> Unit) {
     val soldOut = available != null && available <= 0
     Surface(
         shape = CatalogShapes.Field,
@@ -1003,12 +1009,12 @@ private fun FareClassOption(fareClass: FareClassUi, isSelected: Boolean, availab
             Column(modifier = Modifier.weight(1f)) {
                 Text(fareClass.name, style = CatalogType.BodyStrong, color = CatalogColors.Ink)
                 Text(
-                    text = if (soldOut) "Esaurita" else "€ ${fareClass.price.toInt()}",
+                    text = if (soldOut) "Esaurita" else CatalogPriceFormatter.format(fareClass.price, currency),
                     style = CatalogType.Caption.copy(fontWeight = FontWeight.SemiBold),
                     color = if (soldOut) CatalogColors.Alert else CatalogColors.AccentDark
                 )
             }
-            Text("€ ${fareClass.price.toInt()}", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+            Text(CatalogPriceFormatter.format(fareClass.price, currency), style = CatalogType.BodyStrong, color = CatalogColors.Ink)
             Spacer(modifier = Modifier.width(10.dp))
             RadioButton(selected = isSelected, onClick = { if (!soldOut) onClick() }, enabled = !soldOut, colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark))
         }

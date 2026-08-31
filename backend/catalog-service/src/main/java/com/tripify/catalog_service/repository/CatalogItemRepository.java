@@ -13,7 +13,7 @@ import java.util.UUID; // Aggiunto per l'UUID
 @Repository
 public interface CatalogItemRepository extends JpaRepository<CatalogItem, Long>, JpaSpecificationExecutor<CatalogItem> {
 
-    List<CatalogItem> findByHostId(UUID hostId);
+    List<CatalogItem> findByHostIdAndIsActiveTrue(UUID hostId);
 
     @Query(value = """
     SELECT DISTINCT city FROM (
