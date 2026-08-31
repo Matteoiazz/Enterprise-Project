@@ -20,9 +20,9 @@ fun QuickFilterChips(
     onOpenFilters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val priceLabel = if (maxPrice >= 1000f) "Budget" else "Fino a €${maxPrice.toInt()}"
+    val priceLabel = if (maxPrice >= NO_PRICE_LIMIT) "Budget" else "Fino a €${maxPrice.toInt()}"
     val ratingLabel = if (minRating == 0) "Rating" else "$minRating★+"
-    val priceActive = maxPrice < 1000f
+    val priceActive = maxPrice < NO_PRICE_LIMIT
     val ratingActive = minRating > 0
 
     Row(

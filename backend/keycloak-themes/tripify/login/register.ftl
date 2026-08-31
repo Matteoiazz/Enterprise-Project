@@ -319,6 +319,7 @@
                                        value="${(register.formData['user.attributes.vatNumber']!'')}"
                                        placeholder="IT01234567890" autocomplete="off"/>
                             </div>
+                            <div id="vat-live-error" class="tf-field-error-text">Partita IVA non valida</div>
                         </div>
                         <div class="tf-field">
                             <label for="user.attributes.pec">PEC / Email fatturazione</label>
@@ -327,6 +328,7 @@
                                        value="${(register.formData['user.attributes.pec']!'')}"
                                        placeholder="fatturazione@azienda.it" autocomplete="off"/>
                             </div>
+                            <div id="pec-live-error" class="tf-field-error-text">Formato PEC non valido</div>
                         </div>
                     </div>
                 </div>
@@ -363,7 +365,7 @@
 
         var orgInputs = panel.querySelectorAll('input');
         orgInputs.forEach(function(el){
-            if(el.id === 'user.attributes.vatNumber' || el.id === 'user.attributes.companyName'){
+            if(el.id === 'user.attributes.vatNumber' || el.id === 'user.attributes.companyName' || el.id === 'user.attributes.pec'){
                 if(isOrganizer){ el.setAttribute('required','required'); }
                 else{ el.removeAttribute('required'); }
             }
@@ -377,10 +379,13 @@
     const lastNameInput = document.getElementById('lastName');
     const companyNameInput = document.getElementById('user.attributes.companyName');
     const vatNumberInput = document.getElementById('user.attributes.vatNumber');
+    const pecInput = document.getElementById('user.attributes.pec');
     const termsCheck = document.getElementById('tfAcceptTerms');
     const submitBtn = document.getElementById('kc-register-submit');
     const registerForm = document.getElementById('kc-register-form');
     const emailErrorUI = document.getElementById('email-live-error');
+    const vatErrorUI = document.getElementById('vat-live-error');
+    const pecErrorUI = document.getElementById('pec-live-error');
 
     function validateRequiredField(input) {
         if (!input) return true;
@@ -390,6 +395,23 @@
         }
         input.classList.remove('tf-input-error');
         return true;
+    }
+
+    function isValidItalianVatNumber(value) {
+        var cleaned = value.toUpperCase().startsWith('IT') ? value.slice(2) : value;
+        if (!/^\d{11}$/.test(cleaned)) return false;
+        var sum = 0;
+        for (var i = 0; i < 10; i++) {
+            var digit = parseInt(cleaned.charAt(i), 10);
+            if (i % 2 === 0) {
+                sum += digit;
+            } else {
+                var doubled = digit * 2;
+                sum += doubled > 9 ? doubled - 9 : doubled;
+            }
+        }
+        var checkDigit = (10 - (sum % 10)) % 10;
+        return checkDigit === parseInt(cleaned.charAt(10), 10);
     }
 
     function validateForm() {
@@ -415,7 +437,25 @@
         const isOrganizer = document.getElementById('type-organizer').checked;
         if (isOrganizer) {
             if (!validateRequiredField(companyNameInput)) isFormValid = false;
-            if (!validateRequiredField(vatNumberInput)) isFormValid = false;
+
+            if (vatNumberInput.value.trim().length > 0 && isValidItalianVatNumber(vatNumberInput.value.trim())) {
+                vatNumberInput.classList.remove('tf-input-error');
+                vatErrorUI.style.display = 'none';
+            } else {
+                vatNumberInput.classList.add('tf-input-error');
+                vatErrorUI.style.display = 'block';
+                isFormValid = false;
+            }
+
+            const pecRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (pecInput.value.trim().length > 0 && pecRegex.test(pecInput.value.trim())) {
+                pecInput.classList.remove('tf-input-error');
+                pecErrorUI.style.display = 'none';
+            } else {
+                pecInput.classList.add('tf-input-error');
+                pecErrorUI.style.display = 'block';
+                isFormValid = false;
+            }
         }
 
         if (termsCheck && !termsCheck.checked) {
@@ -433,6 +473,7 @@
         if(lastNameInput) lastNameInput.addEventListener('input', validateForm);
         if(companyNameInput) companyNameInput.addEventListener('input', validateForm);
         if(vatNumberInput) vatNumberInput.addEventListener('input', validateForm);
+        if(pecInput) pecInput.addEventListener('input', validateForm);
         if(termsCheck) termsCheck.addEventListener('change', validateForm);
 
         registerForm.addEventListener('submit', function() {

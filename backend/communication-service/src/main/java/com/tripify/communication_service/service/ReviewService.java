@@ -23,6 +23,9 @@ public class ReviewService {
         if (comment == null || comment.isBlank()) {
             throw new IllegalArgumentException("Il commento non può essere vuoto");
         }
+        if (comment.length() > 1000) {
+            throw new IllegalArgumentException("Il commento non può superare i 1000 caratteri");
+        }
 
         boolean hasBooked = bookingClient.hasUserBookedItem(catalogItemId);
         if (!hasBooked) {
@@ -55,6 +58,9 @@ public class ReviewService {
         }
         if (comment == null || comment.isBlank()) {
             throw new IllegalArgumentException("Il commento non può essere vuoto");
+        }
+        if (comment.length() > 1000) {
+            throw new IllegalArgumentException("Il commento non può superare i 1000 caratteri");
         }
 
         review.setRating(rating);

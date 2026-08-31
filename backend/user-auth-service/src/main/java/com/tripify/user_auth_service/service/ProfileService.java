@@ -103,23 +103,27 @@ public class ProfileService {
                 String userType = getAttributeValue(kcUser, "userType");
 
                 if (userType != null && userType.toLowerCase().contains("organizer")) {
-                    user.setRole(Role.ROLE_ORGANIZER);
-
                     String company = getAttributeValue(kcUser, "companyName");
-                    if (company != null) user.setCompanyName(company);
-
                     String vat = getAttributeValue(kcUser, "vatNumber");
-                    if (vat != null) user.setVatNumber(vat);
-
                     String pec = getAttributeValue(kcUser, "pec");
-                    if (pec != null) user.setPec(pec);
+
+                    String businessDataError = validateBusinessData(company, vat, pec);
+                    if (businessDataError != null) {
+                        log.warn("Richiesta ruolo ROLE_ORGANIZER respinta per {}: {}", email, businessDataError);
+                        return user;
+                    }
+
+                    user.setRole(Role.ROLE_ORGANIZER);
+                    user.setCompanyName(company);
+                    user.setVatNumber(vat);
+                    user.setPec(pec);
 
                     try {
                         RoleRepresentation organizerRole = keycloak.realm("tripify").roles().get("ROLE_ORGANIZER").toRepresentation();
                         keycloak.realm("tripify").users().get(kcUser.getId()).roles().realmLevel().add(List.of(organizerRole));
                         log.info("Ruolo ROLE_ORGANIZER assegnato con successo su Keycloak per l'utente {}", email);
 
-                        return userRepository.save(user); // Salva sul DB locale solo se Keycloak ha successo
+                        return userRepository.save(user);
                     } catch (Exception roleAssignmentFailed) {
                         log.warn("Impossibile assegnare il ruolo realm ROLE_ORGANIZER a {}: {}", email, roleAssignmentFailed.getMessage());
                     }
@@ -129,6 +133,38 @@ public class ProfileService {
             log.warn("Sincronizzazione ruolo fallita per {}: {}", email, e.getMessage());
         }
         return user;
+    }
+
+    private String validateBusinessData(String companyName, String vatNumber, String pec) {
+        if (companyName == null || companyName.trim().length() < 2 || companyName.trim().length() > 255) {
+            return "ragione sociale non valida";
+        }
+        if (vatNumber == null || !isValidItalianVatNumber(vatNumber.trim())) {
+            return "partita IVA non valida";
+        }
+        if (pec == null || !pec.trim().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            return "PEC non valida";
+        }
+        return null;
+    }
+
+    private boolean isValidItalianVatNumber(String vatNumber) {
+        String cleaned = vatNumber.toUpperCase().startsWith("IT") ? vatNumber.substring(2) : vatNumber;
+        if (!cleaned.matches("\\d{11}")) {
+            return false;
+        }
+        int sum = 0;
+        for (int i = 0; i < 10; i++) {
+            int digit = cleaned.charAt(i) - '0';
+            if (i % 2 == 0) {
+                sum += digit;
+            } else {
+                int doubled = digit * 2;
+                sum += doubled > 9 ? doubled - 9 : doubled;
+            }
+        }
+        int checkDigit = (10 - (sum % 10)) % 10;
+        return checkDigit == (cleaned.charAt(10) - '0');
     }
 
     private User backfillMissingProfileFieldsFromKeycloak(User user, String email) {
@@ -192,6 +228,7 @@ public class ProfileService {
         return syncRoleFromKeycloak(savedUser, email);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<CompanionDto> getCompanions(String userEmail) {
         return companionRepository.findByUser(getUser(userEmail)).stream()
                 .map(c -> CompanionDto.builder().id(c.getId()).firstName(c.getFirstName())
@@ -233,6 +270,7 @@ public class ProfileService {
         companionRepository.delete(companion);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<TravelDocumentDto> getTravelDocuments(String userEmail) {
         User user = getUser(userEmail);
         return documentRepository.findByUser_Id(user.getId()).stream()
@@ -288,6 +326,7 @@ public class ProfileService {
         documentRepository.delete(doc);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<PaymentMethodDto> getPaymentMethods(String userEmail) {
         return paymentMethodRepository.findByUser(getUser(userEmail)).stream()
                 .map(p -> PaymentMethodDto.builder().id(p.getId()).cardProvider(p.getCardProvider())
@@ -415,6 +454,7 @@ public class ProfileService {
     }
 
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
                 .map(u -> new com.tripify.user_auth_service.dto.response.UserResponse(
@@ -432,6 +472,7 @@ public class ProfileService {
                 .toList();
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getOrganizerById(String identifier) {
         User u;
         if (identifier.contains("@")) {
@@ -468,6 +509,7 @@ public class ProfileService {
         );
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
         User u;
         if (identifier.contains("@")) {
