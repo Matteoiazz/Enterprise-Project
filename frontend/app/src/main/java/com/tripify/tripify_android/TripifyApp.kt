@@ -536,6 +536,7 @@ fun TripifyApp(
                     viewModel = profileViewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onSaveProfile = { newName, newSurname, newPhone, newAddress, newEmail, newPwd ->
+                        val previousEmail = profileViewModel.email
                         profileViewModel.updateProfile(
                             newName = newName,
                             newSurname = newSurname,
@@ -544,7 +545,7 @@ fun TripifyApp(
                             newEmail = newEmail,
                             newPassword = newPwd,
                             onSuccess = {
-                                if (newEmail.isNotBlank() && newEmail != profileViewModel.email) {
+                                if (newEmail.isNotBlank() && newEmail != previousEmail) {
                                     profileViewModel.logout()
                                     navController.navigate(Route.Auth.path) {
                                         popUpTo(0) { inclusive = true }

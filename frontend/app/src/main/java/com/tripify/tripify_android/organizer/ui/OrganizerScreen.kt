@@ -16,6 +16,8 @@ import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.CatalogPriceFormatter
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.data.CatalogApi
 import com.tripify.tripify_android.data.RetrofitClient
@@ -266,6 +268,7 @@ private fun EmptyState(title: String, subtitle: String) {
 
 @Composable
 private fun OrganizerItemRow(item: OrganizerItemDto, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val currency by rememberCatalogCurrency()
     Surface(
         shape = CatalogShapes.Field,
         color = CatalogColors.Surface,
@@ -282,7 +285,7 @@ private fun OrganizerItemRow(item: OrganizerItemDto, onEdit: () -> Unit, onDelet
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.title, style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1)
-                Text("€${"%.2f".format(item.price)}", style = CatalogType.Caption, color = CatalogColors.AccentDark)
+                Text(CatalogPriceFormatter.format(item.price, currency), style = CatalogType.Caption, color = CatalogColors.AccentDark)
             }
             IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Modifica", tint = CatalogColors.InkMuted) }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.DeleteOutline, contentDescription = "Elimina", tint = CatalogColors.Alert) }
@@ -296,8 +299,11 @@ private fun ReceivedBookingRow(
     catalogViewModel: CatalogViewModel,
     profileApi: com.tripify.tripify_android.profile.api.ProfileApiService
 ) {
-    var resolved by remember(line.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
-    LaunchedEffect(line.catalogItemId) { resolved = catalogViewModel.getOrFetchItem(line.catalogItemId.toInt()) }
+    val currency by rememberCatalogCurrency()
+    var resolved by remember(line.catalogItemId) { mutableStateOf(catalogViewModel.itemCache.value[line.catalogItemId.toInt()]) }
+    LaunchedEffect(line.catalogItemId) {
+        if (resolved == null) resolved = catalogViewModel.getOrFetchItem(line.catalogItemId.toInt())
+    }
 
     var buyer by remember(line.buyerUserId) { mutableStateOf<com.tripify.tripify_android.data.UserResponse?>(null) }
     LaunchedEffect(line.buyerUserId) {
@@ -313,7 +319,7 @@ private fun ReceivedBookingRow(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(resolved?.title ?: "Articolo #${line.catalogItemId}", style = CatalogType.BodyStrong, color = CatalogColors.Ink, maxLines = 1)
-                Text("€${"%.2f".format(line.price)}", style = CatalogType.BodyStrong, color = CatalogColors.AccentDark)
+                Text(CatalogPriceFormatter.format(line.price, currency), style = CatalogType.BodyStrong, color = CatalogColors.AccentDark)
             }
             Spacer(modifier = Modifier.height(4.dp))
             val buyerLabel = buyer?.let { b -> "${b.name ?: ""} ${b.surname ?: ""}".trim().ifEmpty { b.email } } ?: line.buyerUserId

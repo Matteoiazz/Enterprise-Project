@@ -180,12 +180,12 @@ fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit:
         true
     }
 
-    val isValid = title.isNotBlank() && price.toDoubleOrNull() != null &&
+    val isValid = title.isNotBlank() && (price.toDoubleOrNull() ?: -1.0) > 0.0 &&
             departureAirport.length == 3 && arrivalAirport.length == 3 &&
             departureCity.isNotBlank() && arrivalCity.isNotBlank() &&
             departureDate.isNotBlank() && arrivalDate.isNotBlank() &&
-            totalSeats.toIntOrNull() != null &&
-            fareClasses.all { it.name.isNotBlank() && it.price.toDoubleOrNull() != null && it.seats.toIntOrNull() != null } &&
+            (totalSeats.toIntOrNull() ?: 0) > 0 &&
+            fareClasses.all { it.name.isNotBlank() && (it.price.toDoubleOrNull() ?: -1.0) > 0.0 && (it.seats.toIntOrNull() ?: 0) > 0 } &&
             isArrivalAfterDeparture
 
     FormDialogShell(
@@ -280,10 +280,10 @@ fun HotelFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: 
         }
     }
 
-    val isValid = title.isNotBlank() && price.toDoubleOrNull() != null &&
+    val isValid = title.isNotBlank() && (price.toDoubleOrNull() ?: -1.0) > 0.0 &&
             address.isNotBlank() && city.isNotBlank() &&
             lat.toDoubleOrNull() != null && lng.toDoubleOrNull() != null &&
-            roomTypes.all { it.name.isNotBlank() && it.price.toDoubleOrNull() != null && it.totalRooms.toIntOrNull() != null }
+            roomTypes.all { it.name.isNotBlank() && (it.price.toDoubleOrNull() ?: -1.0) > 0.0 && (it.totalRooms.toIntOrNull() ?: 0) > 0 }
 
     FormDialogShell(
         title = if (existing == null) "Nuovo hotel" else "Modifica hotel",
@@ -358,7 +358,7 @@ fun ActivityFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmi
     var maxParticipants by remember { mutableStateOf(existing?.maxParticipants?.toString() ?: "") }
     var guideIncluded by remember { mutableStateOf(existing?.guideIncluded ?: false) }
 
-    val isValid = title.isNotBlank() && price.toDoubleOrNull() != null &&
+    val isValid = title.isNotBlank() && (price.toDoubleOrNull() ?: -1.0) > 0.0 &&
             activityType.isNotBlank() && duration.isNotBlank() && city.isNotBlank()
 
     FormDialogShell(

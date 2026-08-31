@@ -52,15 +52,27 @@ public class ProfileService {
     @Value("${keycloak.admin.password:admin}")
     private String keycloakAdminPassword;
 
+    private volatile Keycloak keycloakAdminClient;
+
     private Keycloak getKeycloakAdminClient() {
-        return KeycloakBuilder.builder()
-                .serverUrl(keycloakAdminServerUrl)
-                .realm("master")
-                .clientId("admin-cli")
-                .grantType(org.keycloak.OAuth2Constants.PASSWORD)
-                .username(keycloakAdminUsername)
-                .password(keycloakAdminPassword)
-                .build();
+        Keycloak client = keycloakAdminClient;
+        if (client == null) {
+            synchronized (this) {
+                client = keycloakAdminClient;
+                if (client == null) {
+                    client = KeycloakBuilder.builder()
+                            .serverUrl(keycloakAdminServerUrl)
+                            .realm("master")
+                            .clientId("admin-cli")
+                            .grantType(org.keycloak.OAuth2Constants.PASSWORD)
+                            .username(keycloakAdminUsername)
+                            .password(keycloakAdminPassword)
+                            .build();
+                    keycloakAdminClient = client;
+                }
+            }
+        }
+        return client;
     }
 
     public User getUser(String email) {
@@ -142,7 +154,7 @@ public class ProfileService {
         if (vatNumber == null || !isValidItalianVatNumber(vatNumber.trim())) {
             return "partita IVA non valida";
         }
-        if (pec == null || !pec.trim().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+        if (pec == null || pec.trim().length() > 255 || !pec.trim().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             return "PEC non valida";
         }
         return null;
@@ -377,18 +389,15 @@ public class ProfileService {
     public void deleteUserAccount(String email, String keycloakUserId) {
         User user = getUser(email);
 
+        Keycloak keycloak = getKeycloakAdminClient();
+        keycloak.realm("tripify").users().delete(keycloakUserId);
+
         companionRepository.deleteAll(companionRepository.findByUser(user));
         paymentMethodRepository.deleteAll(paymentMethodRepository.findByUser(user));
         documentRepository.deleteAll(documentRepository.findByUser_Id(user.getId()));
         userRepository.delete(user);
 
-        try {
-            Keycloak keycloak = getKeycloakAdminClient();
-            keycloak.realm("tripify").users().delete(keycloakUserId);
-            log.info("Account eliminato definitivamente sia in locale che su Keycloak per: {}", email);
-        } catch (Exception e) {
-            log.warn("Errore eliminazione utente su Keycloak, ma i dati locali sono stati distrutti con successo: {}", e.getMessage());
-        }
+        log.info("Account eliminato definitivamente sia in locale che su Keycloak per: {}", email);
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -433,6 +442,19 @@ public class ProfileService {
         }
 
         return user;
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void updatePec(String email, String pec) {
+        User user = getUser(email);
+        if (user.getRole() != Role.ROLE_ORGANIZER) {
+            throw new UnauthorizedActionException("Solo gli organizzatori possono modificare la PEC");
+        }
+        if (pec == null || pec.trim().length() > 255 || !pec.trim().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new IllegalArgumentException("PEC non valida");
+        }
+        user.setPec(pec.trim());
+        userRepository.save(user);
     }
 
     @org.springframework.transaction.annotation.Transactional
