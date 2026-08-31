@@ -167,8 +167,16 @@ fun NotificationCard(
                     color = CatalogColors.InkSubtle
                 )
                 Spacer(modifier = Modifier.height(6.dp))
+
+                val formattedDate = try {
+                    val parsed = java.time.LocalDateTime.parse(notification.createdAt)
+                    parsed.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                } catch (e: Exception) {
+                    notification.createdAt
+                }
+
                 Text(
-                    text = notification.createdAt,
+                    text = formattedDate,
                     style = CatalogType.Caption,
                     color = CatalogColors.InkMuted
                 )

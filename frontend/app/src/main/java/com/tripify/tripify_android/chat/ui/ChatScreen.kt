@@ -139,12 +139,27 @@ fun ChatScreen(
 
                                     Spacer(modifier = Modifier.height(3.dp))
 
+                                    val timeString = try {
+                                        if (msg.timestamp.isNullOrEmpty()) {
+                                            // Se il timestamp non c'è ancora, prendi l'ora esatta del telefono
+                                            java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                                        } else {
+                                            val parsed = java.time.LocalDateTime.parse(msg.timestamp)
+                                            parsed.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                                        }
+                                    } catch (e: Exception) {
+                                        // Fallback di sicurezza
+                                        java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                                    }
+
                                     Text(
-                                        text = "12:54",
+
+                                        text = timeString,
                                         style = CatalogType.Caption,
                                         fontSize = 9.sp,
                                         color = if (isMyMessage) Color.White.copy(alpha = 0.7f) else CatalogColors.InkMuted,
                                         modifier = Modifier.align(Alignment.End)
+
                                     )
                                 }
                             }
