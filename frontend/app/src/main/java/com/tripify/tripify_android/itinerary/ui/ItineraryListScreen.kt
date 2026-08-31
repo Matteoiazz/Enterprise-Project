@@ -35,7 +35,7 @@ private enum class ItineraryTab { PUBLIC, MINE }
 fun ItineraryListScreen(
     viewModel: ItineraryViewModel,
     tokenManager: TokenManager,
-    onNavigateToDetail: (Long) -> Unit
+    onNavigateToDetail: (id: Long, publicToken: String?) -> Unit
 ) {
     var tab by remember { mutableStateOf(ItineraryTab.PUBLIC) }
     var city by remember { mutableStateOf("") }
@@ -248,7 +248,9 @@ fun ItineraryListScreen(
                                         eyebrow = list.city ?: (if (tab == ItineraryTab.MINE) list.visibility else "Itinerario"),
                                         price = "❤ ${list.likesCount}",
                                         title = list.name,
-                                        onClick = { onNavigateToDetail(list.id) }
+                                        // Con un link pubblico si vede il dettaglio anche da sloggati; senza
+                                        // (solo nella tab "Miei itinerari") serve comunque essere autenticati.
+                                        onClick = { onNavigateToDetail(list.id, list.publicToken) }
                                     ) {
                                         val componentsLabel = if (list.items.size == 1) "1 tappa" else "${list.items.size} tappe"
                                         PhotoMeta(icon = Icons.Filled.Route, text = componentsLabel)

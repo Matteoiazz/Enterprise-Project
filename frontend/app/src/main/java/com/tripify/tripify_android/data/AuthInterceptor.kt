@@ -17,18 +17,24 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
 
         val response = chain.proceed(requestBuilder.build())
 
-        if (response.code == 401|| response.code == 403) {
-            response.close()
-
+        if (response.code == 401 || response.code == 403) {
             val newAccessToken = runBlocking { tokenManager.refreshAccessToken() }
 
             if (newAccessToken != null) {
+                response.close()
                 val newRequest = chain.request().newBuilder()
                     .header("Authorization", "Bearer $newAccessToken")
                     .build()
                 return chain.proceed(newRequest)
             }
-            runBlocking { tokenManager.clearTokens() }
+
+            // Nessun refresh possibile: per un utente anonimo (nessun token) non c'e'
+            // niente da pulire, e il 401/403 va restituito cosi' com'e', SENZA
+            // chiuderlo prima -- altrimenti Retrofit trova una response gia' chiusa
+            // e la scambia per un errore di connessione invece del vero stato 401.
+            if (!token.isNullOrEmpty()) {
+                runBlocking { tokenManager.clearTokens() }
+            }
         }
 
         return response

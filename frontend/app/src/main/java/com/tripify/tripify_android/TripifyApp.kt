@@ -300,7 +300,10 @@ fun TripifyApp(
                 com.tripify.tripify_android.itinerary.ui.ItineraryListScreen(
                     viewModel = itineraryViewModel,
                     tokenManager = tokenManager,
-                    onNavigateToDetail = { id -> navController.navigate("itinerary_detail/$id") }
+                    onNavigateToDetail = { id, publicToken ->
+                        if (!publicToken.isNullOrBlank()) navController.navigate("itinerary_public/$publicToken")
+                        else navController.navigate("itinerary_detail/$id")
+                    }
                 )
             }
 
