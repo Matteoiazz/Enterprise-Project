@@ -71,6 +71,7 @@ fun HomeScreen(
     val recommendationsLabel by viewModel.recommendationsLabel.collectAsState()
     val isLoggedIn by viewModel.isLoggedInState.collectAsState()
 
+
     var showFilterSheet by remember { mutableStateOf(false) }
     var flightDeparture by rememberSaveable { mutableStateOf("") }
     var flightDestination by rememberSaveable { mutableStateOf("") }
