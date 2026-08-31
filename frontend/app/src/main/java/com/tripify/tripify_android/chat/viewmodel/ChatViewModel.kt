@@ -73,7 +73,8 @@ class ChatViewModel(
     }
 
     private fun connectWebSocket(serverUrl: String, token: String) {
-        val wsUrl = serverUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat/websocket"
+        // Correggiamo l'URL rimuovendo il /websocket finale che la libreria gestisce in autonomia
+        val wsUrl = serverUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat"
 
         // Iniettiamo il Bearer token per superare Spring Security durante l'handshake HTTP
         val httpHeaders = mutableMapOf("Authorization" to "Bearer $token")
