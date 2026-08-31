@@ -66,19 +66,29 @@ public class ChatController {
 
     @GetMapping("/chat/rooms")
     @ResponseBody
-    public List<ChatRoom> getUserChatRooms(Principal principal) {
+    public List<com.tripify.communication_service.dto.ChatRoomDto> getUserChatRooms(Principal principal) {
         String userId = extractUserId(principal);
-        //debug
         System.out.println("DEBUG CHAT ROOMS: L'utente che richiede le chat è -> " + userId);
 
         List<ChatRoom> asTraveler = chatRoomRepository.findByTravelerId(userId);
         List<ChatRoom> asHost = chatRoomRepository.findByHostId(userId);
 
-        // Creiamo una nuova lista mutabile per evitare eccezioni di UnsupportedOperationException
         List<ChatRoom> allRooms = new java.util.ArrayList<>(asTraveler);
         allRooms.addAll(asHost);
 
-        return allRooms;
+        return allRooms.stream().map(room -> {
+            com.tripify.communication_service.dto.ChatRoomDto dto = new com.tripify.communication_service.dto.ChatRoomDto();
+            dto.setId(room.getId());
+            dto.setTravelerId(room.getTravelerId());
+            dto.setHostId(room.getHostId());
+            dto.setTitle(room.getTitle());
+
+            // Calcola dinamicamente quanti messaggi non letti hai in questa chat
+            int unread = chatMessageRepository.countByRoomIdAndSenderIdNotAndIsReadFalse(room.getId(), userId);
+            dto.setUnreadCount(unread);
+
+            return dto;
+        }).toList();
     }
 
     @GetMapping("/chat/history/{roomId}")
@@ -96,6 +106,8 @@ public class ChatController {
             chatMessage.setSenderId(senderId);
         }
 
+        chatMessage.setIsRead(false);
+
         System.out.println("DEBUG: Messaggio ricevuto per la stanza " + chatMessage.getRoomId() +
                 " da " + senderId + ". Testo: " + chatMessage.getContent());
 
@@ -105,28 +117,32 @@ public class ChatController {
         // Invia il messaggio in tempo reale sulla WebSocket della stanza
         messagingTemplate.convertAndSend("/topic/room/" + chatMessage.getRoomId(), savedMessage);
 
-        // --- 🚀 MAGIA DELLE NOTIFICHE AUTOMATICHE ---
-        // Troviamo la chat room per capire chi è l'altro utente (destinatario)
+        // Notifica RabbitMQ per l'altro utente
         Optional<ChatRoom> roomOpt = chatRoomRepository.findById(chatMessage.getRoomId());
         if (roomOpt.isPresent()) {
             ChatRoom room = roomOpt.get();
-            // Il destinatario è l'altro partecipante (se chi manda è il traveler, riceve l'host, e viceversa)
             String recipientId = senderId.equals(room.getTravelerId()) ? room.getHostId() : room.getTravelerId();
 
             if (recipientId != null) {
-                // Creiamo l'evento notifica
                 NotificationEvent notificationEvent = new NotificationEvent(
                         recipientId,
                         "Nuovo messaggio 💬",
                         "Hai ricevuto un nuovo messaggio in chat."
                 );
 
-                // Spediamo l'evento a RabbitMQ (che farà scattare il Consumer e arriverà sul telefono del destinatario)
                 rabbitTemplate.convertAndSend(
                         RabbitMQConfig.NOTIFICATION_QUEUE,
                         notificationEvent
                 );
             }
         }
+    }
+
+    @PutMapping("/chat/rooms/{roomId}/read")
+    @ResponseBody
+    public void markMessagesAsRead(@PathVariable String roomId, Principal principal) {
+        String userId = extractUserId(principal);
+        chatMessageRepository.markAsReadByRoomAndRecipient(roomId, userId);
+        System.out.println("DEBUG: Messaggi segnati come letti per l'utente " + userId + " nella stanza " + roomId);
     }
 }

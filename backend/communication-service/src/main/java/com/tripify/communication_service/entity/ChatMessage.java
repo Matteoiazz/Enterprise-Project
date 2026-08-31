@@ -31,6 +31,10 @@ public class ChatMessage {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
+    // --- NUOVO CAMPO PER LA LETTURA ---
+    @Column(nullable = false)
+    private Boolean isRead = false;
+
     @PrePersist
     protected void onCreate() {
         this.timestamp = LocalDateTime.now();
