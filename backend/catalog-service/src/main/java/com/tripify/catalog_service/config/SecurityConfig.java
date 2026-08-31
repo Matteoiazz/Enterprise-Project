@@ -11,10 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
-// GatewayAuthenticationFilter (basato sull'header X-User-Roles) è stato
-// rimosso dalla catena: i ruoli si leggono ora direttamente dal JWT già
-// validato da Spring (vedi JwtRoleConverter), che non dipende da un header
-// che il gateway deve propagare correttamente.
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -38,8 +35,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 
-                        // Hold/confirm/release richiedono un utente reale autenticato: l'id
-                        // viene letto dal JWT (sub), non più inviato dal client nel body.
+                        // Hold/confirm/release richiedono un utente reale autenticato: l'id viene letto dal JWT (sub).
                         .requestMatchers(HttpMethod.POST, "/api/v1/catalog/room-types/**", "/api/v1/catalog/fare-classes/**", "/api/v1/catalog/holds/**").authenticated()
 
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()

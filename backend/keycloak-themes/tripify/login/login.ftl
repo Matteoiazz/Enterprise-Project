@@ -240,12 +240,13 @@
                 <p class="tf-sub">Inserisci le tue credenziali per continuare</p>
 
                 <#if message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
-                    <#if message.summary != 'Your login attempt timed out. Login will start from the beginning.'
-                    && message.summary != 'Il tuo tentativo di accesso è scaduto. L\'accesso ripartirà dall\'inizio.'
-                    && message.summary != 'Action expired. Please continue with login now.'
-                    && message.summary != 'Azione scaduta. Si prega di effettuare l\'accesso.'
-                    && message.summary != 'Page has expired'
-                    && message.summary != 'La pagina è scaduta'>
+                    <#assign tfMessageLower = message.summary?lower_case>
+                    <#if !tfMessageLower?contains('login will start from the beginning')
+                    && !tfMessageLower?contains('ripartirà dall\'inizio')
+                    && !tfMessageLower?contains('continue with login now')
+                    && !tfMessageLower?contains('effettuare l\'accesso')
+                    && !tfMessageLower?contains('page has expired')
+                    && !tfMessageLower?contains('pagina è scaduta')>
                         <div class="tf-alert">
                             ⚠️ ${kcSanitize(message.summary)?no_esc}
                         </div>

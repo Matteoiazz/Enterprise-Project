@@ -33,8 +33,9 @@ public class CatalogItemSpecification {
             List<Predicate> predicates = new ArrayList<>();
             query.distinct(true);
 
-            // 0. Solo annunci attivi: non più garantito da @SQLRestriction (rimosso per
-            // non bloccare il fetch diretto per id di un item disattivato).
+            // 0. Solo annunci attivi: il fetch diretto per id resta possibile anche per
+            // un item disattivato (es. per chi lo ha già prenotato), ma non deve comparire
+            // in ricerca.
             predicates.add(cb.isTrue(root.get("isActive")));
 
             // 1. Categoria

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.profile.api.ProfileApiService
 import com.tripify.tripify_android.profile.model.CompanionDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,8 @@ class CompanionsViewModel(
             try {
                 val list = apiService.getCompanions()
                 _companions.value = list
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nel caricamento: ${e.message}"
                 Log.e("CompanionsVM", "Load Error", e)
@@ -85,6 +88,8 @@ class CompanionsViewModel(
                 val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
                 _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
                 Log.e("CompanionsVM", "Add Error", e)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Errore durante il salvataggio: ${e.message}"
                 Log.e("CompanionsVM", "Add Error", e)
@@ -100,6 +105,8 @@ class CompanionsViewModel(
             try {
                 apiService.deleteCompanion(id)
                 loadCompanions()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Errore durante l'eliminazione: ${e.message}"
                 Log.e("CompanionsVM", "Delete Error", e)

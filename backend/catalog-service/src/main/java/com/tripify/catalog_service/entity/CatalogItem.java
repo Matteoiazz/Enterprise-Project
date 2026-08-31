@@ -22,10 +22,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 
-// Niente @SQLRestriction qui: filtrerebbe anche il fetch diretto per id, rendendo
-// irraggiungibile un item disattivato per chi lo ha già prenotato o salvato in un
-// itinerario. Il filtro "is_active" va applicato solo dove si fa discovery (ricerca,
-// annunci di un host) — vedi CatalogItemSpecification e findByHostIdAndIsActiveTrue.
+// Il fetch diretto per id resta valido anche per un item disattivato (es. per chi
+// lo ha già prenotato o salvato in un itinerario): il filtro "is_active" si applica
+// solo dove si fa discovery, vedi CatalogItemSpecification e findByHostIdAndIsActiveTrue.
 @SQLDelete(sql = "UPDATE catalog_items SET is_active = false WHERE id = ?")
 public abstract class CatalogItem {
 

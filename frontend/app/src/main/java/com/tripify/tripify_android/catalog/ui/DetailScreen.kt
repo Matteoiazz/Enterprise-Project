@@ -81,9 +81,6 @@ fun DetailScreen(
     val cachedAtStart = remember(itemId) { id?.let { viewModel.itemCache.value[it] } }
     var item by remember(itemId) { mutableStateOf(cachedAtStart) }
     var isResolving by remember(itemId) { mutableStateOf(cachedAtStart == null && id != null) }
-    // Incrementato dal tasto "Riprova": prima qualsiasi fallimento nel caricare l'elemento
-    // (anche solo un intoppo di rete, non un vero 404) portava a un vicolo cieco con
-    // "Elemento non trovato" e nessun modo di ritentare se non uscire e rientrare.
     var retryTrigger by remember(itemId) { mutableStateOf(0) }
 
     LaunchedEffect(itemId, retryTrigger) {
@@ -153,7 +150,6 @@ private fun DetailContent(
                 isFavorite = response.body()?.contains(item.id.toLong()) == true
             }
         } catch (e: Exception) {
-            // stato iniziale del cuore non essenziale
         }
     }
 

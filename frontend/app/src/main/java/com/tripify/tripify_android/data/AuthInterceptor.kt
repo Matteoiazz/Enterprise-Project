@@ -28,19 +28,15 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
                 return chain.proceed(newRequest)
             }
 
-            // Nessun refresh possibile: per un utente anonimo (nessun token) non c'e'
-            // niente da pulire, e il 401/403 va restituito cosi' com'e', SENZA
-            // chiuderlo prima -- altrimenti Retrofit trova una response gia' chiusa
-            // e la scambia per un errore di connessione invece del vero stato 401.
+            // Nessun refresh possibile per un utente anonimo (nessun token): la response
+            // va restituita cosi' com'e', senza chiuderla, per non farla scambiare per
+            // un errore di connessione da chi la legge dopo.
             if (!token.isNullOrEmpty()) {
                 runBlocking { tokenManager.clearTokens() }
 
-                // Un token presente ma non piu' valido (es. sessione precedente a un
-                // riavvio del backend/Keycloak) fa rifiutare la richiesta ANCHE su un
-                // endpoint pubblico come la ricerca del catalogo: Spring Security
-                // scarta un Bearer non valido prima ancora di guardare se serve
-                // davvero autenticazione. Riprovo subito senza token: se l'endpoint
-                // era pubblico funziona al volo, altrimenti resta un 401 legittimo.
+                // Un Bearer non valido fa rifiutare la richiesta anche su un endpoint
+                // pubblico (Spring Security lo scarta prima di valutare l'autorizzazione):
+                // si riprova subito senza token.
                 response.close()
                 val anonymousRequest = chain.request().newBuilder()
                     .removeHeader("Authorization")

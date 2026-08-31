@@ -13,13 +13,13 @@ private val Trim = LineHeightStyle(
     trim = LineHeightStyle.Trim.None
 )
 
-// Serif editoriale: usato per titoli, prezzi, tutto ciò che deve "parlare" a colpo d'occhio.
+// Serif editoriale: usato per titoli, prezzi ecc.
 val PlayfairDisplay = FontFamily(
     Font(R.font.playfair_display_semibold, FontWeight.SemiBold),
     Font(R.font.playfair_display_bold, FontWeight.Bold)
 )
 
-// Sans pulito: label, corpo, meta, tutto il resto dell'interfaccia.
+// Sans pulito: label, corpo, meta ecc.
 val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal),
     Font(R.font.inter_medium, FontWeight.Medium),
@@ -73,8 +73,6 @@ object CatalogType {
         lineHeightStyle = Trim
     )
 
-    // Colma il "buco" tra CardTitle (19sp) e Body: prima veniva bypassato con sp scritti a mano
-    // in FlightResultCard/HotelResultCard/ExcursionResultCard e con un hack in SearchResultsScreen.
     val TitleCompact = TextStyle(
         fontFamily = PlayfairDisplay,
         fontWeight = FontWeight.Bold,

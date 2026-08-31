@@ -63,6 +63,13 @@ fun ProfileScreen(
     val tokenManager = remember { TokenManager(context) }
     val currentToken by tokenManager.tokenFlow.collectAsState(initial = null)
     val isOrganizer = currentToken?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true
+    // isLoggedIn dipende solo dal token: prima richiedeva anche name.isNotEmpty(), quindi
+    // se loadUserProfile() falliva per un problema temporaneo (rete instabile, server
+    // lento) un utente comunque autenticato si ritrovava catapultato sulla schermata
+    // "Accedi al tuo mondo" come se avesse fatto logout, pur avendo ancora una sessione
+    // valida. Il caso "token cancellato" (logout o eliminazione account) resta comunque
+    // coperto, dato che currentToken passa a null in entrambi i casi.
+    val isLoggedIn = currentToken != null
 
     val logoutLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -71,8 +78,10 @@ fun ProfileScreen(
         onLogoutSuccess()
     }
 
-    LaunchedEffect(viewModel) {
-        viewModel.loadUserProfile()
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            viewModel.loadUserProfile()
+        }
     }
 
     // Prima gli errori di loadUserProfile/uploadProfilePicture/updateProfile finivano
@@ -92,13 +101,6 @@ fun ProfileScreen(
             viewModel.isLoggedOut = false
         }
     }
-    // isLoggedIn dipende solo dal token: prima richiedeva anche name.isNotEmpty(), quindi
-    // se loadUserProfile() falliva per un problema temporaneo (rete instabile, server
-    // lento) un utente comunque autenticato si ritrovava catapultato sulla schermata
-    // "Accedi al tuo mondo" come se avesse fatto logout, pur avendo ancora una sessione
-    // valida. Il caso "token cancellato" (logout o eliminazione account) resta comunque
-    // coperto, dato che currentToken passa a null in entrambi i casi.
-    val isLoggedIn = currentToken != null
 
     Scaffold(
         containerColor = CatalogColors.Background,

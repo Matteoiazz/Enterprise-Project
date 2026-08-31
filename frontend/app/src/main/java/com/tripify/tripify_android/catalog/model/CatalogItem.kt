@@ -24,9 +24,7 @@ sealed class CatalogItem {
     abstract val price: String
     abstract val priceValue: Int
     abstract val imageUrls: List<String>
-    abstract val hostId: String // <-- L'UUID dell'organizzatore fornito dal backend
-    // false per gli item di data.sql (nessun organizzatore reale): nasconde "Chatta con
-    // l'organizzatore", altrimenti si aprirebbe una chat con un host che non esiste.
+    abstract val hostId: String
     abstract val isUserGenerated: Boolean
 
     val imageUrl: String

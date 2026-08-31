@@ -215,7 +215,7 @@ fun SearchResultsScreen(
                             }
                         }
 
-                        // --- RACCOMANDAZIONI, ora qui: hanno senso solo dentro un contesto di ricerca già fatta ---
+                        // --- RACCOMANDAZIONI: hanno senso solo dentro un contesto di ricerca già fatta ---
                         if (hasSearched && recommendedItems.isNotEmpty()) {
                             item(key = "recommendations") {
                                 Spacer(modifier = Modifier.height(24.dp))

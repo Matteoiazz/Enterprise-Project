@@ -224,8 +224,6 @@ fun ItineraryDetailScreen(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
-                        // La freccia indietro c'è già nella topbar sopra: qui solo il like,
-                        // altrimenti compariva un secondo pulsante indietro duplicato.
                         IconButton(
                             onClick = {
                                 if (currentUserId != null) {
