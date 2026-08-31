@@ -135,6 +135,17 @@ class ShoppingCartServiceTest {
     }
 
     @Test
+    void rifiutaCheckOutNonSuccessivoAlCheckIn() {
+        LocalDate checkIn = LocalDate.now().plusDays(10);
+
+        assertThatThrownBy(() -> cartService.addItem(USER_ID, new AddToCartRequestDTO(1L, 1, 5L, null, checkIn, checkIn)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> cartService.addItem(USER_ID, new AddToCartRequestDTO(1L, 1, 5L, null, checkIn, checkIn.minusDays(1))))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(catalogClient, never()).holdRoom(any(), any());
+    }
+
+    @Test
     void rifiutaSeSonoSpecificatiSiaRoomTypeCheFareClass() {
         assertThatThrownBy(() -> cartService.addItem(USER_ID, new AddToCartRequestDTO(1L, 1, 5L, 7L, null, null)))
                 .isInstanceOf(IllegalArgumentException.class);

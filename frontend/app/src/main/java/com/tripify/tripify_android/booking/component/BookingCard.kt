@@ -68,7 +68,8 @@ fun BookingCard(
     onCancelClick: (Long) -> Unit = {},
     onAddPassengersClick: (Long) -> Unit = {},
     onShowBoardingPassClick: (Long) -> Unit = {},
-    onCardClick: (Long) -> Unit = {}
+    onCardClick: (Long) -> Unit = {},
+    onRetryPaymentClick: (Long) -> Unit = {}
 ) {
     // Il riepilogo completo apre solo dalle prenotazioni CONFERMATE: una
     // PENDING non ha ancora ospiti/QR definitivi, un'annullata non compare
@@ -157,6 +158,18 @@ fun BookingCard(
                         shape = CatalogShapes.Field
                     ) {
                         Text("Invita", style = CatalogType.Button)
+                    }
+                }
+
+                if (booking.status == "PENDING") {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = { onRetryPaymentClick(booking.id) },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+                        shape = CatalogShapes.Field
+                    ) {
+                        Text("Completa pagamento", style = CatalogType.Button)
                     }
                 }
 

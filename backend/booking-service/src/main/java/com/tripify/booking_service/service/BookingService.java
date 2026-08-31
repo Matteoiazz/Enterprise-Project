@@ -17,6 +17,7 @@ import com.tripify.booking_service.exception.ResourceNotFoundException;
 import com.tripify.booking_service.messaging.BookingEventPublisher;
 import com.tripify.booking_service.repository.*;
 import com.tripify.booking_service.messaging.BookingNotificationEvent;
+import feign.FeignException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -166,6 +167,9 @@ public class BookingService {
         if (!booking.getUserId().equals(leaderId)) {
             throw new AccessDeniedException("Accesso negato: solo il creatore del viaggio può invitare amici.");
         }
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new InvalidBookingStateException("Non puoi invitare amici a una prenotazione annullata.");
+        }
 
         if (friendId == null || friendId.isBlank()) {
             throw new IllegalArgumentException("L'id dell'amico da invitare è obbligatorio.");
@@ -228,6 +232,9 @@ public class BookingService {
         if (!booking.getUserId().equals(requesterId)) {
             throw new AccessDeniedException("Accesso negato: solo il creatore del viaggio può aggiungere passeggeri.");
         }
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new InvalidBookingStateException("Non puoi aggiungere passeggeri a una prenotazione annullata.");
+        }
 
         // quantity può essere null su righe create prima di questa modifica
         // (colonna aggiunta senza NOT NULL, vedi BookingLine): in quel caso
@@ -285,9 +292,24 @@ public class BookingService {
         // rifiuta la release), quindi un fallimento a metà lista può lasciare
         // qualche riga "confermata" lato catalogo anche se la Booking resta PENDING:
         // è un limite del modello di hold di catalog-service, non risolvibile da qui.
+        //
+        // Un 409 da catalog-service qui significa che il blocco non è più
+        // confermabile (scaduto, quindi la camera/il posto può essere finito a
+        // qualcun altro nel frattempo): capita soprattutto quando si riprova il
+        // pagamento di una Booking rimasta PENDING a lungo. Lo traduciamo in un
+        // messaggio chiaro invece di lasciarlo risalire come generico errore di
+        // integrazione (vedi GlobalExceptionHandler.handleFeignException).
         for (BookingLine line : booking.getLines()) {
             if (line.getHoldId() != null) {
-                catalogClient.confirmHold(line.getHoldId());
+                try {
+                    catalogClient.confirmHold(line.getHoldId());
+                } catch (FeignException ex) {
+                    if (ex.status() == 409) {
+                        throw new InvalidBookingStateException(
+                                "Uno o più articoli di questa prenotazione non sono più disponibili: il blocco temporaneo è scaduto, probabilmente qualcun altro li ha prenotati nel frattempo. Annulla la prenotazione e riprova dal catalogo.");
+                    }
+                    throw ex;
+                }
             }
         }
 

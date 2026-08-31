@@ -237,8 +237,10 @@ private fun AddPassengerDialog(
         else -> null
     }
 
-    val formValid = firstName.isNotBlank() && lastName.isNotBlank() && phoneNumber.length == 10 && taxCode.isNotBlank() &&
-        documentType.isNotBlank() && documentNumber.isNotBlank() && expirationDateValid && issuingCountry.length == 3
+    val formValid = firstName.isNotBlank() && lastName.isNotBlank() && phoneNumber.length == 10 &&
+        isTaxCodeFormatValid(taxCode) && isTaxCodeChecksumValid(taxCode) &&
+        documentType.isNotBlank() && isDocumentNumberLengthValid(documentNumber) &&
+        expirationDateValid && issuingCountry.length == 3
 
     fun fillFromSaved(document: TravelDocumentDto) {
         documentType = document.documentType
