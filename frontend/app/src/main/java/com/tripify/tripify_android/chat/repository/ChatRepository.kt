@@ -17,6 +17,7 @@ object ChatRepository {
 
     // Sostituisci solo questa funzione nel tuo ChatRepository
     suspend fun getOrCreateChatRoom(hostId: String, title: String? = null, authToken: String?): ChatRoom? {
+        android.util.Log.d("CHAT_DEBUG", "Valore ricevuto in getOrCreateChatRoom - hostId: $hostId, title: $title")
         return withContext(Dispatchers.IO) {
             try {
                 val encodedTitle = title?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""

@@ -18,13 +18,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Manteniamo le rotte WebSocket e Chat aperte, come richiesto dallo script
-                        .requestMatchers("/chat/**", "/ws-chat/**").permitAll()
+                        // Manteniamo aperto solo ciò che è strettamente pubblico
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/item/*").permitAll()
-                        // Le notifiche (e tutto il resto) richiedono l'autenticazione
+                        // Tutte le rotte, incluse /chat/** e /ws-chat/**, ora richiedono il token
                         .anyRequest().authenticated()
                 )
-                // L'AGGIUNTA FONDAMENTALE: Abilita la validazione del Bearer Token JWT
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
 
         return http.build();
