@@ -1,10 +1,12 @@
 package com.tripify.tripify_android
 
+import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -71,11 +73,24 @@ fun TripifyApp(
     travelDocumentsViewModel: TravelDocumentsViewModel,
     paymentMethodsViewModel: PaymentMethodsViewModel,
     settingsViewModel: SettingsViewModel,
-    notificationViewModel: NotificationViewModel
+    notificationViewModel: NotificationViewModel,
+    pendingDeepLinkIntent: Intent? = null,
+    onDeepLinkHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Con launchMode="singleTask" un link aperto ad app già avviata non ricrea
+    // l'Activity: arriva qui come nuovo intent (vedi MainActivity.onNewIntent) e va
+    // passato esplicitamente al NavController, altrimenti resta ignorato e l'app
+    // si limita a tornare in primo piano sulla schermata dove si era rimasti.
+    LaunchedEffect(pendingDeepLinkIntent) {
+        pendingDeepLinkIntent?.let { intent ->
+            navController.handleDeepLink(intent)
+            onDeepLinkHandled()
+        }
+    }
 
     val bookingContext = LocalContext.current
     val bookingTokenManager = remember { TokenManager(bookingContext) }

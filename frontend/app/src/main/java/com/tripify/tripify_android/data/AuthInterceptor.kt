@@ -34,6 +34,18 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
             // e la scambia per un errore di connessione invece del vero stato 401.
             if (!token.isNullOrEmpty()) {
                 runBlocking { tokenManager.clearTokens() }
+
+                // Un token presente ma non piu' valido (es. sessione precedente a un
+                // riavvio del backend/Keycloak) fa rifiutare la richiesta ANCHE su un
+                // endpoint pubblico come la ricerca del catalogo: Spring Security
+                // scarta un Bearer non valido prima ancora di guardare se serve
+                // davvero autenticazione. Riprovo subito senza token: se l'endpoint
+                // era pubblico funziona al volo, altrimenti resta un 401 legittimo.
+                response.close()
+                val anonymousRequest = chain.request().newBuilder()
+                    .removeHeader("Authorization")
+                    .build()
+                return chain.proceed(anonymousRequest)
             }
         }
 

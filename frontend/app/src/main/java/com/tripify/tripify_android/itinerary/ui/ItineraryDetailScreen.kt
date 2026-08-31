@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -148,6 +149,7 @@ fun ItineraryDetailScreen(
 
                 if (showPublishDialog) {
                     PublishDialog(
+                        initialCity = list.city ?: "",
                         onDismiss = { showPublishDialog = false },
                         onConfirm = { city ->
                             showPublishDialog = false
@@ -222,30 +224,24 @@ fun ItineraryDetailScreen(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
-                        Row(
-                            modifier = Modifier.align(Alignment.TopStart).fillMaxWidth().statusBarsPadding().padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        // La freccia indietro c'è già nella topbar sopra: qui solo il like,
+                        // altrimenti compariva un secondo pulsante indietro duplicato.
+                        IconButton(
+                            onClick = {
+                                if (currentUserId != null) {
+                                    viewModel.toggleLike(list.id)
+                                } else {
+                                    scope.launch { snackbarHostState.showSnackbar("Accedi per mettere mi piace") }
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).size(38.dp).clip(CircleShape).background(Color.White)
                         ) {
-                            IconButton(onClick = onNavigateBack, modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.32f))) {
-                                Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = Color.White, modifier = Modifier.size(18.dp))
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (currentUserId != null) {
-                                        viewModel.toggleLike(list.id)
-                                    } else {
-                                        scope.launch { snackbarHostState.showSnackbar("Accedi per mettere mi piace") }
-                                    }
-                                },
-                                modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.White)
-                            ) {
-                                Icon(
-                                    if (list.likedByMe) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                    contentDescription = "Mi piace",
-                                    tint = CatalogColors.Alert,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                            Icon(
+                                if (list.likedByMe) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = "Mi piace",
+                                tint = CatalogColors.Alert,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
 
@@ -258,6 +254,24 @@ fun ItineraryDetailScreen(
                             Text((list.city ?: "ITINERARIO").uppercase(), style = CatalogType.Overline, color = CatalogColors.InkMuted)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
+
+                        val roleLabel = if (isOwner) "Proprietario" else if (canEdit) "Collaboratore" else null
+                        if (roleLabel != null) {
+                            Surface(shape = CatalogShapes.Pill, color = CatalogColors.AccentSoft) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        if (isOwner) Icons.Filled.Star else Icons.Filled.Group,
+                                        contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(roleLabel, style = CatalogType.Caption.copy(fontWeight = FontWeight.SemiBold), color = CatalogColors.AccentDark)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                         if (isOwner) {
                             Row(
                                 modifier = Modifier.clickable { showRenameDialog = true },
@@ -310,76 +324,87 @@ fun ItineraryDetailScreen(
                             }
                         }
 
-                        // Indipendente dalla visibilità: un link funziona anche su una lista
-                        // privata o condivisa, senza i requisiti minimi di pubblicazione.
-                        if (isOwner) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            if (list.publicToken.isNullOrBlank()) {
-                                OutlinedButton(
-                                    onClick = {
-                                        viewModel.enableLinkSharing(list.id) { success ->
-                                            if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile generare il link") }
+                        if (isOwner && list.visibility == "PUBLIC") {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.updateVisibility(list.id, "PRIVATE", null) { success, error ->
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                if (success) "Itinerario reso privato" else (error ?: "Impossibile rendere privato")
+                                            )
                                         }
-                                    },
-                                    shape = CatalogShapes.Field,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
-                                ) {
-                                    Icon(Icons.Filled.Link, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Genera link di condivisione", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
-                                }
-                            } else {
-                                TextButton(onClick = {
-                                    viewModel.disableLinkSharing(list.id) { success ->
-                                        if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile disattivare il link") }
                                     }
-                                }) {
-                                    Icon(Icons.Filled.LinkOff, contentDescription = null, tint = CatalogColors.Alert, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Disattiva link di condivisione", style = CatalogType.LabelStrong, color = CatalogColors.Alert)
-                                }
+                                },
+                                shape = CatalogShapes.Field,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                            ) {
+                                Icon(Icons.Filled.Lock, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Rendi privata", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
                             }
                         }
 
-                        // Link di invito: diverso da quello sopra, concede diritto di modifica
-                        // (non solo visualizzazione) a chi lo apre da loggato.
+                        // I due link (visualizzazione e invito) sono indipendenti dalla
+                        // visibilità: funzionano anche su una lista privata o condivisa,
+                        // senza i requisiti minimi di pubblicazione.
                         if (isOwner) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            if (list.collabToken.isNullOrBlank()) {
-                                OutlinedButton(
-                                    onClick = {
-                                        viewModel.enableCollabInvite(list.id) { success ->
-                                            if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile generare l'invito") }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Surface(
+                                shape = CatalogShapes.Card,
+                                color = CatalogColors.SurfaceMuted,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
+                            ) {
+                                Column {
+                                    val viewLink = list.publicToken?.takeIf { it.isNotBlank() }?.let { "tripify://itinerary/public/$it" }
+                                    LinkRow(
+                                        icon = Icons.Filled.Link,
+                                        title = "Link di visualizzazione",
+                                        subtitle = "Chi lo apre può vedere l'itinerario, anche senza accedere.",
+                                        link = viewLink,
+                                        onEnable = {
+                                            viewModel.enableLinkSharing(list.id) { success ->
+                                                if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile generare il link") }
+                                            }
+                                        },
+                                        onShare = {
+                                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_TEXT, "Guarda il mio itinerario \"${list.name}\" su Tripify: $viewLink")
+                                            }
+                                            context.startActivity(Intent.createChooser(sendIntent, "Condividi itinerario"))
+                                        },
+                                        onDisable = {
+                                            viewModel.disableLinkSharing(list.id) { success ->
+                                                if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile disattivare il link") }
+                                            }
                                         }
-                                    },
-                                    shape = CatalogShapes.Field,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline)
-                                ) {
-                                    Icon(Icons.Filled.GroupAdd, contentDescription = null, tint = CatalogColors.InkMuted, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Invita collaboratori", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted)
-                                }
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    TextButton(onClick = {
-                                        val link = "tripify://itinerary/join/${list.collabToken}"
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, "Aiutami a pianificare \"${list.name}\" su Tripify: $link")
+                                    )
+                                    HorizontalDivider(color = CatalogColors.Hairline)
+                                    val inviteLink = list.collabToken?.takeIf { it.isNotBlank() }?.let { "tripify://itinerary/join/$it" }
+                                    LinkRow(
+                                        icon = Icons.Filled.GroupAdd,
+                                        title = "Link di invito",
+                                        subtitle = "Chi lo apre da loggato entra come collaboratore e può modificare la lista.",
+                                        link = inviteLink,
+                                        onEnable = {
+                                            viewModel.enableCollabInvite(list.id) { success ->
+                                                if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile generare l'invito") }
+                                            }
+                                        },
+                                        onShare = {
+                                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_TEXT, "Aiutami a pianificare \"${list.name}\" su Tripify: $inviteLink")
+                                            }
+                                            context.startActivity(Intent.createChooser(sendIntent, "Invita a collaborare"))
+                                        },
+                                        onDisable = {
+                                            viewModel.disableCollabInvite(list.id) { success ->
+                                                if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile disattivare l'invito") }
+                                            }
                                         }
-                                        context.startActivity(Intent.createChooser(sendIntent, "Invita a collaborare"))
-                                    }) {
-                                        Icon(Icons.Filled.GroupAdd, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Invita ancora", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
-                                    }
-                                    TextButton(onClick = {
-                                        viewModel.disableCollabInvite(list.id) { success ->
-                                            if (!success) scope.launch { snackbarHostState.showSnackbar("Impossibile disattivare l'invito") }
-                                        }
-                                    }) {
-                                        Text("Disattiva", style = CatalogType.LabelStrong, color = CatalogColors.Alert)
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -691,8 +716,8 @@ private fun nightsBetween(checkIn: String?, checkOut: String?): Long? {
 }
 
 @Composable
-private fun PublishDialog(onDismiss: () -> Unit, onConfirm: (city: String) -> Unit) {
-    var city by remember { mutableStateOf("") }
+private fun PublishDialog(initialCity: String = "", onDismiss: () -> Unit, onConfirm: (city: String) -> Unit) {
+    var city by remember { mutableStateOf(initialCity) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = CatalogColors.Surface,
@@ -733,6 +758,71 @@ private fun PublishDialog(onDismiss: () -> Unit, onConfirm: (city: String) -> Un
             TextButton(onClick = onDismiss) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) }
         }
     )
+}
+
+/** Una riga della card "link": badge icona, titolo/descrizione, e a destra "Attiva" oppure copia+condividi+disattiva. */
+@Composable
+private fun LinkRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    link: String?,
+    onEnable: () -> Unit,
+    onShare: () -> Unit,
+    onDisable: () -> Unit
+) {
+    val isActive = link != null
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    var justCopied by remember(link) { mutableStateOf(false) }
+    LaunchedEffect(justCopied) {
+        if (justCopied) {
+            kotlinx.coroutines.delay(1200)
+            justCopied = false
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(36.dp).clip(CircleShape).background(if (isActive) CatalogColors.AccentSoft else CatalogColors.Surface),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = if (isActive) CatalogColors.AccentDark else CatalogColors.InkSubtle, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+            Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        if (link != null) {
+            IconButton(
+                onClick = {
+                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(link))
+                    justCopied = true
+                },
+                modifier = Modifier.size(34.dp)
+            ) {
+                Icon(
+                    if (justCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                    contentDescription = "Copia link",
+                    tint = if (justCopied) CatalogColors.AccentDark else CatalogColors.InkSubtle,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+            IconButton(onClick = onShare, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Filled.Share, contentDescription = "Condividi", tint = CatalogColors.AccentDark, modifier = Modifier.size(17.dp))
+            }
+            IconButton(onClick = onDisable, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Filled.Close, contentDescription = "Disattiva", tint = CatalogColors.InkSubtle, modifier = Modifier.size(17.dp))
+            }
+        } else {
+            TextButton(onClick = onEnable, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)) {
+                Text("Attiva", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+            }
+        }
+    }
 }
 
 @Composable
