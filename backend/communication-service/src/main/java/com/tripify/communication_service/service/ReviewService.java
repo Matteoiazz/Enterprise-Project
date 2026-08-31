@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -44,7 +45,7 @@ public class ReviewService {
 
     public Review updateReview(Long id, Integer rating, String comment, String travelerId) {
         Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recensione non trovata"));
+                .orElseThrow(() -> new NoSuchElementException("Recensione non trovata"));
 
         if (!review.getTravelerId().equals(travelerId)) {
             throw new IllegalStateException("Non puoi modificare la recensione di un altro utente");
@@ -63,7 +64,7 @@ public class ReviewService {
 
     public void deleteReview(Long id, String travelerId) {
         Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recensione non trovata"));
+                .orElseThrow(() -> new NoSuchElementException("Recensione non trovata"));
 
         if (!review.getTravelerId().equals(travelerId)) {
             throw new IllegalStateException("Non puoi cancellare la recensione di un altro utente");

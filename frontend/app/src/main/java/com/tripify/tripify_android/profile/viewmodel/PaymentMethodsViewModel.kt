@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.time.YearMonth
 
 class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewModel() {
@@ -81,6 +82,9 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
                 apiService.addPaymentMethod(newCard)
                 loadPaymentMethods()
                 onSuccess()
+            } catch (e: HttpException) {
+                val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
+                _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
             } catch (e: Exception) {
                 _errorMessage.value = "Errore durante il salvataggio."
             } finally {

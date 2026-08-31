@@ -10,6 +10,8 @@ import com.tripify.user_auth_service.entity.Role;
 import com.tripify.user_auth_service.entity.TravelDocument;
 import com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO;
 import com.tripify.user_auth_service.entity.User;
+import com.tripify.user_auth_service.exception.ResourceNotFoundException;
+import com.tripify.user_auth_service.exception.UnauthorizedActionException;
 import com.tripify.user_auth_service.repository.CompanionRepository;
 import com.tripify.user_auth_service.repository.PaymentMethodRepository;
 import com.tripify.user_auth_service.repository.TravelDocumentRepository;
@@ -210,6 +212,9 @@ public class ProfileService {
         if (dto.getDateOfBirth().isAfter(java.time.LocalDate.now())) {
             throw new IllegalArgumentException("La data di nascita non può essere nel futuro");
         }
+        if (java.time.Period.between(dto.getDateOfBirth(), java.time.LocalDate.now()).getYears() < 18) {
+            throw new IllegalArgumentException("Il compagno di viaggio deve essere maggiorenne (almeno 18 anni)");
+        }
 
         Companion saved = companionRepository.save(Companion.builder()
                 .firstName(dto.getFirstName()).lastName(dto.getLastName())
@@ -220,10 +225,10 @@ public class ProfileService {
 
     public void deleteCompanion(String userEmail, UUID companionId) {
         Companion companion = companionRepository.findById(companionId)
-                .orElseThrow(() -> new RuntimeException("Compagno non trovato"));
+                .orElseThrow(() -> new ResourceNotFoundException("Compagno non trovato"));
 
         if (!companion.getUser().getId().equals(getUser(userEmail).getId())) {
-            throw new RuntimeException("Non autorizzato");
+            throw new UnauthorizedActionException("Non autorizzato");
         }
         companionRepository.delete(companion);
     }
@@ -275,10 +280,10 @@ public class ProfileService {
     public void deleteTravelDocument(String userEmail, UUID id) {
         User user = getUser(userEmail);
         TravelDocument doc = documentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Documento non trovato"));
+                .orElseThrow(() -> new ResourceNotFoundException("Documento non trovato"));
 
         if (!doc.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Non autorizzato");
+            throw new UnauthorizedActionException("Non autorizzato");
         }
         documentRepository.delete(doc);
     }
@@ -321,10 +326,10 @@ public class ProfileService {
     public void deletePaymentMethod(String userEmail, UUID id) {
         User user = getUser(userEmail);
         PaymentMethod method = paymentMethodRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Metodo di pagamento non trovato"));
+                .orElseThrow(() -> new ResourceNotFoundException("Metodo di pagamento non trovato"));
 
         if (!method.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Non autorizzato");
+            throw new UnauthorizedActionException("Non autorizzato");
         }
         paymentMethodRepository.delete(method);
     }
@@ -440,11 +445,11 @@ public class ProfileService {
                             return java.util.Optional.empty();
                         }
                     })
-                    .orElseThrow(() -> new RuntimeException("Utente non trovato nel database locale"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato nel database locale"));
         }
 
         if (u.getRole() != Role.ROLE_ORGANIZER) {
-            throw new RuntimeException("L'utente richiesto non è un organizzatore");
+            throw new ResourceNotFoundException("L'utente richiesto non è un organizzatore");
         }
 
         String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
@@ -452,6 +457,38 @@ public class ProfileService {
         return new com.tripify.user_auth_service.dto.response.UserResponse(
                 kcId,
                 u.getName() != null ? u.getName() : "Organizzatore",
+                u.getSurname() != null ? u.getSurname() : "",
+                u.getEmail(),
+                u.getProfilePictureUrl(),
+                u.getPhone(),
+                u.getAddress(),
+                u.getCompanyName(),
+                u.getVatNumber(),
+                u.getPec()
+        );
+    }
+
+    public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
+        User u;
+        if (identifier.contains("@")) {
+            u = getUser(identifier);
+        } else {
+            u = userRepository.findByUsername(identifier)
+                    .or(() -> {
+                        try {
+                            return userRepository.findById(UUID.fromString(identifier));
+                        } catch (IllegalArgumentException notAUuid) {
+                            return java.util.Optional.empty();
+                        }
+                    })
+                    .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
+        }
+
+        String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
+
+        return new com.tripify.user_auth_service.dto.response.UserResponse(
+                kcId,
+                u.getName() != null ? u.getName() : "Utente",
                 u.getSurname() != null ? u.getSurname() : "",
                 u.getEmail(),
                 u.getProfilePictureUrl(),
@@ -476,15 +513,7 @@ public class ProfileService {
         User u = userRepository.findByEmail(email).orElse(null);
         if (u == null) return;
 
-        if (u.getUsername() != null && !u.getUsername().equals(kcId)) {
-            companionRepository.deleteAll(companionRepository.findByUser(u));
-            paymentMethodRepository.deleteAll(paymentMethodRepository.findByUser(u));
-            documentRepository.deleteAll(documentRepository.findByUser_Id(u.getId()));
-            userRepository.delete(u);
-            return;
-        }
-
-        if (u.getUsername() == null) {
+        if (kcId != null && !kcId.equals(u.getUsername())) {
             u.setUsername(kcId);
             userRepository.save(u);
         }

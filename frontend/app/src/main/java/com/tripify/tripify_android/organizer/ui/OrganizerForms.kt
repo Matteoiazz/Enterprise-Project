@@ -109,7 +109,7 @@ private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled:
         shape = CatalogShapes.Card,
         title = { Text(title, style = CatalogType.Section, color = CatalogColors.Ink) },
         text = {
-            Column(modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 content()
             }
         },
@@ -118,6 +118,34 @@ private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled:
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) } }
     )
+}
+
+@Composable
+private fun FormSection(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        shape = CatalogShapes.Card,
+        color = CatalogColors.SurfaceMuted,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, style = CatalogType.Overline, color = CatalogColors.InkMuted)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun RepeatableEntryCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = CatalogColors.Surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            content()
+        }
+    }
 }
 
 @Composable
@@ -178,48 +206,59 @@ fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit:
             )
         }
     ) {
-        LabeledField("Titolo", title, { title = it })
-        LabeledField("Descrizione", description, { description = it })
-        LabeledField("Prezzo base (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LabeledField("Aeroporto partenza (IATA)", departureAirport, { departureAirport = it.take(3) }, modifier = Modifier.weight(1f))
-            LabeledField("Aeroporto arrivo (IATA)", arrivalAirport, { arrivalAirport = it.take(3) }, modifier = Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LabeledField("Città partenza", departureCity, { departureCity = it }, modifier = Modifier.weight(1f))
-            LabeledField("Città arrivo", arrivalCity, { arrivalCity = it }, modifier = Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DateOnlyField("Data partenza", departureDate, { departureDate = it }, modifier = Modifier.weight(1f))
-            LabeledField("Ora (HH:mm)", departureTime, { departureTime = it }, modifier = Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DateOnlyField("Data arrivo", arrivalDate, { arrivalDate = it }, modifier = Modifier.weight(1f))
-            LabeledField("Ora (HH:mm)", arrivalTime, { arrivalTime = it }, modifier = Modifier.weight(1f))
-        }
-        if (!isArrivalAfterDeparture) {
-            Text("L'arrivo deve essere dopo la partenza", style = CatalogType.Caption, color = CatalogColors.Alert)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LabeledField("Posti totali", totalSeats, { totalSeats = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
-            LabeledField("Scali", stops, { stops = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+        FormSection("Dettagli") {
+            LabeledField("Titolo", title, { title = it })
+            LabeledField("Descrizione", description, { description = it })
+            LabeledField("Prezzo base (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
         }
 
-        Text("Tariffe", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
-        fareClasses.forEachIndexed { index, fc ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LabeledField("Nome", fc.name, { fareClasses[index] = fc.copy(name = it) }, modifier = Modifier.weight(1f))
-                LabeledField("Prezzo", fc.price, { fareClasses[index] = fc.copy(price = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
-                LabeledField("Posti", fc.seats, { fareClasses[index] = fc.copy(seats = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
-                IconButton(onClick = { if (fareClasses.size > 1) fareClasses.removeAt(index) }) {
-                    Icon(Icons.Filled.DeleteOutline, contentDescription = "Rimuovi tariffa", tint = CatalogColors.Alert)
-                }
+        FormSection("Tratta") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LabeledField("Aeroporto partenza (IATA)", departureAirport, { departureAirport = it.take(3) }, modifier = Modifier.weight(1f))
+                LabeledField("Aeroporto arrivo (IATA)", arrivalAirport, { arrivalAirport = it.take(3) }, modifier = Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LabeledField("Città partenza", departureCity, { departureCity = it }, modifier = Modifier.weight(1f))
+                LabeledField("Città arrivo", arrivalCity, { arrivalCity = it }, modifier = Modifier.weight(1f))
             }
         }
-        TextButton(onClick = { fareClasses.add(FareClassField("", "", "")) }) {
-            Icon(Icons.Filled.Add, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Aggiungi tariffa", color = CatalogColors.AccentDark)
+
+        FormSection("Orari") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DateOnlyField("Data partenza", departureDate, { departureDate = it }, modifier = Modifier.weight(1f))
+                LabeledField("Ora (HH:mm)", departureTime, { departureTime = it }, modifier = Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DateOnlyField("Data arrivo", arrivalDate, { arrivalDate = it }, modifier = Modifier.weight(1f))
+                LabeledField("Ora (HH:mm)", arrivalTime, { arrivalTime = it }, modifier = Modifier.weight(1f))
+            }
+            if (!isArrivalAfterDeparture) {
+                Text("L'arrivo deve essere dopo la partenza", style = CatalogType.Caption, color = CatalogColors.Alert)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LabeledField("Posti totali", totalSeats, { totalSeats = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+                LabeledField("Scali", stops, { stops = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+            }
+        }
+
+        FormSection("Tariffe") {
+            fareClasses.forEachIndexed { index, fc ->
+                RepeatableEntryCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LabeledField("Nome", fc.name, { fareClasses[index] = fc.copy(name = it) }, modifier = Modifier.weight(1f))
+                        LabeledField("Prezzo", fc.price, { fareClasses[index] = fc.copy(price = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
+                        LabeledField("Posti", fc.seats, { fareClasses[index] = fc.copy(seats = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+                        IconButton(onClick = { if (fareClasses.size > 1) fareClasses.removeAt(index) }) {
+                            Icon(Icons.Filled.DeleteOutline, contentDescription = "Rimuovi tariffa", tint = CatalogColors.Alert)
+                        }
+                    }
+                }
+            }
+            TextButton(onClick = { fareClasses.add(FareClassField("", "", "")) }) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Aggiungi tariffa", color = CatalogColors.AccentDark)
+            }
         }
     }
 }
@@ -263,37 +302,46 @@ fun HotelFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: 
             )
         }
     ) {
-        LabeledField("Titolo", title, { title = it })
-        LabeledField("Descrizione", description, { description = it })
-        LabeledField("Prezzo base (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
-        LabeledField("Indirizzo", address, { address = it })
-        LabeledField("Città", city, { city = it })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LabeledField("Latitudine", lat, { lat = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
-            LabeledField("Longitudine", lng, { lng = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
+        FormSection("Dettagli") {
+            LabeledField("Titolo", title, { title = it })
+            LabeledField("Descrizione", description, { description = it })
+            LabeledField("Prezzo base (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
         }
-        LabeledField("Servizi (separati da virgola)", amenitiesText, { amenitiesText = it })
 
-        Text("Camere", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
-        roomTypes.forEachIndexed { index, rt ->
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LabeledField("Nome", rt.name, { roomTypes[index] = rt.copy(name = it) }, modifier = Modifier.weight(1f))
-                    LabeledField("Prezzo/notte", rt.price, { roomTypes[index] = rt.copy(price = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
-                    IconButton(onClick = { if (roomTypes.size > 1) roomTypes.removeAt(index) }) {
-                        Icon(Icons.Filled.DeleteOutline, contentDescription = "Rimuovi camera", tint = CatalogColors.Alert)
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LabeledField("Camere totali", rt.totalRooms, { roomTypes[index] = rt.copy(totalRooms = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
-                    LabeledField("Occupazione max", rt.maxOccupancy, { roomTypes[index] = rt.copy(maxOccupancy = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
-                }
+        FormSection("Posizione") {
+            LabeledField("Indirizzo", address, { address = it })
+            LabeledField("Città", city, { city = it })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LabeledField("Latitudine", lat, { lat = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
+                LabeledField("Longitudine", lng, { lng = it }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
             }
         }
-        TextButton(onClick = { roomTypes.add(RoomTypeField("", "", "", "")) }) {
-            Icon(Icons.Filled.Add, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Aggiungi camera", color = CatalogColors.AccentDark)
+
+        FormSection("Servizi") {
+            LabeledField("Servizi (separati da virgola)", amenitiesText, { amenitiesText = it })
+        }
+
+        FormSection("Camere") {
+            roomTypes.forEachIndexed { index, rt ->
+                RepeatableEntryCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LabeledField("Nome", rt.name, { roomTypes[index] = rt.copy(name = it) }, modifier = Modifier.weight(1f))
+                        LabeledField("Prezzo/notte", rt.price, { roomTypes[index] = rt.copy(price = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Decimal)
+                        IconButton(onClick = { if (roomTypes.size > 1) roomTypes.removeAt(index) }) {
+                            Icon(Icons.Filled.DeleteOutline, contentDescription = "Rimuovi camera", tint = CatalogColors.Alert)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LabeledField("Camere totali", rt.totalRooms, { roomTypes[index] = rt.copy(totalRooms = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+                        LabeledField("Occupazione max", rt.maxOccupancy, { roomTypes[index] = rt.copy(maxOccupancy = it) }, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
+                    }
+                }
+            }
+            TextButton(onClick = { roomTypes.add(RoomTypeField("", "", "", "")) }) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Aggiungi camera", color = CatalogColors.AccentDark)
+            }
         }
     }
 }
@@ -327,17 +375,22 @@ fun ActivityFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmi
             )
         }
     ) {
-        LabeledField("Titolo", title, { title = it })
-        LabeledField("Descrizione", description, { description = it })
-        LabeledField("Prezzo (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
-        LabeledField("Tipo attività", activityType, { activityType = it })
-        LabeledField("Durata", duration, { duration = it })
-        LabeledField("Punto di ritrovo", meetingPoint, { meetingPoint = it })
-        LabeledField("Città", city, { city = it })
-        LabeledField("Partecipanti massimi", maxParticipants, { maxParticipants = it }, keyboardType = KeyboardType.Number)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = guideIncluded, onCheckedChange = { guideIncluded = it }, colors = CheckboxDefaults.colors(checkedColor = CatalogColors.AccentDark))
-            Text("Guida inclusa", style = CatalogType.Body, color = CatalogColors.Ink)
+        FormSection("Dettagli") {
+            LabeledField("Titolo", title, { title = it })
+            LabeledField("Descrizione", description, { description = it })
+            LabeledField("Prezzo (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
+        }
+
+        FormSection("Informazioni") {
+            LabeledField("Tipo attività", activityType, { activityType = it })
+            LabeledField("Durata", duration, { duration = it })
+            LabeledField("Punto di ritrovo", meetingPoint, { meetingPoint = it })
+            LabeledField("Città", city, { city = it })
+            LabeledField("Partecipanti massimi", maxParticipants, { maxParticipants = it }, keyboardType = KeyboardType.Number)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = guideIncluded, onCheckedChange = { guideIncluded = it }, colors = CheckboxDefaults.colors(checkedColor = CatalogColors.AccentDark))
+                Text("Guida inclusa", style = CatalogType.Body, color = CatalogColors.Ink)
+            }
         }
     }
 }

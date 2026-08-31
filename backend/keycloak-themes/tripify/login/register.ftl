@@ -269,7 +269,7 @@
                     <div class="tf-input-wrap">
                         <input type="text" id="firstName" name="firstName" value="${(register.formData.firstName!'')}"
                                class="<#if messagesPerField.existsError('firstName')>tf-input-error</#if>"
-                               placeholder="Mario" autocomplete="given-name"/>
+                               placeholder="Mario" autocomplete="given-name" required/>
                     </div>
                 </div>
 
@@ -278,7 +278,7 @@
                     <div class="tf-input-wrap">
                         <input type="text" id="lastName" name="lastName" value="${(register.formData.lastName!'')}"
                                class="<#if messagesPerField.existsError('lastName')>tf-input-error</#if>"
-                               placeholder="Rossi" autocomplete="family-name"/>
+                               placeholder="Rossi" autocomplete="family-name" required/>
                     </div>
                 </div>
 
@@ -373,10 +373,24 @@
 
     // --- LOGICA DI VALIDAZIONE LIVE ---
     const emailInput = document.getElementById('email');
+    const firstNameInput = document.getElementById('firstName');
+    const lastNameInput = document.getElementById('lastName');
+    const companyNameInput = document.getElementById('user.attributes.companyName');
+    const vatNumberInput = document.getElementById('user.attributes.vatNumber');
     const termsCheck = document.getElementById('tfAcceptTerms');
     const submitBtn = document.getElementById('kc-register-submit');
     const registerForm = document.getElementById('kc-register-form');
     const emailErrorUI = document.getElementById('email-live-error');
+
+    function validateRequiredField(input) {
+        if (!input) return true;
+        if (input.value.trim().length === 0) {
+            input.classList.add('tf-input-error');
+            return false;
+        }
+        input.classList.remove('tf-input-error');
+        return true;
+    }
 
     function validateForm() {
         let isFormValid = true;
@@ -395,6 +409,15 @@
             isFormValid = false;
         }
 
+        if (!validateRequiredField(firstNameInput)) isFormValid = false;
+        if (!validateRequiredField(lastNameInput)) isFormValid = false;
+
+        const isOrganizer = document.getElementById('type-organizer').checked;
+        if (isOrganizer) {
+            if (!validateRequiredField(companyNameInput)) isFormValid = false;
+            if (!validateRequiredField(vatNumberInput)) isFormValid = false;
+        }
+
         if (termsCheck && !termsCheck.checked) {
             isFormValid = false;
         }
@@ -406,6 +429,10 @@
         tfToggleAccountType();
 
         if(emailInput) emailInput.addEventListener('input', validateForm);
+        if(firstNameInput) firstNameInput.addEventListener('input', validateForm);
+        if(lastNameInput) lastNameInput.addEventListener('input', validateForm);
+        if(companyNameInput) companyNameInput.addEventListener('input', validateForm);
+        if(vatNumberInput) vatNumberInput.addEventListener('input', validateForm);
         if(termsCheck) termsCheck.addEventListener('change', validateForm);
 
         registerForm.addEventListener('submit', function() {

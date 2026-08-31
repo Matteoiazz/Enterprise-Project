@@ -243,7 +243,9 @@
                     <#if message.summary != 'Your login attempt timed out. Login will start from the beginning.'
                     && message.summary != 'Il tuo tentativo di accesso è scaduto. L\'accesso ripartirà dall\'inizio.'
                     && message.summary != 'Action expired. Please continue with login now.'
-                    && message.summary != 'Page has expired'>
+                    && message.summary != 'Azione scaduta. Si prega di effettuare l\'accesso.'
+                    && message.summary != 'Page has expired'
+                    && message.summary != 'La pagina è scaduta'>
                         <div class="tf-alert">
                             ⚠️ ${kcSanitize(message.summary)?no_esc}
                         </div>

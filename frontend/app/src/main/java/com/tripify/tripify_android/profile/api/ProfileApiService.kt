@@ -62,4 +62,7 @@ interface ProfileApiService {
     @Headers("ngrok-skip-browser-warning: true")
     @GET("/api/v1/profile/organizers/{id}")
     suspend fun getOrganizerById(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
+
+    @GET("/api/v1/profile/users/{id}/summary")
+    suspend fun getUserSummary(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
 }
