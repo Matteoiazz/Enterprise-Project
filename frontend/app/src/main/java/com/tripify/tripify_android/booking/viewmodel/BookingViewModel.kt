@@ -65,14 +65,26 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // 1. Recupera lo storico dei viaggi dell'utente autenticato (non serve più
     // passare l'userId: il backend lo ricava dal JWT). Lo storico ora arriva
     // paginato dal server: qui prendiamo sempre la prima pagina.
-    fun fetchUserBookings() {
+    // hideCancelled=true solo per il caricamento "a fresco" della schermata
+    // (vedi BookingScreen): appena annullata, una prenotazione resta visibile
+    // con la pill "Annullata" finché si sta ancora guardando quella schermata,
+    // e sparisce solo alla visita successiva (da qui il default false sui
+    // refresh interni dopo cancel/invite/addPassenger, che restano sulla
+    // stessa schermata).
+    fun fetchUserBookings(hideCancelled: Boolean = false) {
         viewModelScope.launch {
             _uiState.value = BookingState.Loading
             try {
                 val response = api.getUserBookings()
 
                 if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = BookingState.Success(response.body()!!.content)
+                    val bookings = response.body()!!.content
+                    val visibleBookings = if (hideCancelled) {
+                        bookings.filter { it.status != "CANCELLED" }
+                    } else {
+                        bookings
+                    }
+                    _uiState.value = BookingState.Success(visibleBookings)
                 } else {
                     val cleanError = response.parseErrorMessage()
                     _uiState.value = BookingState.Error(cleanError)

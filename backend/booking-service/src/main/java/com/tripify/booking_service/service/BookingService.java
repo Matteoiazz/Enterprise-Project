@@ -438,6 +438,8 @@ public class BookingService {
                         passenger.getId(),
                         passenger.getFirstName(),
                         passenger.getLastName(),
+                        passenger.getPhoneNumber(),
+                        passenger.getTaxCode(),
                         passenger.getDocumentType(),
                         passenger.getDocumentNumber(),
                         passenger.getQrCodeData(),
