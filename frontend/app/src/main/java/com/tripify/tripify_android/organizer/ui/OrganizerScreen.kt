@@ -50,6 +50,7 @@ fun OrganizerScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val catalogApi = remember { RetrofitClient.createCatalogApi(tokenManager) }
+    val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
 
     var showTypePicker by remember { mutableStateOf(false) }
     var editingItemId by remember { mutableStateOf<Int?>(null) }
@@ -156,7 +157,7 @@ fun OrganizerScreen(
                         } else {
                             LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(receivedBookings, key = { "${it.bookingId}-${it.catalogItemId}" }) { line ->
-                                    ReceivedBookingRow(line = line, catalogViewModel = catalogViewModel)
+                                    ReceivedBookingRow(line = line, catalogViewModel = catalogViewModel, profileApi = profileApi)
                                 }
                             }
                         }
@@ -290,9 +291,18 @@ private fun OrganizerItemRow(item: OrganizerItemDto, onEdit: () -> Unit, onDelet
 }
 
 @Composable
-private fun ReceivedBookingRow(line: com.tripify.tripify_android.data.model.ReceivedBookingLineDto, catalogViewModel: CatalogViewModel) {
+private fun ReceivedBookingRow(
+    line: com.tripify.tripify_android.data.model.ReceivedBookingLineDto,
+    catalogViewModel: CatalogViewModel,
+    profileApi: com.tripify.tripify_android.profile.api.ProfileApiService
+) {
     var resolved by remember(line.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
     LaunchedEffect(line.catalogItemId) { resolved = catalogViewModel.getOrFetchItem(line.catalogItemId.toInt()) }
+
+    var buyer by remember(line.buyerUserId) { mutableStateOf<com.tripify.tripify_android.data.UserResponse?>(null) }
+    LaunchedEffect(line.buyerUserId) {
+        buyer = try { profileApi.getUserSummary(line.buyerUserId) } catch (e: Exception) { null }
+    }
 
     Surface(
         shape = CatalogShapes.Field,
@@ -306,6 +316,8 @@ private fun ReceivedBookingRow(line: com.tripify.tripify_android.data.model.Rece
                 Text("€${"%.2f".format(line.price)}", style = CatalogType.BodyStrong, color = CatalogColors.AccentDark)
             }
             Spacer(modifier = Modifier.height(4.dp))
+            val buyerLabel = buyer?.let { b -> "${b.name ?: ""} ${b.surname ?: ""}".trim().ifEmpty { b.email } } ?: line.buyerUserId
+            Text("Prenotato da: $buyerLabel", style = CatalogType.Caption, color = CatalogColors.InkMuted)
             Text("Prenotazione #${line.bookingId} · ${line.status}", style = CatalogType.Caption, color = CatalogColors.InkMuted)
             if (line.checkIn != null && line.checkOut != null) {
                 Text("${line.checkIn} → ${line.checkOut}", style = CatalogType.Caption, color = CatalogColors.InkMuted)

@@ -194,6 +194,7 @@ public class BookingService {
 
     // 4. Storico eventi di una prenotazione.
     // Autorizzazione: può vederlo solo il leader o uno dei partecipanti invitati.
+    @Transactional(readOnly = true)
     public List<AuditLogEntryDTO> getAuditHistory(Long bookingId, String requesterId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Prenotazione non trovata!"));
@@ -357,6 +358,7 @@ public class BookingService {
     // cerchiamo tra tutte le Booking quelle con almeno una riga su quegli item.
     // Filtriamo di nuovo per catalogItemId dentro il ciclo perché una Booking può
     // contenere anche righe su annunci di ALTRI host, che non vanno restituite.
+    @Transactional(readOnly = true)
     public List<ReceivedBookingLineDTO> getReceivedBookings() {
         List<Long> myItemIds = catalogClient.getMyItems().stream()
                 .map(CatalogItemSummaryDTO::id)

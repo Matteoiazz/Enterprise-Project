@@ -2,6 +2,7 @@ package com.tripify.communication_service.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -19,6 +20,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Manteniamo le rotte WebSocket e Chat aperte, come richiesto dallo script
                         .requestMatchers("/chat/**", "/ws-chat/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/item/*").permitAll()
                         // Le notifiche (e tutto il resto) richiedono l'autenticazione
                         .anyRequest().authenticated()
                 )
