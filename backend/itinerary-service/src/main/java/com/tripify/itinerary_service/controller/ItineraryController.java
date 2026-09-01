@@ -88,7 +88,7 @@ public class ItineraryController {
     /** Chi chiama (autenticato, per via di .anyRequest().authenticated()) entra come collaboratore. */
     @PostMapping("/collab-link/{token}/join")
     public ResponseEntity<FavoriteListResponseDTO> joinAsCollaborator(@PathVariable String token, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(FavoriteListResponseDTO.forViewer(service.joinAsCollaborator(token, jwt.getSubject())));
+        return ResponseEntity.ok(FavoriteListResponseDTO.forCollaborator(service.joinAsCollaborator(token, jwt.getSubject())));
     }
 
     @PatchMapping("/{id}/name")

@@ -137,6 +137,7 @@ public class CatalogServiceImpl implements CatalogService {
         if (average == null || count == null || count <= 0) {
             item.setRatingAvg(null);
             item.setReviewCount(0);
+            item.setRating(null);
         } else {
             double clamped = Math.max(1.0, Math.min(5.0, average));
             item.setRatingAvg(Math.round(clamped * 10.0) / 10.0);
