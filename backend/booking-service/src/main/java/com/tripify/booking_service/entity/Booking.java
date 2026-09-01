@@ -44,6 +44,18 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus status;
 
+    // Lock ottimistico: senza questo, due richieste concorrenti sulla stessa
+    // Booking (es. due cancelBooking() sulla stessa prenotazione confermata,
+    // o un confirmPayment() e un cancelBooking() in corsa) leggono entrambe lo
+    // stesso stato "vecchio", passano entrambe i controlli, e l'ultima a
+    // salvare sovrascrive silenziosamente l'altra - nel caso peggiore un
+    // doppio rimborso quando il rimborso sarà reale. Con @Version, la seconda
+    // ad arrivare al salvataggio trova la riga già cambiata e fallisce con
+    // ObjectOptimisticLockingFailureException (mappata a 409 in
+    // GlobalExceptionHandler) invece di procedere alla cieca.
+    @Version
+    private Long version;
+
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BookingLine> lines = new java.util.ArrayList<>();

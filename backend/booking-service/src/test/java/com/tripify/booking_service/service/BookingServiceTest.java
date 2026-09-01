@@ -97,6 +97,48 @@ class BookingServiceTest {
         assertThat(booking.lines().get(0).quantity()).isEqualTo(2);
     }
 
+    // Lo stato è ancora PENDING appena dopo il checkout: pubblicare qui
+    // l'evento "prenotazione confermata" (come succedeva prima) manderebbe un
+    // avviso falso, prima ancora che un pagamento sia stato tentato.
+    @Test
+    void ilCheckoutNonPubblicaLEventoDiPrenotazioneConfermata() {
+        checkoutSimpleCartFor(LEADER_ID);
+
+        verify(eventPublisher, never()).publishBookingConfirmed(any());
+    }
+
+    @Test
+    void confirmPaymentPubblicaLEventoDiPrenotazioneConfermataUnaSolaVolta() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+
+        bookingService.confirmPayment(booking.id(), LEADER_ID, booking.totalAmount());
+
+        verify(eventPublisher, times(1)).publishBookingConfirmed(any());
+    }
+
+    // Simula due richieste concorrenti sulla stessa Booking: chi salva per
+    // secondo con una versione ormai superata deve fallire con un errore di
+    // lock ottimistico, non sovrascrivere silenziosamente il lavoro del primo
+    // (vedi @Version su Booking e GlobalExceptionHandler.handleOptimisticLock).
+    @Test
+    void unaModificaConVersioneSuperataVieneRifiutata() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        entityManager.flush();
+        entityManager.clear();
+
+        Booking staleCopy = bookingRepository.findById(booking.id()).orElseThrow();
+        entityManager.detach(staleCopy);
+
+        Booking freshCopy = bookingRepository.findById(booking.id()).orElseThrow();
+        freshCopy.setStatus(BookingStatus.CANCELLED);
+        bookingRepository.saveAndFlush(freshCopy);
+        entityManager.clear();
+
+        staleCopy.setStatus(BookingStatus.CONFIRMED);
+        assertThatThrownBy(() -> bookingRepository.saveAndFlush(staleCopy))
+                .isInstanceOf(org.springframework.orm.ObjectOptimisticLockingFailureException.class);
+    }
+
     @Test
     void ilCheckoutSelettivoPrenotaSoloGliArticoliScelti() {
         addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, null, null, null)); // 50.0

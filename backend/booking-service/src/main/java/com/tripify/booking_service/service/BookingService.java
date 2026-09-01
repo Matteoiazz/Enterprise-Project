@@ -143,7 +143,12 @@ public class BookingService {
         // alle BookingLine sopra, quindi qui NON vanno rilasciati.
         cartService.removeCheckedOutItems(userId, itemsToCheckout.stream().map(CartItem::getId).toList());
 
-        eventPublisher.publishBookingConfirmed(savedBooking);
+        // NIENTE eventPublisher.publishBookingConfirmed() qui: quell'evento
+        // manda esplicitamente "la tua prenotazione è stata confermata", ma a
+        // questo punto lo stato è ancora PENDING (nessun pagamento è ancora
+        // avvenuto) - va emesso una sola volta, in confirmPayment(), quando è
+        // davvero vero. La notifica corretta per questo momento è solo quella
+        // sotto ("in attesa"), che non promette nulla che non sia già successo.
         sendNotification(userId, "Prenotazione in attesa 🛒", "Hai creato una prenotazione di " + totalAmount + "€.");
 
         return toResponseDTO(savedBooking, userId);

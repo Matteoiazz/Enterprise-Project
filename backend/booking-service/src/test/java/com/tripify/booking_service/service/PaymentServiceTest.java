@@ -34,13 +34,19 @@ class PaymentServiceTest {
     private static final Long BOOKING_ID = 1L;
     private static final BigDecimal AMOUNT = BigDecimal.valueOf(100.0);
 
+    // MockPaymentGateway non ha dipendenze proprie: usarne un'istanza vera
+    // (non un mock) tiene questi test end-to-end sulla validazione reale del
+    // numero di carta (Luhn), non solo sull'orchestrazione di PaymentService.
+    private final PaymentGateway paymentGateway = new MockPaymentGateway();
+
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentService(userAuthClient);
+        paymentService = new PaymentService(userAuthClient, paymentGateway);
     }
 
     @Test
     void approvaUnaCartaNuovaConNumeroPlausibile() {
+        // 4111 1111 1111 1111: numero di test Visa standard, valido per Luhn.
         boolean approved = paymentService.executePayment(USER_ID, BOOKING_ID, "4111111111111111", null, AMOUNT);
 
         assertThat(approved).isTrue();
@@ -49,6 +55,29 @@ class PaymentServiceTest {
     @Test
     void rifiutaUnaCartaNuovaTroppoCorta() {
         boolean approved = paymentService.executePayment(USER_ID, BOOKING_ID, "123", null, AMOUNT);
+
+        assertThat(approved).isFalse();
+    }
+
+    @Test
+    void rifiutaUnaCartaConCifreSufficientiMaChecksumLuhnNonValido() {
+        // Stessa lunghezza di un numero di carta reale, ma non passa Luhn:
+        // prima sarebbe stata approvata solo perché lunga almeno 12 caratteri.
+        boolean approved = paymentService.executePayment(USER_ID, BOOKING_ID, "4111111111111112", null, AMOUNT);
+
+        assertThat(approved).isFalse();
+    }
+
+    @Test
+    void rifiutaUnaCartaConSoleLettere() {
+        boolean approved = paymentService.executePayment(USER_ID, BOOKING_ID, "aaaaaaaaaaaa", null, AMOUNT);
+
+        assertThat(approved).isFalse();
+    }
+
+    @Test
+    void rifiutaUnImportoNonPositivo() {
+        boolean approved = paymentService.executePayment(USER_ID, BOOKING_ID, "4111111111111111", null, BigDecimal.ZERO);
 
         assertThat(approved).isFalse();
     }
