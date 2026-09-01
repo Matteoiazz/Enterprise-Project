@@ -117,58 +117,36 @@ public class ChatController {
 
     @MessageMapping("/chat.sendMessage")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        String senderId;
-
-        // 1. Fallback di Sicurezza per il Principal (lasciato intatto)
-        try {
-            if (principal != null) {
-                if (principal instanceof JwtAuthenticationToken jwtToken) {
-                    senderId = jwtToken.getToken().getSubject();
-                } else {
-                    senderId = principal.getName();
-                }
-            } else {
-                senderId = chatMessage.getSenderId();
-                log.warn("Principal nullo. Fallback su senderId del payload: {}", senderId);
-            }
-        } catch (Exception e) {
-            log.error("Errore estrazione utente", e);
-            senderId = chatMessage.getSenderId();
-        }
+        log.info("Messaggio STOMP ricevuto - RoomId: {}, Content: {}", chatMessage.getRoomId(), chatMessage.getContent());
+        // 1. Estrazione sicura dell'utente senza fallback vulnerabili sul payload (A1)
+        String senderId = extractUserId(principal);
 
         chatMessage.setSenderId(senderId);
         chatMessage.setIsRead(false);
 
-        // 2. Controllo stanza
-        Optional<ChatRoom> roomOpt = chatRoomRepository.findById(chatMessage.getRoomId());
-        if (roomOpt.isEmpty()) {
-            log.warn("Stanza {} non trovata nel DB. Salvo comunque per evitare perdite di dati.", chatMessage.getRoomId());
-        } else {
-            // INSERITO QUI: Controllo di appartenenza richiesto dal report dei colleghi
-            ChatRoom room = roomOpt.get();
-            if (!senderId.equals(room.getTravelerId()) && !senderId.equals(room.getHostId())) {
-                log.error("Tentativo di invio non autorizzato: l'utente {} non appartiene alla stanza {}", senderId, chatMessage.getRoomId());
-                throw new IllegalArgumentException("Non sei un membro di questa stanza di chat");
-            }
+        // 2. Controllo rigoroso della stanza: se non esiste, bloccata e scartata (A1)
+        ChatRoom room = chatRoomRepository.findById(chatMessage.getRoomId())
+                .orElseThrow(() -> new IllegalArgumentException("Impossibile inviare: stanza inesistente"));
+
+        // 3. Controllo di appartenenza (membership)
+        if (!senderId.equals(room.getTravelerId()) && !senderId.equals(room.getHostId())) {
+            log.error("Tentativo di invio non autorizzato: l'utente {} non appartiene alla stanza {}", senderId, chatMessage.getRoomId());
+            throw new IllegalArgumentException("Non sei un membro di questa stanza di chat");
         }
 
-        // 3. Salvataggio e Invio sbloccati
+        // 4. Salvataggio e Invio sul canale WebSocket
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
         messagingTemplate.convertAndSend("/topic/room/" + chatMessage.getRoomId(), savedMessage);
 
-        // 4. Logica Notifiche (lasciata intatta)
-        if (roomOpt.isPresent()) {
-            ChatRoom room = roomOpt.get();
-            String recipientId = senderId.equals(room.getTravelerId()) ? room.getHostId() : room.getTravelerId();
-
-            if (recipientId != null) {
-                NotificationEvent notificationEvent = new NotificationEvent(
-                        recipientId,
-                        "Nuovo messaggio 💬",
-                        "Hai ricevuto un nuovo messaggio in chat."
-                );
-                rabbitTemplate.convertAndSend(RabbitMQConfig.NOTIFICATION_QUEUE, notificationEvent);
-            }
+        // 5. Logica Notifiche push
+        String recipientId = senderId.equals(room.getTravelerId()) ? room.getHostId() : room.getTravelerId();
+        if (recipientId != null) {
+            NotificationEvent notificationEvent = new NotificationEvent(
+                    recipientId,
+                    "Nuovo messaggio 💬",
+                    "Hai ricevuto un nuovo messaggio in chat."
+            );
+            rabbitTemplate.convertAndSend(RabbitMQConfig.NOTIFICATION_QUEUE, notificationEvent);
         }
     }
 
@@ -176,6 +154,16 @@ public class ChatController {
     @ResponseBody
     public void markMessagesAsRead(@PathVariable String roomId, Principal principal) {
         String userId = extractUserId(principal);
+
+        // AGGIUNTO: Controllo di membership obbligatorio per prevenire IDOR (A2)
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stanza non trovata"));
+
+        if (!userId.equals(room.getTravelerId()) && !userId.equals(room.getHostId())) {
+            log.warn("Tentativo di marcare come letta la stanza {} da un utente non autorizzato {}", roomId, userId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accesso negato a questa conversazione");
+        }
+
         chatMessageRepository.markAsReadByRoomAndRecipient(roomId, userId);
     }
 }

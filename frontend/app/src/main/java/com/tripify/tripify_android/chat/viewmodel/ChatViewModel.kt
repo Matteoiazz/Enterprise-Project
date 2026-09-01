@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.tripify.tripify_android.BuildConfig
 import com.tripify.tripify_android.data.TokenManager
-import io.reactivex.disposables.Disposable
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,27 +32,25 @@ class ChatViewModel(
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
     private lateinit var stompClient: StompClient
-    private var subscriptions: Disposable? = null
+    private val compositeDisposable = CompositeDisposable()
     private val gson = Gson()
 
     private val baseUrl = BuildConfig.BASE_URL
 
-    // Variabile pubblica accessibile dalla UI per capire se il messaggio è il "mio" o dell'host
     var currentUserId: String = ""
         private set
 
     init {
         viewModelScope.launch {
-            // 1. Recuperiamo il token reale salvato
+            // Forza il prelievo del token più recente ed evita token obsoleti
             val token = tokenManager.tokenFlow.first() ?: ""
-
-            // 2. Estraiamo il vero UUID dell'utente dal token JWT
             currentUserId = extractUserIdFromToken(token)
 
-            // 3. Avviamo le connessioni sicure passando il token
             if (token.isNotBlank()) {
                 loadHistory(baseUrl, token)
                 connectWebSocket(baseUrl, token)
+            } else {
+                android.util.Log.e("STOMP", "Impossibile connettersi: Token vuoto o non disponibile")
             }
         }
     }
@@ -63,7 +61,6 @@ class ChatViewModel(
             if (parts.size == 3) {
                 val payload = String(Base64.decode(parts[1], Base64.URL_SAFE))
                 val jsonObject = JSONObject(payload)
-                // In Keycloak l'UUID univoco si trova nel campo 'sub'
                 return jsonObject.optString("sub", "")
             }
         } catch (e: Exception) {
@@ -73,48 +70,59 @@ class ChatViewModel(
     }
 
     private fun connectWebSocket(serverUrl: String, token: String) {
-        // Correggiamo l'URL rimuovendo il /websocket finale che la libreria gestisce in autonomia
         val wsUrl = serverUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat"
-
-        // Iniettiamo il Bearer token per superare Spring Security durante l'handshake HTTP
         val httpHeaders = mutableMapOf("Authorization" to "Bearer $token")
+
         stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl, httpHeaders)
 
-        stompClient.lifecycle().subscribe(
-            { lifecycleEvent ->
-                when (lifecycleEvent.type) {
-                    LifecycleEvent.Type.OPENED -> android.util.Log.d("STOMP", "Connessione aperta!")
-                    LifecycleEvent.Type.CLOSED -> android.util.Log.d("STOMP", "Connessione chiusa!")
-                    LifecycleEvent.Type.ERROR -> android.util.Log.e("STOMP", "Errore connessione: " + lifecycleEvent.exception)
-                    else -> android.util.Log.d("STOMP", "Stato: " + lifecycleEvent.message)
+        // 1. Gestione del ciclo di vita della connessione
+        val lifecycleDisposable = stompClient.lifecycle()
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                { lifecycleEvent ->
+                    when (lifecycleEvent.type) {
+                        LifecycleEvent.Type.OPENED -> {
+                            android.util.Log.d("STOMP", "WebSocket socket aperto")
+                        }
+                        LifecycleEvent.Type.CLOSED -> {
+                            android.util.Log.d("STOMP", "WebSocket connessione chiusa")
+                        }
+                        LifecycleEvent.Type.ERROR -> {
+                            android.util.Log.e("STOMP", "Errore connessione STOMP", lifecycleEvent.exception)
+                        }
+                        else -> {}
+                    }
+                },
+                { error ->
+                    android.util.Log.e("STOMP", "Errore lifecycle RxJava", error)
                 }
-            },
-            { error ->
-                android.util.Log.e("STOMP", "Errore critico RxJava", error)
-            }
-        )
+            )
+        compositeDisposable.add(lifecycleDisposable)
 
-        // Anche per la connessione STOMP pura inviamo il token
+        // 2. Sottoscrizione al topic: la libreria lo spedisce solo DOPO il frame STOMP CONNECTED
+        val topicDisposable = stompClient.topic("/topic/room/$roomId")
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                { stompMessage ->
+                    val jsonPayload = stompMessage.payload
+                    try {
+                        val incomingMessage = gson.fromJson(jsonPayload, ChatMessage::class.java)
+                        if (incomingMessage.senderId != currentUserId) {
+                            _messages.value = _messages.value + incomingMessage
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                },
+                { error ->
+                    android.util.Log.e("STOMP", "Errore ricezione messaggio", error)
+                }
+            )
+        compositeDisposable.add(topicDisposable)
+
+        // 3. Avvio dell'handshake
         val stompHeaders = listOf(StompHeader("Authorization", "Bearer $token"))
         stompClient.connect(stompHeaders)
-
-        // Ascolto sul topic della specifica ChatRoom
-        subscriptions = stompClient.topic("/topic/room/$roomId")
-            .subscribeOn(Schedulers.io())
-            .subscribe({ stompMessage ->
-                val jsonPayload = stompMessage.payload
-                try {
-                    val incomingMessage = gson.fromJson(jsonPayload, ChatMessage::class.java)
-                    // Se il messaggio arriva da un'altra persona, lo aggiungiamo alla UI
-                    if (incomingMessage.senderId != currentUserId) {
-                        _messages.value = _messages.value + incomingMessage
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }, { error ->
-                error.printStackTrace()
-            })
     }
 
     private fun loadHistory(serverUrl: String, token: String) {
@@ -129,7 +137,6 @@ class ChatViewModel(
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val type = object : com.google.gson.reflect.TypeToken<List<ChatMessage>>() {}.type
                     val history: List<ChatMessage> = gson.fromJson(response, type)
-
                     _messages.value = history
                 }
             } catch (e: Exception) {
@@ -143,30 +150,37 @@ class ChatViewModel(
 
         val chatMessage = ChatMessage(
             roomId = roomId,
-            senderId = currentUserId, // Adesso l'ID è il VERO Uuid!
+            senderId = currentUserId,
             content = messageText
         )
 
-        // Mostra subito il messaggio localmente
+        // Aggiornamento ottimistico dell'UI
         _messages.value = _messages.value + chatMessage
 
         val jsonPayload = gson.toJson(chatMessage)
 
-        stompClient.send("/app/chat.sendMessage", jsonPayload).subscribe(
-            {
-                android.util.Log.d("STOMP", "Messaggio inviato con successo")
-            },
-            { error ->
-                error.printStackTrace()
-            }
-        )
+        val sendDisposable = stompClient.send("/app/chat.sendMessage", jsonPayload)
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                {
+                    android.util.Log.d("STOMP", "Messaggio inviato con successo")
+                },
+                { error ->
+                    android.util.Log.e("STOMP", "Errore durante l'invio", error)
+                }
+            )
+        compositeDisposable.add(sendDisposable)
     }
 
     override fun onCleared() {
         super.onCleared()
-        subscriptions?.dispose()
-        if (::stompClient.isInitialized) {
-            stompClient.disconnect()
+        try {
+            compositeDisposable.clear()
+            if (::stompClient.isInitialized && stompClient.isConnected) {
+                stompClient.disconnect()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
