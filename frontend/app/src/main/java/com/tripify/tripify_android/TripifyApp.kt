@@ -1,7 +1,11 @@
 package com.tripify.tripify_android
 
 import android.content.Intent
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -10,15 +14,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.Inter
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -112,70 +127,32 @@ fun TripifyApp(
 
     val showBottomBar = bottomNavItems.any { it.route == currentRoute }
 
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar(
-                    containerColor = CatalogColors.Surface,
-                    contentColor = CatalogColors.Ink,
-                    tonalElevation = 3.dp
-                ) {
-                    bottomNavItems.forEach { item ->
-                        val selected = currentRoute == item.route
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    if (selected) item.iconSelected else item.iconUnselected,
-                                    contentDescription = item.title
-                                )
-                            },
-                            // Solo la tab attiva mostra l'etichetta: con 5 voci e schermi stretti,
-                            // testi come "Prenotazioni" sempre visibili andavano a capo su due righe.
-                            label = if (selected) {
-                                {
-                                    Text(
-                                        item.title,
-                                        fontFamily = Inter,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            } else null,
-                            alwaysShowLabel = false,
-                            selected = selected,
-                            onClick = {
-                                if (!selected) {
-                                    // Niente saveState/restoreState: con più punti che li usavano
-                                    // insieme (qui e nel redirect post-pagamento) le "transazioni di
-                                    // salvataggio" di Navigation-Compose finivano per mescolarsi,
-                                    // e il tasto Home poteva riportare a una tab sbagliata invece che
-                                    // a Home. Pop deterministico fino a Home e via: niente da
-                                    // ripristinare, niente da confondere.
-                                    navController.navigate(item.route) {
-                                        popUpTo(Route.Home.path)
-                                        launchSingleTop = true
-                                    }
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = CatalogColors.AccentDark,
-                                selectedTextColor = CatalogColors.AccentDark,
-                                unselectedIconColor = CatalogColors.InkSubtle,
-                                unselectedTextColor = CatalogColors.InkSubtle,
-                                indicatorColor = CatalogColors.AccentSoft
-                            )
-                        )
-                    }
-                }
+    // La barra flottante si restringe scorrendo verso il basso e torna alla
+    // dimensione piena scorrendo verso l'alto (come Instagram): osserva lo scroll
+    // di qualunque contenuto scrollabile sotto di lei tramite nested scroll, senza
+    // consumarlo, cosi' le liste continuano a scorrere normalmente.
+    val navBarCollapse = remember { Animatable(0f) }
+    val navBarScope = rememberCoroutineScope()
+    val navBarNestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val target = (navBarCollapse.value - available.y / 500f).coerceIn(0f, 1f)
+                navBarScope.launch { navBarCollapse.snapTo(target) }
+                return Offset.Zero
             }
         }
-    ) { innerPadding ->
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CatalogColors.Background)
+            .nestedScroll(navBarNestedScrollConnection)
+    ) {
         NavHost(
             navController = navController,
             startDestination = Route.Home.path,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
         ) {
             // ROTTA 1: Home (Catalogo)
             composable(Route.Home.path) {
@@ -591,6 +568,83 @@ fun TripifyApp(
                         )
                     }
                 )
+            }
+        }
+
+        if (showBottomBar) {
+            Surface(
+                color = CatalogColors.Surface,
+                contentColor = CatalogColors.Ink,
+                shape = CatalogShapes.Card,
+                shadowElevation = 10.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 14.dp, top = 4.dp)
+                    .navigationBarsPadding()
+                    .graphicsLayer {
+                        val scale = 1f - navBarCollapse.value * 0.12f
+                        scaleX = scale
+                        scaleY = scale
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    bottomNavItems.forEach { item ->
+                        val selected = currentRoute == item.route
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(CatalogShapes.Pill)
+                                .background(if (selected) CatalogColors.AccentDark else Color.Transparent)
+                                .clickable {
+                                    // Toccare una voce riporta subito la barra a piena grandezza,
+                                    // anche se si era rimpicciolita scorrendo.
+                                    navBarScope.launch { navBarCollapse.animateTo(0f) }
+                                    if (!selected) {
+                                        // Niente saveState/restoreState: con più punti che li usavano
+                                        // insieme (qui e nel redirect post-pagamento) le "transazioni di
+                                        // salvataggio" di Navigation-Compose finivano per mescolarsi,
+                                        // e il tasto Home poteva riportare a una tab sbagliata invece che
+                                        // a Home. Pop deterministico fino a Home e via: niente da
+                                        // ripristinare, niente da confondere.
+                                        navController.navigate(item.route) {
+                                            popUpTo(Route.Home.path)
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                }
+                                .padding(horizontal = if (selected) 16.dp else 12.dp, vertical = 10.dp)
+                        ) {
+                            Icon(
+                                if (selected) item.iconSelected else item.iconUnselected,
+                                contentDescription = item.title,
+                                tint = if (selected) Color.White else CatalogColors.InkSubtle,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            // Solo la tab attiva mostra l'etichetta: con 5 voci e schermi stretti,
+                            // testi come "Prenotazioni" sempre visibili andavano a capo su due righe.
+                            if (selected) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    item.title,
+                                    color = Color.White,
+                                    fontFamily = Inter,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

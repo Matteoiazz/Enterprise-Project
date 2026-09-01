@@ -174,7 +174,11 @@ class ItineraryServiceTest {
 
         // Ora può davvero modificare la lista, non solo vederla.
         when(catalogClient.getItem(1L)).thenReturn(hotel(1L, "Roma"));
-        LocalDateTime dep = LocalDateTime.now().plusDays(2);
+        // Orario fisso (non LocalDateTime.now()): un volo che parte a ridosso di
+        // mezzanotte farebbe atterrare dep.plusHours(1) il giorno dopo, mentre il
+        // check-in sotto resta sul giorno di dep, facendo fallire il test solo se
+        // eseguito nell'ultima ora del giorno.
+        LocalDateTime dep = LocalDate.now().plusDays(2).atTime(10, 0);
         when(catalogClient.getItem(2L)).thenReturn(flight(2L, "Milano", "Roma", dep, dep.plusHours(1)));
         itineraryService.addItemToList(list.getId(), itemRequest(2L), OWNER);
         itineraryService.addItemToList(list.getId(), hotelRequest(1L, dep.toLocalDate(), dep.toLocalDate().plusDays(2)), OTHER_USER);
