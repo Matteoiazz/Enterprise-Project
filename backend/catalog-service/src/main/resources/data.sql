@@ -31,8 +31,7 @@ INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_ci
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (1, 1, 'Economy', 89.00, 48), (2, 1, 'Business', 205.00, 12);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop', 1),
-                                                            ('https://images.unsplash.com/photo-1569154941061-e231b4732ef1?q=80&w=1000&auto=format&fit=crop', 1);
+                                                            ('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop', 1);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (2, 'Volo Milano - Napoli', 'Collegamento diretto tra Malpensa e Capodichino, comodo per il weekend.', 75.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
@@ -41,8 +40,7 @@ INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_ci
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (3, 2, 'Economy', 75.00, 32), (4, 2, 'Business', 175.00, 8);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=1000&auto=format&fit=crop', 2),
-                                                            ('https://images.unsplash.com/photo-1533904828757-e8f28a41d9db?q=80&w=1000&auto=format&fit=crop', 2);
+                                                            ('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop', 2);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (3, 'Volo Roma - Palermo', 'Volo diretto per la Sicilia, perfetto per esplorare Palermo e dintorni.', 68.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Voli', 4);
@@ -51,7 +49,7 @@ INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_ci
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (5, 3, 'Economy', 68.00, 44), (6, 3, 'Business', 160.00, 11);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1523592121529-f6dde35f079e?q=80&w=1000&auto=format&fit=crop', 3),
+                                                            ('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop', 3),
                                                             ('https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=1000&auto=format&fit=crop', 3);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
@@ -141,8 +139,7 @@ INSERT INTO flight_details (id, departure_airport, arrival_airport, departure_ci
 INSERT INTO fare_classes (id, flight_id, name, price, total_seats) VALUES
     (23, 12, 'Economy', 59.00, 22), (24, 12, 'Business', 135.00, 6);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1595425964272-5b6a0cb6b6e3?q=80&w=1000&auto=format&fit=crop', 12),
-                                                            ('https://images.unsplash.com/photo-1591810521626-9d3877dd0e0b?q=80&w=1000&auto=format&fit=crop', 12);
+                                                            ('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop', 12);
 
 -- ==========================================
 -- HOTEL (id 13-30)
@@ -167,8 +164,7 @@ INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (40, 'Scrivania'),
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (40, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
                                                             ('https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1000&auto=format&fit=crop', 13),
-                                                            ('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=1000&auto=format&fit=crop', 13),
-                                                            ('https://images.unsplash.com/photo-1582719478250-c89402bb6539?q=80&w=1000&auto=format&fit=crop', 13);
+                                                            ('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=1000&auto=format&fit=crop', 13);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (14, 'Campus Relax Hotel', 'Struttura moderna a due passi dall''Università. Wi-Fi veloce e area studio.', 65.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
@@ -219,9 +215,7 @@ INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max
 INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (42, 'Design open space');
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (42, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1000&auto=format&fit=crop', 16),
-                                                            ('https://images.unsplash.com/photo-1598331668904-45ea0f3b4d45?q=80&w=1000&auto=format&fit=crop', 16),
-                                                            ('https://images.unsplash.com/photo-1512406830500-1c05000570fc?q=80&w=1000&auto=format&fit=crop', 16);
+                                                            ('https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1000&auto=format&fit=crop', 16);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (17, 'Gamer''s Haven Lodge', 'Hotel dedicato agli eSports. Connessione fibra dedicata, postazioni PC in camera, ideale per raid notturni.', 110.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
@@ -312,8 +306,7 @@ INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (46, 'Accesso pisc
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (46, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
                                                             ('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=1000&auto=format&fit=crop', 21),
-                                                            ('https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1000&auto=format&fit=crop', 21),
-                                                            ('https://images.unsplash.com/photo-1519821172141-b5d8342c2a24?q=80&w=1000&auto=format&fit=crop', 21);
+                                                            ('https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1000&auto=format&fit=crop', 21);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (22, 'Etna View Country House', 'Agriturismo panoramico alle pendici dell''Etna, immerso tra vigneti e uliveti.', 88.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
@@ -350,7 +343,6 @@ INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (48, 'Soffitto a c
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (48, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
                                                             ('https://images.unsplash.com/photo-1523731407965-2430cd12f5e4?q=80&w=1000&auto=format&fit=crop', 23),
-                                                            ('https://images.unsplash.com/photo-1587213811864-73fdb3617d7c?q=80&w=1000&auto=format&fit=crop', 23),
                                                             ('https://images.unsplash.com/photo-1595877244574-e90ce41ce089?q=80&w=1000&auto=format&fit=crop', 23);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
@@ -426,8 +418,7 @@ INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (52, 'Soffitti aff
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (52, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
                                                             ('https://images.unsplash.com/photo-1541971875076-8f970d573be6?q=80&w=1000&auto=format&fit=crop', 27),
-                                                            ('https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?q=80&w=1000&auto=format&fit=crop', 27),
-                                                            ('https://images.unsplash.com/photo-1587213811864-73fdb3617d7c?q=80&w=1000&auto=format&fit=crop', 27);
+                                                            ('https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?q=80&w=1000&auto=format&fit=crop', 27);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (28, 'Grand Hotel Rimini Mare', 'Hotel storico fronte mare a Rimini, con stabilimento balneare privato.', 135.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
@@ -446,7 +437,6 @@ INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (53, 'Accesso pisc
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (53, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
                                                             ('https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=1000&auto=format&fit=crop', 28),
-                                                            ('https://images.unsplash.com/photo-1519821172141-b5d8342c2a24?q=80&w=1000&auto=format&fit=crop', 28),
                                                             ('https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1000&auto=format&fit=crop', 28);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
@@ -464,7 +454,6 @@ INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max
 INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (54, 'Centro storico');
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (54, 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1543429257-3e7c2c6d4d9b?q=80&w=1000&auto=format&fit=crop', 29),
                                                             ('https://images.unsplash.com/photo-1541971875076-8f970d573be6?q=80&w=1000&auto=format&fit=crop', 29),
                                                             ('https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?q=80&w=1000&auto=format&fit=crop', 29);
 
@@ -496,16 +485,14 @@ INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_
 INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
     (31, 'Sport e Natura', '6 ore', 'Centro Visite Cupone, Parco Nazionale della Sila', 'Sila', 15, true);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1551632811-561f32228f3c?q=80&w=1000&auto=format&fit=crop', 31),
-                                                            ('https://images.unsplash.com/photo-1470071131384-001b85755536?q=80&w=1000&auto=format&fit=crop', 31);
+                                                            ('https://images.unsplash.com/photo-1523592121529-f6dde35f079e?q=80&w=1000&auto=format&fit=crop', 31);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (32, 'Evento Fantasy: Difesa del Castello', 'Giornata immersiva di gioco di ruolo dal vivo (LARP) in un borgo medievale. Scegli la tua fazione, farma risorse e difendi l''avamposto!', 30.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 4);
 INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
     (32, 'Evento dal Vivo', 'Giornata intera', 'Castello Svevo, Rocca Imperiale', 'Rocca Imperiale', 50, false);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=1000&auto=format&fit=crop', 32),
-                                                            ('https://images.unsplash.com/photo-1590055531615-f16d36ffe8ea?q=80&w=1000&auto=format&fit=crop', 32);
+                                                            ('https://images.unsplash.com/photo-1523592121529-f6dde35f079e?q=80&w=1000&auto=format&fit=crop', 32);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (33, 'Tour Guidato del Colosseo', 'Visita guidata al Colosseo, Foro Romano e Palatino con accesso salta-fila.', 55.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
@@ -536,8 +523,7 @@ INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_
 INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
     (36, 'Sport e Natura', '7 ore', 'Porto di La Spezia, Molo Italia', 'Cinque Terre', 18, true);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1000&auto=format&fit=crop', 36),
-                                                            ('https://images.unsplash.com/photo-1543429776-2782fc8e1acd?q=80&w=1000&auto=format&fit=crop', 36);
+                                                            ('https://images.unsplash.com/photo-1523592121529-f6dde35f079e?q=80&w=1000&auto=format&fit=crop', 36);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (37, 'Trekking sul Vesuvio', 'Salita guidata al cratere del Vesuvio con vista panoramica sul Golfo di Napoli.', 40.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 4);
@@ -560,7 +546,6 @@ INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_
 INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
     (39, 'Cultura e Storia', '3 ore', 'Largo Martellotta, centro storico', 'Alberobello', 16, true);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1587213811864-73fdb3617d7c?q=80&w=1000&auto=format&fit=crop', 39),
                                                             ('https://images.unsplash.com/photo-1595877244574-e90ce41ce089?q=80&w=1000&auto=format&fit=crop', 39);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
@@ -701,8 +686,7 @@ INSERT INTO room_types (id, hotel_id, name, description, price, total_rooms, max
 INSERT INTO room_type_benefits (room_type_id, benefit) VALUES (58, 'Vista golfo'), (59, 'Terrazza privata'), (59, 'Vista Vesuvio');
 INSERT INTO room_type_images (room_type_id, image_url) VALUES (58, 'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=1000&auto=format&fit=crop'), (59, 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?q=80&w=1000&auto=format&fit=crop');
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-                                                            ('https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?q=80&w=1000&auto=format&fit=crop', 55),
-                                                            ('https://images.unsplash.com/photo-1519821172141-b5d8342c2a24?q=80&w=1000&auto=format&fit=crop', 55);
+                                                            ('https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1000&auto=format&fit=crop', 55);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (56, 'Thames View Hotel', 'Hotel boutique sul Tamigi, a pochi passi da Westminster e dal London Eye.', 160.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Hotel', 4);
@@ -756,14 +740,14 @@ INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_
 INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
     (59, 'Cultura e Storia', '3 ore', 'Piazzale degli Uffizi', 'Firenze', 18, true);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-    ('https://images.unsplash.com/photo-1543429257-3e7c2c6d4d9b?q=80&w=1000&auto=format&fit=crop', 59);
+    ('https://images.unsplash.com/photo-1498307833015-e7b400441eb8?q=80&w=1000&auto=format&fit=crop', 59);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (60, 'Passeggiata Serale nel Quadrilatero della Moda', 'Tour a piedi tra le vie dello shopping di lusso, con arrivo in Piazza Duomo al tramonto.', 30.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 4);
 INSERT INTO activity_details (id, activity_type, duration, meeting_point, city, max_participants, guide_included) VALUES
     (60, 'Tour Urbano', '2 ore', 'Piazza Duomo', 'Milano', 20, true);
 INSERT INTO catalog_images (image_url, catalog_item_id) VALUES
-    ('https://images.unsplash.com/photo-1512149673953-4e0a0dfbe8e0?q=80&w=1000&auto=format&fit=crop', 60);
+    ('https://images.unsplash.com/photo-1498307833015-e7b400441eb8?q=80&w=1000&auto=format&fit=crop', 60);
 
 INSERT INTO catalog_items (id, title, description, price, currency, host_id, is_active, category, rating) VALUES
     (61, 'Tour del Cioccolato Torinese', 'Degustazione guidata nelle storiche cioccolaterie del centro di Torino.', 38.00, 'EUR', '31c8b93d-d815-49ce-bd59-f22f93d28d12', true, 'Attività', 5);
