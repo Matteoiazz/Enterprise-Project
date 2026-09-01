@@ -1,20 +1,3 @@
--- ==========================================
--- RECENSIONI DI ESEMPIO (seed idempotente, rieseguito ad ogni avvio)
--- ==========================================
--- Copre gli annunci del seed di catalog-service (voli, hotel, attivita') con piu'
--- recensioni ciascuno, voti variati (2-5) e commenti realistici, cosi' medie e
--- distribuzione risultano credibili nella schermata di dettaglio.
---
--- La DELETE e' scoped alla fascia id < 1000 riservata al seed statico: le
--- recensioni scritte dagli utenti dall'app ricevono id >= 2001 (vedi il setval
--- in fondo) e NON vengono toccate tra un riavvio e l'altro.
---
--- catalog_item_id -> annunci del seed di catalog-service.
--- traveler_id     -> "sub" Keycloak: qui dodici viaggiatori fittizi, solo per
---                    popolare la lista. Il vincolo unico (traveler_id,
---                    catalog_item_id) e' rispettato per costruzione.
--- ==========================================
-
 DELETE FROM reviews WHERE id < 1000;
 
 INSERT INTO reviews (id, rating, comment, traveler_id, catalog_item_id) VALUES
@@ -296,7 +279,5 @@ INSERT INTO reviews (id, rating, comment, traveler_id, catalog_item_id) VALUES
     (276, 5, 'Panorami spettacolari e racconti curati, torneremo per le altre escursioni.', '18c9d7f7-8888-4b88-8d08-000000000008', 62),
     (277, 4, 'Buona attivita'', il punto di ritrovo non era facilissimo da trovare.', '29dae8a8-9999-4c99-7e09-000000000009', 62);
 
--- Le recensioni create dagli utenti dall'app partono da id 2001, fuori dalla
--- fascia cancellata sopra.
 SELECT setval(pg_get_serial_sequence('reviews', 'id'),
               GREATEST(2000, (SELECT COALESCE(MAX(id), 0) FROM reviews)));

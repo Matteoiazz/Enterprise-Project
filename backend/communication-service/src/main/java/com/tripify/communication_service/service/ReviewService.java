@@ -49,8 +49,6 @@ public class ReviewService {
         try {
             saved = reviewRepository.save(review);
         } catch (DataIntegrityViolationException duplicate) {
-            // Rete di sicurezza per il vincolo unico (traveler_id, catalog_item_id):
-            // due richieste concorrenti dello stesso utente superano entrambe l'existsBy.
             throw new IllegalStateException("Hai già recensito questa esperienza");
         }
         recomputeItemRating(catalogItemId);
