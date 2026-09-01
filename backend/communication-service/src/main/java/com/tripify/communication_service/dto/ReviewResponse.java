@@ -2,15 +2,16 @@ package com.tripify.communication_service.dto;
 
 import com.tripify.communication_service.entity.Review;
 
-// Vista esposta di una recensione: non serializziamo direttamente l'entità JPA.
-// travelerId serve al client per riconoscere le proprie recensioni (modifica/
-// eliminazione); gli altri campi dell'entità restano interni.
+import java.time.Instant;
+
 public record ReviewResponse(
         Long id,
         Integer rating,
         String comment,
         String travelerId,
-        Long catalogItemId
+        Long catalogItemId,
+        String reply,
+        Instant repliedAt
 ) {
     public static ReviewResponse from(Review review) {
         return new ReviewResponse(
@@ -18,7 +19,9 @@ public record ReviewResponse(
                 review.getRating(),
                 review.getComment(),
                 review.getTravelerId(),
-                review.getCatalogItemId()
+                review.getCatalogItemId(),
+                review.getReply(),
+                review.getRepliedAt()
         );
     }
 }

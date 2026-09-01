@@ -5,5 +5,7 @@ data class ReviewDto(
     val rating: Int,
     val comment: String,
     val travelerId: String,
-    val catalogItemId: Long
+    val catalogItemId: Long,
+    val reply: String? = null,
+    val repliedAt: String? = null
 )

@@ -10,3 +10,7 @@ data class UpdateReviewRequest(
     val rating: Int,
     val comment: String
 )
+
+data class ReplyReviewRequest(
+    val reply: String
+)

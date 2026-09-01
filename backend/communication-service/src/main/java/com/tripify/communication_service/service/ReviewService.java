@@ -95,6 +95,24 @@ public class ReviewService {
                 .toList();
     }
 
+    public ReviewResponse replyToReview(Long id, String reply, String requesterId) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Recensione non trovata"));
+
+        String hostId = catalogClient.getItem(review.getCatalogItemId()).hostId();
+        if (hostId == null || !hostId.equals(requesterId)) {
+            throw new IllegalStateException("Solo l'organizzatore dell'annuncio può rispondere a questa recensione");
+        }
+
+        review.setReply(reply.trim());
+        review.setRepliedAt(java.time.Instant.now());
+        return ReviewResponse.from(reviewRepository.save(review));
+    }
+
+    public void reconcileAllRatings() {
+        reviewRepository.findDistinctCatalogItemIds().forEach(this::recomputeItemRating);
+    }
+
     private void recomputeItemRating(Long catalogItemId) {
         try {
             List<Review> all = reviewRepository.findByCatalogItemId(catalogItemId);

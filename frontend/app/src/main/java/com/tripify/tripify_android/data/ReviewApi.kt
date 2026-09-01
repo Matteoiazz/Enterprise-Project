@@ -1,6 +1,7 @@
 package com.tripify.tripify_android.data
 
 import com.tripify.tripify_android.data.model.CreateReviewRequest
+import com.tripify.tripify_android.data.model.ReplyReviewRequest
 import com.tripify.tripify_android.data.model.ReviewDto
 import com.tripify.tripify_android.data.model.UpdateReviewRequest
 import retrofit2.Response
@@ -25,6 +26,12 @@ interface ReviewApi {
     suspend fun deleteReview(
         @Path("id") id: Long
     ): Response<Unit>
+
+    @POST("api/v1/reviews/{id}/reply")
+    suspend fun replyToReview(
+        @Path("id") id: Long,
+        @Body request: ReplyReviewRequest
+    ): Response<ReviewDto>
 
     @GET("api/v1/reviews/item/{catalogItemId}")
     suspend fun getReviewsForItem(

@@ -12,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -770,6 +771,7 @@ private fun DetailContent(
                 }
 
                 val myReview = reviews.find { it.travelerId == currentUserId }
+                val isHost = currentUserId != null && item.hostId == currentUserId
 
                 if (hasBooked && myReview == null) {
                     var myRating by remember { mutableIntStateOf(0) }
@@ -950,6 +952,7 @@ private fun DetailContent(
                                 RatingRow(rating = myReview.rating.toDouble())
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(myReview.comment, style = CatalogType.Body, color = CatalogColors.Ink)
+                                ReviewReplySection(review = myReview, isHost = false, onReply = { _, done -> done() })
                             }
                         }
                     }
@@ -979,7 +982,7 @@ private fun DetailContent(
                             }
                         )
                     }
-                } else {
+                } else if (!isHost) {
                     Surface(
                         shape = CatalogShapes.Field,
                         color = CatalogColors.SurfaceMuted,
@@ -1017,24 +1020,91 @@ private fun DetailContent(
                         Text("Prenota e sii il primo a raccontare la tua esperienza!", style = CatalogType.Caption, color = CatalogColors.InkMuted, textAlign = TextAlign.Center)
                     }
                 } else {
-                    otherReviews.forEach { rev ->
-                        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier.size(36.dp).background(CatalogColors.AccentSoft, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Filled.Person, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(20.dp))
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text("Utente verificato", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
-                                    RatingRow(rating = rev.rating.toDouble())
+                    var reviewStarFilter by remember(item.id) { mutableStateOf<Int?>(null) }
+
+                    if (otherReviews.size >= 3) {
+                        val countsByStar = (5 downTo 1).map { star -> star to otherReviews.count { it.rating == star } }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ReviewFilterChip(
+                                label = "Tutte",
+                                count = otherReviews.size,
+                                selected = reviewStarFilter == null,
+                                onClick = { reviewStarFilter = null }
+                            )
+                            countsByStar.forEach { (star, count) ->
+                                if (count > 0) {
+                                    ReviewFilterChip(
+                                        label = "$star",
+                                        showStarIcon = true,
+                                        count = count,
+                                        selected = reviewStarFilter == star,
+                                        onClick = { reviewStarFilter = if (reviewStarFilter == star) null else star }
+                                    )
                                 }
                             }
+                        }
+                    }
+
+                    val visibleReviews = reviewStarFilter?.let { star -> otherReviews.filter { it.rating == star } } ?: otherReviews
+
+                    if (visibleReviews.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Nessuna recensione a $reviewStarFilter stelle", style = CatalogType.Body, color = CatalogColors.InkMuted)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(rev.comment, style = CatalogType.Body, color = CatalogColors.Ink)
-                            HorizontalDivider(color = CatalogColors.Hairline, modifier = Modifier.padding(top = 16.dp))
+                            TextButton(onClick = { reviewStarFilter = null }) {
+                                Text("Mostra tutte", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                            }
+                        }
+                    } else {
+                        visibleReviews.forEach { rev ->
+                            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier.size(36.dp).background(CatalogColors.AccentSoft, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Filled.Person, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(20.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text("Utente verificato", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                                        RatingRow(rating = rev.rating.toDouble())
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(rev.comment, style = CatalogType.Body, color = CatalogColors.Ink)
+                                rev.id?.let { reviewId ->
+                                    ReviewReplySection(
+                                        review = rev,
+                                        isHost = isHost,
+                                        onReply = { text, done ->
+                                            viewModel.replyToReview(
+                                                reviewId = reviewId,
+                                                itemId = item.id.toLong(),
+                                                reply = text,
+                                                onSuccess = {
+                                                    done()
+                                                    scope.launch { snackbarHostState.showSnackbar("Risposta pubblicata") }
+                                                },
+                                                onError = { msg ->
+                                                    done()
+                                                    scope.launch { snackbarHostState.showSnackbar(msg) }
+                                                }
+                                            )
+                                        }
+                                    )
+                                }
+                                HorizontalDivider(color = CatalogColors.Hairline, modifier = Modifier.padding(top = 16.dp))
+                            }
                         }
                     }
                 }
@@ -1065,6 +1135,127 @@ private fun RatingRow(rating: Double) {
         RatingStars(rating = rating, starSize = 14.dp)
         Spacer(modifier = Modifier.width(8.dp))
         Text(ratingLabel(rating), style = CatalogType.Caption, color = CatalogColors.InkMuted)
+    }
+}
+
+@Composable
+private fun ReviewFilterChip(
+    label: String,
+    count: Int,
+    selected: Boolean,
+    showStarIcon: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .clip(CatalogShapes.Pill)
+            .background(if (selected) CatalogColors.AccentDark else CatalogColors.SurfaceMuted)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showStarIcon) {
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = null,
+                tint = if (selected) Color.White else CatalogColors.Gold,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+        Text(
+            text = "$label ($count)",
+            style = CatalogType.LabelStrong,
+            color = if (selected) Color.White else CatalogColors.Ink
+        )
+    }
+}
+
+@Composable
+private fun ReviewReplySection(
+    review: com.tripify.tripify_android.data.model.ReviewDto,
+    isHost: Boolean,
+    onReply: (String, () -> Unit) -> Unit
+) {
+    var editing by remember(review.id) { mutableStateOf(false) }
+    var text by remember(review.id) { mutableStateOf(review.reply ?: "") }
+    var sending by remember(review.id) { mutableStateOf(false) }
+
+    LaunchedEffect(review.reply) {
+        editing = false
+        sending = false
+        text = review.reply ?: ""
+    }
+
+    val existing = review.reply
+
+    if (existing != null) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, top = 10.dp)
+                .clip(CatalogShapes.Field)
+                .background(CatalogColors.AccentSoft)
+                .padding(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Storefront, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Risposta dell'organizzatore", style = CatalogType.Overline, color = CatalogColors.AccentDark)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(existing, style = CatalogType.Body, color = CatalogColors.Ink)
+        }
+        if (isHost && !editing) {
+            TextButton(onClick = { editing = true }) {
+                Text("Modifica risposta", style = CatalogType.Label, color = CatalogColors.InkMuted)
+            }
+        }
+    } else if (isHost && !editing) {
+        TextButton(
+            onClick = { editing = true },
+            contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 8.dp, bottom = 0.dp)
+        ) {
+            Text("Rispondi", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+        }
+    }
+
+    if (isHost && editing) {
+        Column(modifier = Modifier.fillMaxWidth().padding(start = 24.dp, top = 8.dp)) {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Scrivi una risposta pubblica...", style = CatalogType.Body, color = CatalogColors.InkSubtle) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = CatalogShapes.Field,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CatalogColors.Accent,
+                    unfocusedBorderColor = CatalogColors.Hairline,
+                    focusedContainerColor = CatalogColors.Surface,
+                    unfocusedContainerColor = CatalogColors.Surface
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.align(Alignment.End)) {
+                TextButton(onClick = { editing = false; text = existing ?: "" }) {
+                    Text("Annulla", style = CatalogType.Button, color = CatalogColors.InkMuted)
+                }
+                Button(
+                    onClick = {
+                        if (text.isNotBlank()) {
+                            sending = true
+                            onReply(text.trim()) { sending = false }
+                        }
+                    },
+                    enabled = !sending && text.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = CatalogColors.AccentDark),
+                    shape = CatalogShapes.Pill
+                ) {
+                    if (sending) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = CatalogColors.Surface, strokeWidth = 2.dp)
+                    else Text("Invia", style = CatalogType.Button)
+                }
+            }
+        }
     }
 }
 

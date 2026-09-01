@@ -669,6 +669,29 @@ class CatalogViewModel(
         }
     }
 
+    fun replyToReview(reviewId: Long, itemId: Long, reply: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                tokenManager?.let { tm ->
+                    val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
+                    val res = rApi.replyToReview(
+                        reviewId,
+                        com.tripify.tripify_android.data.model.ReplyReviewRequest(reply)
+                    )
+                    if (res.isSuccessful) {
+                        loadReviewsAndBookingStatus(itemId)
+                        onSuccess()
+                    } else {
+                        val serverMessage = try { res.errorBody()?.string() } catch (e: Exception) { null }
+                        onError(if (!serverMessage.isNullOrBlank()) serverMessage else "Impossibile inviare la risposta.")
+                    }
+                } ?: onError("Devi accedere per rispondere.")
+            } catch (e: Exception) {
+                onError("Errore di rete. Controlla la connessione.")
+            }
+        }
+    }
+
     suspend fun getItemsByOrganizer(hostId: String): List<CatalogItem> {
         return try {
             val dtos = api.getItemsByHostId(hostId)

@@ -1,6 +1,7 @@
 package com.tripify.communication_service.controller;
 
 import com.tripify.communication_service.dto.CreateReviewRequest;
+import com.tripify.communication_service.dto.ReplyReviewRequest;
 import com.tripify.communication_service.dto.ReviewResponse;
 import com.tripify.communication_service.dto.UpdateReviewRequest;
 import com.tripify.communication_service.service.ReviewService;
@@ -50,6 +51,15 @@ public class ReviewController {
         String travelerId = jwt.getSubject();
         reviewService.deleteReview(id, travelerId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/reply")
+    public ResponseEntity<ReviewResponse> replyToReview(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long id,
+            @Valid @RequestBody ReplyReviewRequest request) {
+
+        return ResponseEntity.ok(reviewService.replyToReview(id, request.reply(), jwt.getSubject()));
     }
 
     @GetMapping("/item/{catalogItemId}")

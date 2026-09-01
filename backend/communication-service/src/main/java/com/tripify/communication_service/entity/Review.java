@@ -32,4 +32,10 @@ public class Review {
 
     @Column(name = "catalog_item_id", nullable = false)
     private Long catalogItemId;
+
+    @Column(name = "reply", length = 1000)
+    private String reply;
+
+    @Column(name = "replied_at")
+    private java.time.Instant repliedAt;
 }
