@@ -80,10 +80,12 @@ interface BookingApi {
 
     // Proxy verso user-auth-service (già pronto lato booking-service): mostra i
     // metodi/documenti salvati in Impostazioni Profilo senza uscire dal checkout.
-    @GET("api/v1/checkout/payment-methods")
+    // Path sotto api/v1/bookings/profile, non api/v1/checkout: il gateway non
+    // instrada quest'ultimo verso booking-service (endpoint altrimenti morto).
+    @GET("api/v1/bookings/profile/payment-methods")
     suspend fun getSavedPaymentMethods(): Response<List<PaymentMethodDto>>
 
-    @GET("api/v1/checkout/travel-documents")
+    @GET("api/v1/bookings/profile/travel-documents")
     suspend fun getSavedTravelDocuments(): Response<List<TravelDocumentDto>>
 
     // Associa un passeggero (con documento già scelto/inserito) a una riga di prenotazione.

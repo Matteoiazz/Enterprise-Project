@@ -592,7 +592,10 @@ public class BookingService {
             BookingNotificationEvent event = new BookingNotificationEvent(userId, title, message);
             rabbitTemplate.convertAndSend("notification_queue", event);
         } catch (Exception e) {
-            // Ignora o logga l'errore
+            // Una notifica mancata non deve mai far fallire l'operazione che la
+            // genera (checkout, pagamento, invito...), ma inghiottirla senza
+            // traccia nascondeva problemi reali (es. RabbitMQ giù): logghiamo.
+            log.warn("Impossibile pubblicare la notifica '{}' per l'utente {}: {}", title, userId, e.getMessage());
         }
     }
 
