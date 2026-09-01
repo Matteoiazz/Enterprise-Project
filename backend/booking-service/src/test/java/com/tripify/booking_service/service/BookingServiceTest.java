@@ -70,8 +70,8 @@ class BookingServiceTest {
     @PersistenceContext
     private EntityManager entityManager;
 
-    // Formato UUID (non semplici stringhe come prima): da B10, inviteFriend
-    // valida che friendId sia un identificativo utente in formato UUID.
+    // Formato UUID, non semplici stringhe come prima: inviteFriend ora
+    // valida che friendId sia un id utente vero.
     private static final String LEADER_ID = "11111111-1111-1111-1111-111111111111";
     private static final String OTHER_USER_ID = "22222222-2222-2222-2222-222222222222";
     private static final String FRIEND_ID = "33333333-3333-3333-3333-333333333333";
@@ -279,10 +279,9 @@ class BookingServiceTest {
         assertThat(stillPending.getStatus()).isEqualTo(BookingStatus.PENDING);
     }
 
-    // Pattern saga (coordinato con catalog-service, endpoint /holds/{id}/compensate):
-    // se il secondo hold di una prenotazione a più righe fallisce, il primo -
-    // già confermato con successo in questo stesso ciclo - va compensato
-    // (riportato a RELEASED), non lasciato CONFIRMED per sempre.
+    // Se il secondo hold di una prenotazione fallisce, il primo - già
+    // confermato in questo stesso ciclo - va compensato, non lasciato
+    // CONFIRMED per sempre.
     @Test
     void confirmPaymentCompensaGliHoldGiaConfermatiSeUnoFallisceAMetaLista() {
         when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
@@ -346,10 +345,8 @@ class BookingServiceTest {
         verify(paymentService).refund(booking.id(), booking.totalAmount());
     }
 
-    // Un hold già CONFIRMED non può più passare da releaseHold (catalog-service
-    // lo rifiuta): cancelBooking deve usare compensateHold per disfarlo davvero,
-    // non lasciarlo bloccato per sempre (pattern saga, coordinato con
-    // catalog-service).
+    // Un hold già CONFIRMED non passa più da releaseHold (catalog-service lo
+    // rifiuta): cancelBooking deve usare compensateHold per disfarlo davvero.
     @Test
     void cancelBookingCompensaGliHoldSeLaPrenotazioneEraGiaConfermata() {
         when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
@@ -512,11 +509,9 @@ class BookingServiceTest {
                 .allMatch(b -> !b.isLeader());
     }
 
-    // Con la vecchia query derivata (JOIN su participantIds) una Booking con
-    // più partecipanti compariva duplicata una volta per partecipante, anche
-    // quando la si vede come leader: il JOIN produce una riga per ogni
-    // elemento della collection, indipendentemente da quale ramo dell'OR l'ha
-    // fatta corrispondere (vedi BookingRepository.findVisibleToUser).
+    // Con la vecchia query (JOIN su participantIds) una Booking con più
+    // partecipanti compariva duplicata una volta a partecipante, anche vista
+    // come leader - il JOIN produce una riga per elemento della collection.
     @Test
     void getUserHistoryNonDuplicaUnaPrenotazioneConPiuPartecipanti() {
         BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);

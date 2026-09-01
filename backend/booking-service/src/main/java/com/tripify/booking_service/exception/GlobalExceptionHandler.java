@@ -42,10 +42,8 @@ public class GlobalExceptionHandler {
     }
 
     // 409: lock ottimistico (@Version su Booking) - un'altra richiesta ha
-    // modificato la stessa prenotazione nel frattempo (es. due cancelBooking()
-    // concorrenti sulla stessa Booking). Senza questo handler finirebbe nel
-    // fallback generico sotto come 500, nascondendo che si tratta solo di un
-    // conflitto di concorrenza su cui vale la pena riprovare, non di un bug.
+    // modificato la stessa prenotazione nel frattempo. Senza questo finirebbe
+    // nel fallback generico come 500, invece è solo un conflitto da riprovare.
     @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
     public ResponseEntity<Map<String, Object>> handleOptimisticLock(org.springframework.dao.OptimisticLockingFailureException ex) {
         log.warn("Conflitto di concorrenza su una Booking: {}", ex.getMessage());

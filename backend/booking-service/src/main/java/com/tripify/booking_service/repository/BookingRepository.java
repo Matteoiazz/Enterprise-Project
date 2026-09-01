@@ -16,14 +16,10 @@ import java.util.Optional;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long>{
 
-    // "member of" su participantIds (@ElementCollection) genera una subquery
-    // EXISTS, non un JOIN nella query principale: a differenza della vecchia
-    // findAllByUserIdOrParticipantIdsContaining (derivata dal nome, che univa
-    // booking_participants con un JOIN), una Booking con più partecipanti non
-    // compare più duplicata nei risultati, e la paginazione (LIMIT/OFFSET) resta
-    // affidabile perché ogni riga della pagina corrisponde a UNA sola Booking.
-    // @EntityGraph su "lines" evita anche l'N+1 di un accesso lazy per booking
-    // in toResponseDTO (una sola query invece di una per riga di risultato).
+    // "member of" genera una subquery EXISTS invece del JOIN che la vecchia
+    // query derivata faceva su participantIds: niente più Booking duplicate
+    // con più partecipanti, e la paginazione resta affidabile. @EntityGraph
+    // su "lines" evita anche l'N+1 in toResponseDTO.
     @EntityGraph(attributePaths = "lines")
     @Query("select b from Booking b where b.userId = :userId or :userId member of b.participantIds")
     Page<Booking> findVisibleToUser(@Param("userId") String userId, Pageable pageable);
@@ -35,10 +31,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long>{
     // Usata per il replay idempotente del checkout (vedi BookingService.checkout).
     Optional<Booking> findByIdempotencyKey(String idempotencyKey);
 
-    // "lines" caricate nella stessa query (JOIN FETCH): usata da confirmPayment
-    // per leggere gli hold da confermare su catalog-service FUORI da una
-    // transazione (vedi BookingService.confirmPayment) - senza questo, accedere
-    // a booking.getLines() a transazione già chiusa lancerebbe
+    // JOIN FETCH su "lines": usata da confirmPayment fuori da una
+    // transazione, senza questo booking.getLines() lancerebbe
     // LazyInitializationException (open-in-view è disattivato).
     @Query("select distinct b from Booking b left join fetch b.lines where b.id = :id")
     Optional<Booking> findByIdWithLines(Long id);

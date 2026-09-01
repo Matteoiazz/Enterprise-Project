@@ -25,9 +25,8 @@ public interface UserAuthClient {
     @GetMapping("/api/v1/profile/documents")
     List<TravelDocumentDTO> getTravelDocuments();
 
-    // Usato solo per verificare che un utente esista prima di invitarlo a un
-    // viaggio (vedi BookingService.inviteFriend): risponde 404 se l'id non
-    // corrisponde a nessun utente.
+    // Verifica che l'utente esista prima di invitarlo (BookingService.inviteFriend);
+    // 404 se l'id non corrisponde a nessuno.
     @GetMapping("/api/v1/profile/users/{id}/summary")
     UserSummaryDTO getUserSummary(@PathVariable("id") String id);
 }

@@ -14,13 +14,10 @@ public interface ShoppingCartRepository extends JpaRepository<ShoppingCart, Long
     //trova il carrello di un utente
     Optional<ShoppingCart> findByUserId(String userId);
 
-    // Stessa query di findByUserId, ma con lock pessimistico: usata solo dal
-    // checkout (vedi ShoppingCartService.getCartForCheckout) per serializzare
-    // due checkout concorrenti sullo stesso carrello. Il secondo checkout resta
-    // bloccato sul SELECT ... FOR UPDATE finché il primo non fa commit/rollback,
-    // quindi non può più leggere gli stessi articoli già consumati dal primo.
-    // @Query esplicita (non derivata dal nome) perché Spring Data proverebbe
-    // altrimenti a interpretare "ForUpdate" come parte del path della proprietà.
+    // Come findByUserId ma con lock pessimistico, usata solo dal checkout per
+    // serializzare due checkout concorrenti sullo stesso carrello. @Query
+    // esplicita perché altrimenti Spring Data legge "ForUpdate" come parte
+    // del path della proprietà.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from ShoppingCart c where c.userId = :userId")
     Optional<ShoppingCart> findByUserIdForUpdate(@Param("userId") String userId);
