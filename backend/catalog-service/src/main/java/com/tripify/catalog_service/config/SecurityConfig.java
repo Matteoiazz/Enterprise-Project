@@ -33,7 +33,9 @@ public class SecurityConfig {
                                 "/api/v1/catalog/items/hotels/**", "/api/v1/catalog/items/activities/**")
                                 .hasAuthority("ROLE_ORGANIZER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/catalog/items/*/images").hasAuthority("ROLE_ORGANIZER")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/*/rating").authenticated()
+                        // Non è un'azione utente: la protezione è la chiave di servizio controllata
+                        // nel controller (vedi CatalogController.updateRating), non un JWT.
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/*/rating").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 

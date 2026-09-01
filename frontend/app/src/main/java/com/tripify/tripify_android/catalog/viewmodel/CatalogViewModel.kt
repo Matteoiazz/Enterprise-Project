@@ -207,7 +207,10 @@ class CatalogViewModel(
             "https://picsum.photos/seed/${dto.id}A/600/800",
             "https://picsum.photos/seed/${dto.id}B/600/800"
         )
-        val rating = dto.rating?.toDouble()
+        // ratingAvg è il valore preciso calcolato da communication-service sulle recensioni
+        // reali; rating (intero) resta come fallback per gli item senza ancora recensioni.
+        val rating = dto.ratingAvg ?: dto.rating?.toDouble()
+        val reviewCount = dto.reviewCount ?: 0
 
         return when (dto.itemType.uppercase()) {
             "FLIGHT" -> CatalogItem.Flight(
@@ -223,6 +226,7 @@ class CatalogViewModel(
                 availableSeats = dto.totalSeats ?: 0,
                 stops = dto.stops ?: 0,
                 rating = rating,
+                reviewCount = reviewCount,
                 fareClasses = dto.fareClasses?.map {
                     FareClassUi(id = it.id, name = it.name, price = it.price, totalSeats = it.totalSeats)
                 } ?: emptyList()
@@ -235,6 +239,7 @@ class CatalogViewModel(
                 address = dto.address ?: "Indirizzo non disponibile",
                 city = dto.city ?: "N/D",
                 rating = rating ?: 0.0,
+                reviewCount = reviewCount,
                 amenities = dto.amenities ?: emptyList(),
                 locationLat = dto.locationLat,
                 locationLng = dto.locationLng,
@@ -256,7 +261,8 @@ class CatalogViewModel(
                 activityType = dto.activityType ?: "Esperienza",
                 meetingPoint = dto.meetingPoint ?: "Da definire",
                 maxParticipants = dto.maxParticipants,
-                rating = rating
+                rating = rating,
+                reviewCount = reviewCount
             )
             else -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
@@ -268,7 +274,8 @@ class CatalogViewModel(
                 activityType = dto.activityType ?: "Esperienza",
                 meetingPoint = dto.meetingPoint ?: "Da definire",
                 maxParticipants = dto.maxParticipants,
-                rating = rating
+                rating = rating,
+                reviewCount = reviewCount
             )
         }
     }

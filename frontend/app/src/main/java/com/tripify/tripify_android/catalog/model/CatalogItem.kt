@@ -43,6 +43,7 @@ sealed class CatalogItem {
         val availableSeats: Int,
         val stops: Int,
         val rating: Double? = null,
+        val reviewCount: Int = 0,
         val fareClasses: List<FareClassUi> = emptyList()
     ) : CatalogItem() {
         val isDirect: Boolean get() = stops == 0
@@ -55,6 +56,7 @@ sealed class CatalogItem {
         val address: String,
         val city: String,
         val rating: Double,
+        val reviewCount: Int = 0,
         val amenities: List<String>,
         val locationLat: Double? = null,
         val locationLng: Double? = null,
@@ -70,6 +72,7 @@ sealed class CatalogItem {
         val activityType: String,
         val meetingPoint: String,
         val maxParticipants: Int?,
-        val rating: Double? = null
+        val rating: Double? = null,
+        val reviewCount: Int = 0
     ) : CatalogItem()
 }

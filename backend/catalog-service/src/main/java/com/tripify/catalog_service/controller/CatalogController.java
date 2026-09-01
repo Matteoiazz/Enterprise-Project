@@ -14,9 +14,11 @@ import com.tripify.catalog_service.dto.request.CreateActivityRequestDTO;
 import com.tripify.catalog_service.dto.request.CreateFlightRequestDTO;
 import com.tripify.catalog_service.dto.request.CreateHotelRequestDTO;
 import com.tripify.catalog_service.dto.request.FareClassRequestDTO;
+import com.tripify.catalog_service.dto.RatingUpdateDTO;
 import com.tripify.catalog_service.dto.request.RoomTypeRequestDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -39,6 +41,9 @@ public class CatalogController {
 
     private final CatalogService catalogService;
     private final CatalogMapper catalogMapper;
+
+    @Value("${internal.service-key}")
+    private String internalServiceKey;
 
     @GetMapping("/items/{id}")
     public ResponseEntity<CatalogItemDTO> getItemById(@PathVariable Long id) {
@@ -171,7 +176,6 @@ public class CatalogController {
         existing.setPrice(incoming.getPrice());
         existing.setCurrency(incoming.getCurrency());
         existing.setCategory(incoming.getCategory());
-        existing.setRating(incoming.getRating());
         existing.setDepartureAirport(incoming.getDepartureAirport());
         existing.setArrivalAirport(incoming.getArrivalAirport());
         existing.setDepartureCity(incoming.getDepartureCity());
@@ -191,7 +195,6 @@ public class CatalogController {
         existing.setPrice(incoming.getPrice());
         existing.setCurrency(incoming.getCurrency());
         existing.setCategory(incoming.getCategory());
-        existing.setRating(incoming.getRating());
         existing.setLocationLat(incoming.getLocationLat());
         existing.setLocationLng(incoming.getLocationLng());
         existing.setAddress(incoming.getAddress());
@@ -208,7 +211,6 @@ public class CatalogController {
         existing.setPrice(incoming.getPrice());
         existing.setCurrency(incoming.getCurrency());
         existing.setCategory(incoming.getCategory());
-        existing.setRating(incoming.getRating());
         existing.setActivityType(incoming.getActivityType());
         existing.setDuration(incoming.getDuration());
         existing.setMeetingPoint(incoming.getMeetingPoint());
@@ -216,6 +218,23 @@ public class CatalogController {
         existing.setMaxParticipants(incoming.getMaxParticipants());
         existing.setGuideIncluded(incoming.isGuideIncluded());
         return ResponseEntity.ok(catalogMapper.toDto(catalogService.saveItem(existing)));
+    }
+
+    /**
+     * Aggiornamento del rating aggregato, chiamato da communication-service quando
+     * cambiano le recensioni di un item. Non è un'azione utente: niente JWT, protetto
+     * dalla chiave di servizio condivisa (vedi application.properties). Un utente
+     * qualunque non deve poter falsare il rating di un annuncio chiamandolo a mano.
+     */
+    @PutMapping("/items/{id}/rating")
+    public ResponseEntity<Void> updateRating(@PathVariable Long id,
+                                              @RequestBody RatingUpdateDTO request,
+                                              @RequestHeader("X-Internal-Key") String internalKey) {
+        if (!internalServiceKey.equals(internalKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        catalogService.updateRating(id, request.average(), request.count());
+        return ResponseEntity.ok().build();
     }
 
     /** Disattiva l'annuncio (soft delete): sparisce dalla ricerca ma resta per chi l'ha già prenotato. */

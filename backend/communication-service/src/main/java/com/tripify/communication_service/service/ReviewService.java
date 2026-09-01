@@ -7,6 +7,7 @@ import com.tripify.communication_service.entity.Review;
 import com.tripify.communication_service.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,6 +21,9 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final BookingClient bookingClient;
     private final CatalogClient catalogClient;
+
+    @Value("${internal.service-key}")
+    private String internalServiceKey;
 
     public ReviewResponse createReview(Integer rating, String comment, String travelerId, Long catalogItemId) {
         validate(rating, comment);
@@ -89,10 +93,10 @@ public class ReviewService {
         try {
             List<Review> all = reviewRepository.findByCatalogItemId(catalogItemId);
             if (all.isEmpty()) {
-                catalogClient.updateRating(catalogItemId, new CatalogClient.RatingUpdate(null, 0));
+                catalogClient.updateRating(catalogItemId, internalServiceKey, new CatalogClient.RatingUpdate(null, 0));
             } else {
                 double average = all.stream().mapToInt(Review::getRating).average().orElse(0.0);
-                catalogClient.updateRating(catalogItemId, new CatalogClient.RatingUpdate(average, all.size()));
+                catalogClient.updateRating(catalogItemId, internalServiceKey, new CatalogClient.RatingUpdate(average, all.size()));
             }
         } catch (Exception e) {
             log.warn("Rating dell'annuncio {} non aggiornato: {}", catalogItemId, e.getMessage());
