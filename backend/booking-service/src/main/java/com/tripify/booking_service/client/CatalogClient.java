@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.List;
 
@@ -40,6 +41,14 @@ public interface CatalogClient {
     // Rilascia un hold non più necessario (carrello svuotato, prenotazione annullata).
     @PostMapping("/holds/{holdId}/release")
     void releaseHold(@PathVariable("holdId") String holdId);
+
+    // Compensazione: a differenza di releaseHold, funziona anche su un hold già
+    // CONFIRMED (lo riporta a RELEASED) ed è idempotente. Serve al pattern saga
+    // di confirmPayment/cancelBooking quando bisogna disfare hold già confermati
+    // (vedi BookingService). Non è un'azione utente: autenticata con una chiave
+    // di servizio, non con il JWT dell'utente corrente.
+    @PostMapping("/holds/{holdId}/compensate")
+    void compensateHold(@PathVariable("holdId") String holdId, @RequestHeader("X-Internal-Key") String internalKey);
 
     // Gli annunci pubblicati dall'utente corrente (identificato dall'header
     // X-User-Id aggiunto in FeignClientConfig): serve a sapere quali catalogItemId

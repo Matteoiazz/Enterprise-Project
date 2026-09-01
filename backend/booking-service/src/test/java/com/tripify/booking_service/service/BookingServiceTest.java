@@ -279,6 +279,50 @@ class BookingServiceTest {
         assertThat(stillPending.getStatus()).isEqualTo(BookingStatus.PENDING);
     }
 
+    // Pattern saga (coordinato con catalog-service, endpoint /holds/{id}/compensate):
+    // se il secondo hold di una prenotazione a più righe fallisce, il primo -
+    // già confermato con successo in questo stesso ciclo - va compensato
+    // (riportato a RELEASED), non lasciato CONFIRMED per sempre.
+    @Test
+    void confirmPaymentCompensaGliHoldGiaConfermatiSeUnoFallisceAMetaLista() {
+        when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
+        when(catalogClient.holdSeats(eq(8L), any())).thenReturn(new HoldResultDTO("seat-2", LocalDateTime.now().plusMinutes(15)));
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, 7L, null, null));
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, 8L, null, null));
+        BookingResponseDTO booking = bookingService.checkout(LEADER_ID);
+
+        FeignException expired = mock(FeignException.class);
+        when(expired.status()).thenReturn(409);
+        doThrow(expired).when(catalogClient).confirmHold("seat-2");
+
+        assertThatThrownBy(() -> bookingService.confirmPayment(booking.id(), LEADER_ID, booking.totalAmount()))
+                .isInstanceOf(InvalidBookingStateException.class);
+
+        verify(catalogClient).compensateHold(eq("seat-1"), anyString());
+        verify(catalogClient, never()).compensateHold(eq("seat-2"), anyString());
+    }
+
+    // La compensazione non deve mai nascondere l'errore originale che l'ha
+    // scatenata: se anche la chiamata di compensazione fallisce, l'eccezione
+    // che risale al chiamante resta comunque quella del hold non disponibile.
+    @Test
+    void confirmPaymentSegnalaLerroreOriginaleAncheSeLaCompensazioneFallisce() {
+        when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
+        when(catalogClient.holdSeats(eq(8L), any())).thenReturn(new HoldResultDTO("seat-2", LocalDateTime.now().plusMinutes(15)));
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, 7L, null, null));
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, 8L, null, null));
+        BookingResponseDTO booking = bookingService.checkout(LEADER_ID);
+
+        FeignException expired = mock(FeignException.class);
+        when(expired.status()).thenReturn(409);
+        doThrow(expired).when(catalogClient).confirmHold("seat-2");
+        doThrow(new RuntimeException("catalog-service irraggiungibile")).when(catalogClient).compensateHold(eq("seat-1"), anyString());
+
+        assertThatThrownBy(() -> bookingService.confirmPayment(booking.id(), LEADER_ID, booking.totalAmount()))
+                .isInstanceOf(InvalidBookingStateException.class)
+                .hasMessageContaining("non sono più disponibili");
+    }
+
     @Test
     void cancelBookingRilasciaGliHoldSeNonEraAncoraConfermata() {
         when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
@@ -300,6 +344,23 @@ class BookingServiceTest {
         bookingService.cancelBooking(booking.id(), LEADER_ID);
 
         verify(paymentService).refund(booking.id(), booking.totalAmount());
+    }
+
+    // Un hold già CONFIRMED non può più passare da releaseHold (catalog-service
+    // lo rifiuta): cancelBooking deve usare compensateHold per disfarlo davvero,
+    // non lasciarlo bloccato per sempre (pattern saga, coordinato con
+    // catalog-service).
+    @Test
+    void cancelBookingCompensaGliHoldSeLaPrenotazioneEraGiaConfermata() {
+        when(catalogClient.holdSeats(eq(7L), any())).thenReturn(new HoldResultDTO("seat-1", LocalDateTime.now().plusMinutes(15)));
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, 7L, null, null));
+        BookingResponseDTO booking = bookingService.checkout(LEADER_ID);
+        bookingService.confirmPayment(booking.id(), LEADER_ID, booking.totalAmount());
+
+        bookingService.cancelBooking(booking.id(), LEADER_ID);
+
+        verify(catalogClient).compensateHold(eq("seat-1"), anyString());
+        verify(catalogClient, never()).releaseHold(any());
     }
 
     @Test

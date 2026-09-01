@@ -22,6 +22,7 @@ import feign.FeignException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,6 +54,14 @@ public class BookingService {
     private final BookingEventPublisher eventPublisher;
     private final RabbitTemplate rabbitTemplate;
     private final PlatformTransactionManager transactionManager;
+
+    // NON final: @RequiredArgsConstructor genera un parametro di costruttore
+    // solo per i campi final, ma senza copiarci sopra l'annotazione @Value (non
+    // è tra quelle che Lombok propaga) - Spring proverebbe quindi ad iniettare
+    // un bean di tipo String e l'app non partirebbe. Da campo non-final invece
+    // Lombok lo ignora e Spring lo inietta normalmente dopo la costruzione.
+    @Value("${internal.service-key}")
+    private String internalServiceKey;
 
     @Transactional
     public BookingResponseDTO checkout(String userId) {
@@ -351,12 +360,10 @@ public class BookingService {
         tx.executeWithoutResult(status -> loadAndValidateForPayment(bookingId, userId, amount));
 
         // Fase 2 (FUORI da transazione): conferma ogni hold aperto su
-        // catalog-service. Nota: gli hold già confermati con successo in questo
-        // stesso ciclo NON possono più essere rilasciati da catalog-service (un
-        // hold CONFIRMED rifiuta la release), quindi un fallimento a metà lista
-        // può lasciare qualche riga "confermata" lato catalogo anche se la
-        // Booking resta PENDING: è un limite del modello di hold di
-        // catalog-service, non risolvibile da qui.
+        // catalog-service. Se uno a metà lista fallisce, compensiamo (vedi sotto)
+        // quelli già confermati con successo in questo stesso ciclo, così non
+        // restano CONFIRMED per sempre mentre la Booking torna riprovabile da
+        // PENDING (pattern saga, coordinato con catalog-service).
         //
         // Un 409 da catalog-service qui significa che il blocco non è più
         // confermabile (scaduto, quindi la camera/il posto può essere finito a
@@ -366,11 +373,18 @@ public class BookingService {
         // integrazione (vedi GlobalExceptionHandler.handleFeignException).
         Booking bookingWithLines = bookingRepository.findByIdWithLines(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Prenotazione non trovata!"));
+        // Teniamo traccia degli hold confermati con successo in QUESTO ciclo: se
+        // uno a metà lista fallisce, li compensiamo tutti (li riportiamo a
+        // RELEASED) prima di rilanciare, invece di lasciarli CONFIRMED per
+        // sempre (vedi compensateHolds).
+        List<String> confirmedHoldIds = new ArrayList<>();
         for (BookingLine line : bookingWithLines.getLines()) {
             if (line.getHoldId() != null) {
                 try {
                     catalogClient.confirmHold(line.getHoldId());
+                    confirmedHoldIds.add(line.getHoldId());
                 } catch (FeignException ex) {
+                    compensateHolds(confirmedHoldIds, bookingId);
                     if (ex.status() == 409) {
                         throw new InvalidBookingStateException(
                                 "Uno o più articoli di questa prenotazione non sono più disponibili: il blocco temporaneo è scaduto, probabilmente qualcun altro li ha prenotati nel frattempo. Annulla la prenotazione e riprova dal catalogo.");
@@ -400,6 +414,21 @@ public class BookingService {
 
             return booking;
         });
+    }
+
+    // Compensazione saga: riporta a RELEASED gli hold passati, anche se sono già
+    // CONFIRMED (releaseHold da solo non basta, lo rifiuta - vedi compensateHold
+    // su CatalogClient). Una compensazione fallita non deve mai nascondere
+    // l'errore originale che l'ha scatenata: logghiamo e proseguiamo con le
+    // altre, l'eventuale hold rimasto CONFIRMED va gestito manualmente.
+    private void compensateHolds(List<String> holdIds, Long bookingId) {
+        for (String holdId : holdIds) {
+            try {
+                catalogClient.compensateHold(holdId, internalServiceKey);
+            } catch (RuntimeException ex) {
+                log.error("Compensazione fallita per il blocco {} della prenotazione {}: {}", holdId, bookingId, ex.getMessage());
+            }
+        }
     }
 
     private Booking loadAndValidateForPayment(Long bookingId, String userId, BigDecimal amount) {
@@ -438,19 +467,25 @@ public class BookingService {
 
         boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
 
-        if (!wasConfirmed) {
-            for (BookingLine line : booking.getLines()) {
-                if (line.getHoldId() != null) {
-                    try {
-                        catalogClient.releaseHold(line.getHoldId());
-                    } catch (RuntimeException ex) {
-                        // Un hold già scaduto/rilasciato da solo lato catalog-service (es.
-                        // dopo 15 minuti) non deve impedire l'annullamento della prenotazione:
-                        // logghiamo e proseguiamo, stesso criterio di ShoppingCartService.
-                        log.warn("Impossibile rilasciare il blocco {} durante l'annullamento della prenotazione {}: {}",
-                                line.getHoldId(), bookingId, ex.getMessage());
-                    }
+        for (BookingLine line : booking.getLines()) {
+            if (line.getHoldId() == null) {
+                continue;
+            }
+            try {
+                if (wasConfirmed) {
+                    // Hold già CONFIRMED: releaseHold lo rifiuterebbe, serve la
+                    // compensazione (stesso endpoint usato da confirmPayment,
+                    // vedi CatalogClient.compensateHold).
+                    catalogClient.compensateHold(line.getHoldId(), internalServiceKey);
+                } else {
+                    catalogClient.releaseHold(line.getHoldId());
                 }
+            } catch (RuntimeException ex) {
+                // Un hold già scaduto/rilasciato da solo lato catalog-service (es.
+                // dopo 15 minuti) non deve impedire l'annullamento della prenotazione:
+                // logghiamo e proseguiamo, stesso criterio di ShoppingCartService.
+                log.warn("Impossibile rilasciare/compensare il blocco {} durante l'annullamento della prenotazione {}: {}",
+                        line.getHoldId(), bookingId, ex.getMessage());
             }
         }
 
