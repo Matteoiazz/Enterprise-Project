@@ -6,12 +6,9 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// ATTENZIONE: nessun addebito reale. Nessun collegamento a un vero PSP
-// (Stripe/Nexi/...): approva o rifiuta in base a soli controlli sintattici
-// (formato/checksum del numero carta, importo positivo), non tocca mai una
-// carta o un conto veri, non fa 3-D Secure, non verifica scadenza/CVV (non
-// arrivano nemmeno al backend, vedi PaymentRequestDTO). Da sostituire con
-// un'implementazione reale prima di qualunque uso oltre la demo/lo sviluppo.
+// ATTENZIONE: nessun addebito reale, nessun collegamento a un PSP. Approva o
+// rifiuta solo su controlli sintattici (formato/checksum carta, importo
+// positivo). Da sostituire prima di qualunque uso oltre demo/sviluppo.
 @Component
 @Slf4j
 public class MockPaymentGateway implements PaymentGateway {
@@ -51,9 +48,8 @@ public class MockPaymentGateway implements PaymentGateway {
         return amount != null && amount.compareTo(BigDecimal.ZERO) > 0;
     }
 
-    // Solo cifre, lunghezza di una carta reale (13-19, standard ISO/IEC 7812)
-    // e checksum di Luhn valido: prima bastava una stringa qualsiasi di
-    // almeno 12 caratteri, lettere comprese ("aaaaaaaaaaaa" veniva approvato).
+    // Solo cifre, lunghezza 13-19 e Luhn valido: prima bastava una stringa
+    // qualsiasi di almeno 12 caratteri, anche "aaaaaaaaaaaa".
     private boolean isValidCardNumber(String cardNumber) {
         if (cardNumber == null) {
             return false;

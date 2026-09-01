@@ -36,11 +36,9 @@ fun CartScreen(
     val uiState by viewModel.uiState.collectAsState()
     val selectedItemIds by viewModel.selectedItemIds.collectAsState()
 
-    // Stessa valuta scelta in Impostazioni > Valuta (e usata dal catalogo per
-    // mostrare i prezzi): qui serve a convertire il totale quando il carrello
-    // contiene articoli in valute diverse tra loro, invece di sommarli come se
-    // fossero tutti nella stessa valuta. La scelta fatta qui resta valida
-    // anche in CheckoutScreen, perché è lo stesso storage condiviso.
+    // Stessa valuta di Impostazioni > Valuta: serve a convertire il totale
+    // quando il carrello ha articoli in valute diverse, invece di sommarli
+    // come se fossero tutti uguali.
     val displayCurrency by rememberCatalogCurrency()
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
@@ -67,10 +65,10 @@ fun CartScreen(
             val state = uiState
             if (state is CartState.Success && state.cart.items.isNotEmpty()) {
                 val selectedItems = state.cart.items.filter { it.id in selectedItemIds }
-                // Ogni articolo si converte dalla SUA valuta originale (item.currency)
-                // a quella scelta per la visualizzazione, non si sommano più i
-                // priceAtAdded grezzi: altrimenti un carrello con un volo in USD e
-                // un hotel in EUR darebbe un numero senza significato.
+                // Ogni articolo si converte dalla sua valuta originale a quella
+                // scelta per la visualizzazione: sommare i priceAtAdded grezzi
+                // darebbe un numero senza senso con un volo in USD e un hotel in
+                // EUR nello stesso carrello.
                 val selectedTotal = selectedItems.sumOf {
                     convertCartAmount(it.priceAtAdded, it.currency, displayCurrency) * it.quantity
                 }

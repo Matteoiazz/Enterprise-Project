@@ -46,6 +46,7 @@ import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.CartItemDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
+import com.tripify.tripify_android.data.model.TravelDocumentDto
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -160,12 +161,11 @@ fun CheckoutScreen(
     val savedMethods by viewModel.savedPaymentMethods.collectAsState()
     val selectedItemIds by viewModel.selectedItemIds.collectAsState()
     val savedTravelDocuments by bookingViewModel.savedTravelDocuments.collectAsState()
+    val myPhoneNumber by bookingViewModel.myPhoneNumber.collectAsState()
 
-    // Stessa valuta scelta in CartScreen (e in Impostazioni > Valuta): resta
-    // valida qui perché è lo stesso storage condiviso (TokenManager.currencyFlow),
-    // ma si può cambiare anche da qui all'ultimo momento. Converte solo la
-    // CIFRA MOSTRATA: l'importo realmente inviato per il pagamento resta
-    // sempre booking.totalAmount calcolato dal server (vedi CartViewModel.checkoutThenPay).
+    // Stessa valuta di CartScreen (storage condiviso), modificabile anche
+    // qui. Converte solo la cifra mostrata: l'importo pagato resta sempre
+    // booking.totalAmount calcolato dal server.
     val displayCurrency by rememberCatalogCurrency()
     val currencyContext = LocalContext.current
     val currencyTokenManager = remember { TokenManager(currencyContext) }
@@ -186,11 +186,16 @@ fun CheckoutScreen(
         viewModel.fetchSavedPaymentMethods()
         viewModel.resetPaymentState()
         bookingViewModel.fetchSavedTravelDocuments()
+        bookingViewModel.fetchMyPhoneNumber()
     }
 
     LaunchedEffect(paymentState) {
         val state = paymentState
         if (state is PaymentState.Success) {
+            // Se è stato salvato un nuovo documento la lista qui è ancora
+            // quella di prima: la aggiorniamo per coerenza anche se si sta
+            // per lasciare la schermata.
+            bookingViewModel.fetchSavedTravelDocuments()
             onPaymentSuccess(state.bookingId)
         }
     }
@@ -199,10 +204,9 @@ fun CheckoutScreen(
     // Solo gli articoli scelti in CartScreen vengono mostrati/pagati qui: gli
     // altri restano nel carrello (vedi CartViewModel.selectedItemIds).
     val selectedItems = cart?.items?.filter { it.id in selectedItemIds } ?: emptyList()
-    // Ogni articolo si converte dalla sua valuta originale a quella scelta per
-    // la visualizzazione (vedi CartScreen): niente più somma grezza di
-    // priceAtAdded, che avrebbe senso solo se tutti gli articoli selezionati
-    // fossero nella stessa valuta.
+    // Ogni articolo si converte dalla sua valuta originale a quella scelta:
+    // sommare i priceAtAdded grezzi avrebbe senso solo se fossero tutti
+    // nella stessa valuta.
     val selectedTotal = selectedItems.sumOf {
         convertCartAmount(it.priceAtAdded, it.currency, displayCurrency) * it.quantity
     }
@@ -214,22 +218,61 @@ fun CheckoutScreen(
         selectedItems.associate { item -> item.id to List(item.quantity) { GuestFieldsState() } }
     }
 
-    // Precompila SOLO il primo ospite di ciascun articolo con il documento
-    // salvato in Impostazioni (se esiste): gli altri ospiti sono persone
-    // diverse, il loro documento va inserito a mano. Restano comunque
-    // modificabili: è solo un valore iniziale, non un valore bloccato. Il
-    // guard su documentNumber evita di sovrascrivere dati che l'utente ha già
-    // iniziato a digitare prima che la lista dei documenti salvati arrivasse
-    // dal server.
-    LaunchedEffect(savedTravelDocuments, selectedItemIds) {
-        val savedDocument = savedTravelDocuments.firstOrNull() ?: return@LaunchedEffect
+    // Documento per precompilare il primo ospite di ogni articolo: uno
+    // salvato (selettore sotto, stesso pattern del metodo di pagamento)
+    // oppure "Nuovo documento" (selectedDocumentId=null), con la checkbox
+    // per salvarlo.
+    var selectedDocumentId by remember { mutableStateOf<String?>(null) }
+    // Come CardPaymentFormState.hasAutoSelected: la preselezione scatta una
+    // sola volta, poi la scelta dell'utente non viene più sovrascritta.
+    var hasAutoSelectedDocument by remember { mutableStateOf(false) }
+    var saveNewDocument by remember { mutableStateOf(false) }
+
+    fun applyDocumentToFirstGuests(document: TravelDocumentDto) {
+        guestsByItemId.values.forEach { guests ->
+            val firstGuest = guests.firstOrNull() ?: return@forEach
+            firstGuest.documentType = document.documentType
+            firstGuest.documentNumber = document.documentNumber
+            firstGuest.documentExpirationDate = document.expirationDate
+            firstGuest.issuingCountry = document.issuingCountry
+        }
+    }
+
+    LaunchedEffect(savedTravelDocuments) {
+        if (!hasAutoSelectedDocument && savedTravelDocuments.isNotEmpty()) {
+            selectedDocumentId = savedTravelDocuments.first().id
+            hasAutoSelectedDocument = true
+        }
+    }
+
+    // Precompila solo il primo ospite di ciascun articolo: gli altri sono
+    // persone diverse, il documento va inserito a mano. Il guard su
+    // documentNumber evita di sovrascrivere dati già digitati prima che la
+    // lista arrivasse dal server.
+    LaunchedEffect(selectedDocumentId, savedTravelDocuments, selectedItemIds) {
+        val chosenDocument = savedTravelDocuments.firstOrNull { it.id == selectedDocumentId } ?: return@LaunchedEffect
         guestsByItemId.values.forEach { guests ->
             val firstGuest = guests.firstOrNull() ?: return@forEach
             if (firstGuest.documentNumber.isBlank()) {
-                firstGuest.documentType = savedDocument.documentType
-                firstGuest.documentNumber = savedDocument.documentNumber
-                firstGuest.documentExpirationDate = savedDocument.expirationDate
-                firstGuest.issuingCountry = savedDocument.issuingCountry
+                firstGuest.documentType = chosenDocument.documentType
+                firstGuest.documentNumber = chosenDocument.documentNumber
+                firstGuest.documentExpirationDate = chosenDocument.expirationDate
+                firstGuest.issuingCountry = chosenDocument.issuingCountry
+            }
+        }
+    }
+
+    // Il telefono in Impostazioni è testo libero, nessun formato imposto:
+    // autocompiliamo solo se restano esattamente 10 cifre dopo aver tolto
+    // spazi/trattini, altrimenti rischieremmo di troncare male un numero con
+    // prefisso internazionale e lasciamo il campo vuoto.
+    LaunchedEffect(myPhoneNumber, selectedItemIds) {
+        val digitsOnly = myPhoneNumber?.filter { it.isDigit() }
+        if (digitsOnly?.length != 10) return@LaunchedEffect
+        guestsByItemId.values.forEach { guests ->
+            val firstGuest = guests.firstOrNull() ?: return@forEach
+            if (firstGuest.phoneNumber.isBlank()) {
+                firstGuest.phoneNumber = digitsOnly
             }
         }
     }
@@ -276,16 +319,32 @@ fun CheckoutScreen(
                                     submitAttempted = true
                                 } else {
                                     val guestsRequest = guestsByItemId.mapValues { (_, guests) -> guests.map { it.toRequest() } }
+                                    // Non null solo se scelto "Nuovo documento" e spuntato di
+                                    // salvarlo: si prende il primo ospite del primo articolo,
+                                    // stessa convenzione di sopra.
+                                    val documentToSave = if (selectedDocumentId == null && saveNewDocument) {
+                                        selectedItems.firstOrNull()
+                                            ?.let { guestsByItemId[it.id]?.firstOrNull() }
+                                            ?.let { guest ->
+                                                TravelDocumentDto(
+                                                    documentType = guest.documentType,
+                                                    documentNumber = guest.documentNumber,
+                                                    expirationDate = guest.documentExpirationDate,
+                                                    issuingCountry = guest.issuingCountry
+                                                )
+                                            }
+                                    } else null
                                     val savedId = paymentFormState.selectedSavedMethodId
                                     if (savedId != null) {
-                                        viewModel.payWithSavedMethod(savedId, guestsRequest)
+                                        viewModel.payWithSavedMethod(savedId, guestsRequest, documentToSave)
                                     } else {
                                         viewModel.payWithNewCard(
                                             cardNumber = paymentFormState.cardNumber,
                                             cardProvider = paymentFormState.cardProvider,
                                             expirationMonthYear = paymentFormState.expirationMonthYear(),
                                             saveCard = paymentFormState.saveNewCard,
-                                            guestsByCartItemId = guestsRequest
+                                            guestsByCartItemId = guestsRequest,
+                                            documentToSave = documentToSave
                                         )
                                     }
                                 }
@@ -351,6 +410,52 @@ fun CheckoutScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
+                item {
+                    Text(
+                        text = "Documento da usare",
+                        style = CatalogType.Caption,
+                        color = CatalogColors.InkMuted,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    savedTravelDocuments.forEach { document ->
+                        SavedDocumentRow(
+                            document = document,
+                            selected = selectedDocumentId == document.id,
+                            onClick = {
+                                selectedDocumentId = document.id
+                                applyDocumentToFirstGuests(document)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    NewDocumentOptionRow(
+                        selected = selectedDocumentId == null,
+                        onClick = { selectedDocumentId = null }
+                    )
+
+                    if (selectedDocumentId == null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                                .clickable { saveNewDocument = !saveNewDocument }
+                        ) {
+                            Checkbox(
+                                checked = saveNewDocument,
+                                onCheckedChange = { saveNewDocument = it },
+                                colors = CheckboxDefaults.colors(checkedColor = CatalogColors.AccentDark)
+                            )
+                            Text(
+                                "Salva questo documento per i prossimi acquisti",
+                                style = CatalogType.Body,
+                                color = CatalogColors.InkMuted
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
                 selectedItems.forEach { cartItem ->
                     item(key = "guests-${cartItem.id}") {
                         GuestFieldsForItem(
@@ -394,6 +499,68 @@ fun CheckoutScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
+        }
+    }
+}
+
+// Stesso stile di SavedPaymentMethodRow (radio button, non chip come in
+// AddPassengersScreen), per coerenza con l'altro selettore in questa schermata.
+@Composable
+private fun SavedDocumentRow(
+    document: TravelDocumentDto,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = if (selected) CatalogColors.AccentSoft else CatalogColors.Surface,
+        border = BorderStroke(1.dp, if (selected) CatalogColors.AccentDark else CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    "${document.documentType} · ${document.documentNumber}",
+                    style = CatalogType.BodyStrong,
+                    color = CatalogColors.Ink
+                )
+                Text("Scadenza ${document.expirationDate}", style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            }
+        }
+    }
+}
+
+// Stesso stile visivo di NewCardOptionRow (PaymentMethodSection).
+@Composable
+private fun NewDocumentOptionRow(selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = CatalogShapes.Field,
+        color = if (selected) CatalogColors.AccentSoft else CatalogColors.Surface,
+        border = BorderStroke(1.dp, if (selected) CatalogColors.AccentDark else CatalogColors.Hairline),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.Filled.AddCircleOutline, contentDescription = null, tint = CatalogColors.Accent)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Nuovo documento", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
         }
     }
 }

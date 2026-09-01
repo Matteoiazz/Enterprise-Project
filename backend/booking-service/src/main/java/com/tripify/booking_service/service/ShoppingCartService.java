@@ -42,10 +42,9 @@ public class ShoppingCartService {
     // aggiunge B, tra 5 minuti scade solo A mentre a B restano ancora 10 minuti.
     private static final long CART_ITEM_TTL_MINUTES = 15;
 
-    // Stesso limite del singolo @Max su AddToCartRequestDTO.quantity, ma qui
-    // applicato al TOTALE cumulativo di una riga dopo il merge: senza questo
-    // controllo, richieste ripetute (ognuna singolarmente sotto il limite)
-    // potrebbero far crescere la quantità di una riga senza fine.
+    // Come il @Max su AddToCartRequestDTO.quantity, ma sul totale cumulativo
+    // dopo il merge: senza questo, richieste ripetute (ognuna sotto il
+    // limite) fanno crescere la riga senza fine.
     private static final int MAX_CART_ITEM_QUANTITY = 20;
 
     private final ShoppingCartRepository cartRepository;
@@ -71,13 +70,10 @@ public class ShoppingCartService {
                 });
     }
 
-    // Variante di getCartForUser ad uso esclusivo del checkout (vedi
-    // BookingService.checkout): prende il lock pessimistico sulla riga del
-    // carrello, così un secondo checkout concorrente per lo stesso utente resta
-    // in attesa finché il primo non ha finito (commit o rollback) invece di
-    // leggere in parallelo lo stesso carrello pieno e generare due Booking dagli
-    // stessi articoli. Se il carrello non esiste ancora non c'è nulla da
-    // bloccare: lo si crea normalmente (nessuna race possibile su un carrello vuoto).
+    // Come getCartForUser ma con lock pessimistico, usata solo dal checkout:
+    // un secondo checkout concorrente resta in attesa invece di leggere lo
+    // stesso carrello pieno in parallelo. Se il carrello non esiste ancora
+    // non c'è nulla da bloccare.
     public ShoppingCart getCartForCheckout(String userId) {
         return cartRepository.findByUserIdForUpdate(userId)
                 .orElseGet(() -> getCartForUser(userId));
@@ -86,10 +82,8 @@ public class ShoppingCartService {
     // 1bis. Versione esposta via API: costruisce il DTO dentro la stessa
     // transazione, così cart.getItems() (LAZY) viene inizializzata qui e non
     // fallisce in fase di serializzazione JSON nel controller. NON readOnly:
-    // getCartForUser() può dover salvare il carrello se è la prima apertura
-    // di un utente nuovo (orElseGet sotto) - con readOnly=true quel save
-    // veniva rifiutato dal driver JDBC ("read-only transaction"), risultando
-    // in un 500 alla primissima apertura del carrello.
+    // il primo accesso di un utente nuovo deve salvare il carrello
+    // (orElseGet sotto), e readOnly=true lo rifiutava con un 500.
     @Transactional
     public CartDTO getCartDTOForUser(String userId) {
         ShoppingCart cart = getCartForUser(userId);
@@ -121,11 +115,10 @@ public class ShoppingCartService {
     // realmente disponibili nella finestra tra "aggiungi al carrello" e
     // "checkout" (vedi anche confirmPayment/cancelBooking in BookingService).
     //
-    // NIENTE @Transactional sul metodo: getItem/holdRoom/holdSeats sono
-    // chiamate HTTP verso catalog-service (fino a 15s di response-timeout).
-    // Farle senza una transazione locale aperta evita di tenere bloccata una
-    // connessione al nostro DB per tutto quel tempo (vedi audit §2.9). L'unica
-    // transazione reale è quella breve, tutta locale, in persistCartItem.
+    // Niente @Transactional sul metodo: getItem/holdRoom/holdSeats chiamano
+    // catalog-service (fino a 15s) - farle senza una transazione aperta
+    // evita di tenere bloccata una connessione DB per tutto quel tempo.
+    // L'unica transazione reale, breve e locale, è in persistCartItem.
     public void addItem(String userId, AddToCartRequestDTO request) {
         if (request.roomTypeId() != null && request.fareClassId() != null) {
             throw new IllegalArgumentException("Non è possibile specificare sia roomTypeId che fareClassId per lo stesso articolo.");
