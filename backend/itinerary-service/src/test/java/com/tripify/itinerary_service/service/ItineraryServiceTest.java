@@ -208,4 +208,44 @@ class ItineraryServiceTest {
         assertThatThrownBy(() -> itineraryService.renameList(list.getId(), "Altro nome", OTHER_USER))
                 .isInstanceOf(NotListOwnerException.class);
     }
+
+    @Test
+    void esportaUnVoloEUnHotelInFormatoIcsValido() {
+        FavoriteList list = newList();
+        LocalDateTime dep = LocalDateTime.of(2026, 9, 10, 8, 0);
+        LocalDateTime arr = LocalDateTime.of(2026, 9, 10, 18, 0);
+        when(catalogClient.getItem(1L)).thenReturn(flight(1L, "Roma", "New York", dep, arr));
+        when(catalogClient.getItem(2L)).thenReturn(hotel(2L, "New York"));
+        itineraryService.addItemToList(list.getId(), itemRequest(1L), OWNER);
+        itineraryService.addItemToList(list.getId(), hotelRequest(2L, arr.toLocalDate(), arr.toLocalDate().plusDays(3)), OWNER);
+
+        String ics = itineraryService.exportToIcs(list.getId(), OWNER);
+
+        assertThat(ics).startsWith("BEGIN:VCALENDAR");
+        assertThat(ics).endsWith("END:VCALENDAR\r\n");
+        assertThat(countOccurrences(ics, "BEGIN:VEVENT")).isEqualTo(2);
+        assertThat(ics).contains("SUMMARY:Volo Roma → New York");
+        assertThat(ics).contains("DTSTART:20260910T080000");
+        assertThat(ics).contains("DTEND:20260910T180000");
+        assertThat(ics).contains("SUMMARY:Soggiorno: Hotel a New York");
+        assertThat(ics).contains("DTSTART;VALUE=DATE:20260910");
+        assertThat(ics).contains("DTEND;VALUE=DATE:20260913");
+    }
+
+    @Test
+    void nonPuoEsportareIlCalendarioDiUnaListaAltrui() {
+        FavoriteList list = newList(); // PRIVATE di default
+
+        assertThatThrownBy(() -> itineraryService.exportToIcs(list.getId(), OTHER_USER))
+                .isInstanceOf(NotListOwnerException.class);
+    }
+
+    private static int countOccurrences(String text, String needle) {
+        int count = 0, index = 0;
+        while ((index = text.indexOf(needle, index)) != -1) {
+            count++;
+            index += needle.length();
+        }
+        return count;
+    }
 }

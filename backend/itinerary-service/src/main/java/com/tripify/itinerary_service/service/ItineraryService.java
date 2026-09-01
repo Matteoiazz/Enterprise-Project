@@ -5,6 +5,7 @@ import com.tripify.itinerary_service.client.CatalogClient;
 import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
 import com.tripify.itinerary_service.dto.AddToCartRequestDTO;
 import com.tripify.itinerary_service.dto.BookAllResultDTO;
+import com.tripify.itinerary_service.dto.CalendarEventDTO;
 import com.tripify.itinerary_service.dto.CatalogItemSummaryDTO;
 import com.tripify.itinerary_service.dto.RemoveItemResultDTO;
 import com.tripify.itinerary_service.entity.CatalogItemLike;
@@ -18,6 +19,7 @@ import com.tripify.itinerary_service.exception.PublishRequirementsNotMetExceptio
 import com.tripify.itinerary_service.repository.CatalogItemLikeRepository;
 import com.tripify.itinerary_service.repository.FavoriteListLikeRepository;
 import com.tripify.itinerary_service.repository.FavoriteListRepository;
+import com.tripify.itinerary_service.util.IcsBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -141,6 +143,56 @@ public class ItineraryService {
             }
         }
         return 0;
+    }
+
+    /**
+     * Esporta la lista in un file .ics: un VEVENT per volo (orario reale di partenza/
+     * arrivo), uno per il soggiorno hotel e uno per attività (entrambi all-day, solo
+     * la data). Riusa la stessa risoluzione dei componenti usata per la coerenza e il
+     * prezzo, quindi un item senza le date necessarie viene semplicemente saltato
+     * invece di far fallire l'intera esportazione.
+     */
+    public String exportToIcs(Long listId, String requesterId) {
+        FavoriteList list = getAccessibleById(listId, requesterId);
+        List<ResolvedItem> resolved = resolveItems(list.getItems());
+
+        List<CalendarEventDTO> events = new ArrayList<>();
+        for (ResolvedItem r : resolved) {
+            CatalogItemSummaryDTO catalog = r.catalog();
+            FavoriteListItem source = r.source();
+
+            if ("Flight".equals(catalog.itemType())) {
+                if (catalog.departureTime() == null || catalog.arrivalTime() == null) continue;
+                events.add(new CalendarEventDTO(
+                        "Volo " + catalog.departureCity() + " → " + catalog.arrivalCity(),
+                        catalog.departureCity(),
+                        catalog.departureTime(),
+                        catalog.arrivalTime(),
+                        false
+                ));
+            } else if ("Hotel".equals(catalog.itemType())) {
+                if (source.getCheckIn() == null || source.getCheckOut() == null) continue;
+                events.add(new CalendarEventDTO(
+                        "Soggiorno: " + catalog.title(),
+                        catalog.city(),
+                        source.getCheckIn().atStartOfDay(),
+                        source.getCheckOut().atStartOfDay(),
+                        true
+                ));
+            } else if ("Activity".equals(catalog.itemType())) {
+                if (source.getActivityDate() == null) continue;
+                LocalDate date = source.getActivityDate();
+                events.add(new CalendarEventDTO(
+                        catalog.title(),
+                        catalog.city(),
+                        date.atStartOfDay(),
+                        date.plusDays(1).atStartOfDay(),
+                        true
+                ));
+            }
+        }
+
+        return IcsBuilder.build(list.getName(), events);
     }
 
     private record ResolvedItem(FavoriteListItem source, CatalogItemSummaryDTO catalog) {}
