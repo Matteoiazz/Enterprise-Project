@@ -7,7 +7,7 @@
   "defaultSignatureAlgorithm": "RS256",
   "revokeRefreshToken": false,
   "refreshTokenMaxReuse": 0,
-  "accessTokenLifespan": 300,
+  "accessTokenLifespan": 600,
   "accessTokenLifespanForImplicitFlow": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
@@ -21,10 +21,10 @@
   "clientOfflineSessionIdleTimeout": 0,
   "clientOfflineSessionMaxLifespan": 0,
   "accessCodeLifespan": 60,
-  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanUserAction": 3600,
   "accessCodeLifespanLogin": 1800,
   "actionTokenGeneratedByAdminLifespan": 43200,
-  "actionTokenGeneratedByUserLifespan": 300,
+  "actionTokenGeneratedByUserLifespan": 3600,
   "oauth2DeviceCodeLifespan": 600,
   "oauth2DevicePollingInterval": 5,
   "enabled": true,
@@ -35,9 +35,9 @@
   "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "resetPasswordAllowed": false,
+  "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
-  "bruteForceProtected": false,
+  "bruteForceProtected": true,
   "permanentLockout": false,
   "maxTemporaryLockouts": 0,
   "bruteForceStrategy": "MULTIPLE",
@@ -50,6 +50,15 @@
   "maxSecondaryAuthFailures": 0,
   "roles": {
     "realm": [
+      {
+        "id": "ad122a84-4e9a-4e81-9b16-0ab8da3c199e",
+        "name": "ROLE_TRAVELER",
+        "description": "",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "c7269ee3-dd75-47f8-90ed-582bfb2a9b04",
+        "attributes": {}
+      },
       {
         "id": "5f3bdabb-1b6c-49b1-9b48-d0a64d583b07",
         "name": "offline_access",
@@ -81,26 +90,21 @@
         "attributes": {}
       },
       {
-        "id": "2199c97b-658d-4c6b-ab91-13fdfc73c679",
-        "name": "uma_authorization",
-        "description": "${role_uma_authorization}",
+        "id": "245a660c-e865-4c01-b1d0-5c1f1eded60b",
+        "name": "ROLE_ORGANIZER",
+        "description": "",
         "composite": false,
         "clientRole": false,
         "containerId": "c7269ee3-dd75-47f8-90ed-582bfb2a9b04",
         "attributes": {}
       },
       {
-        "name": "ROLE_TRAVELER",
-        "description": "Utente viaggiatore",
+        "id": "2199c97b-658d-4c6b-ab91-13fdfc73c679",
+        "name": "uma_authorization",
+        "description": "${role_uma_authorization}",
         "composite": false,
         "clientRole": false,
-        "attributes": {}
-      },
-      {
-        "name": "ROLE_ORGANIZER",
-        "description": "Utente organizzatore di esperienze e viaggi",
-        "composite": false,
-        "clientRole": false,
+        "containerId": "c7269ee3-dd75-47f8-90ed-582bfb2a9b04",
         "attributes": {}
       }
     ],
@@ -858,9 +862,7 @@
       "redirectUris": [
         "com.tripify.app://oauth"
       ],
-      "webOrigins": [
-        "*"
-      ],
+      "webOrigins": [],
       "notBefore": 0,
       "bearerOnly": false,
       "consentRequired": false,
@@ -880,6 +882,7 @@
         "standard.token.exchange.enabled": "false",
         "frontchannel.logout.session.required": "true",
         "post.logout.redirect.uris": "com.tripify.app://oauth",
+        "pkce.code.challenge.method": "S256",
         "display.on.consent.screen": "false",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
@@ -2715,7 +2718,10 @@
     "clientOfflineSessionMaxLifespan": "0",
     "oauth2DevicePollingInterval": "5",
     "clientSessionIdleTimeout": "0",
+    "actionTokenGeneratedByUserLifespan.verify-email": "600",
+    "actionTokenGeneratedByUserLifespan.idp-verify-account-via-email": "",
     "clientOfflineSessionIdleTimeout": "0",
+    "actionTokenGeneratedByUserLifespan.execute-actions": "",
     "cibaInterval": "5",
     "realmReusableOtpCode": "false",
     "cibaExpiresIn": "120",
@@ -2726,6 +2732,8 @@
     "frontendUrl": "",
     "scimApiEnabled": "false",
     "acr.loa.map": "{}",
+    "shortVerificationUri": "",
+    "actionTokenGeneratedByUserLifespan.reset-credentials": "",
     "darkMode": "true"
   },
   "keycloakVersion": "26.7.1",

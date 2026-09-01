@@ -31,8 +31,7 @@ public class ChatMessage {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
-    // --- NUOVO CAMPO PER LA LETTURA ---
-    @Column(nullable = false)
+    @Column(name = "is_read", nullable = false, columnDefinition = "boolean not null default false")
     private Boolean isRead = false;
 
     @PrePersist

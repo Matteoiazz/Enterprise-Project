@@ -109,8 +109,6 @@ class CatalogViewModel(
     private val _recommendationsLabel = MutableStateFlow("In base alle tue ultime ricerche")
     val recommendationsLabel: StateFlow<String> = _recommendationsLabel.asStateFlow()
 
-    // Accumula ogni item mai visto (risultati di ricerca + raccomandazioni + fetch singoli),
-    // così DetailScreen può trovare un item anche se non è più nella lista risultati corrente.
     private val _itemCache = MutableStateFlow<Map<Int, CatalogItem>>(emptyMap())
     val itemCache: StateFlow<Map<Int, CatalogItem>> = _itemCache.asStateFlow()
 
@@ -135,9 +133,6 @@ class CatalogViewModel(
         fetchCatalogData(isUserSearch = false)
         viewModelScope.launch { fetchRecommendations(category = "Tutti", excludeIds = emptySet()) }
 
-        // Il segnale di preferenza è calcolato una sola volta (vedi resolvePreferenceSignal),
-        // ma va ricalcolato se cambia l'utente loggato (logout/login con account diverso
-        // nella stessa sessione), altrimenti resterebbero i "consigliati" di qualcun altro.
         tokenManager?.let { tm ->
             viewModelScope.launch {
                 tm.tokenFlow.drop(1).distinctUntilChanged().collect {
@@ -390,11 +385,6 @@ class CatalogViewModel(
     private var preferenceSignalResolved = false
     private var preferenceSignalCache: PreferenceSignal? = null
 
-    // Dedotto una sola volta per sessione da like (itinerary-service) e prenotazioni
-    // passate (booking-service, sola lettura): categoria e città più ricorrenti tra
-    // quegli item. Calcolarlo una volta sola evita che i "consigliati" cambino ad
-    // ogni ricerca dell'utente. Nessun segnale -> null, si ricade sulla categoria
-    // dell'ultima ricerca (comportamento per utenti anonimi o senza storico).
     private suspend fun resolvePreferenceSignal(): PreferenceSignal? {
         if (preferenceSignalResolved) return preferenceSignalCache
         preferenceSignalResolved = true
@@ -402,7 +392,6 @@ class CatalogViewModel(
         val tm = tokenManager ?: return null
         if (!isLoggedIn()) return null
 
-        // Entrambi gli endpoint restituiscono già "più recenti prima".
         val likedIds = runCatching {
             ItineraryRetrofit.create(tm).getLikedCatalogItemIds().takeIf { it.isSuccessful }?.body()
         }.getOrNull() ?: emptyList()
@@ -462,9 +451,7 @@ class CatalogViewModel(
                 city = preference?.city,
                 excludeIds = allExcludeIds
             )
-            // Filtro categoria+città troppo stretto: allarga prima alla sola
-            // categoria, poi a "Tutti", così la sezione non sparisce mai per un
-            // utente con storico reale.
+
             if (recommendations.size < 3 && preference?.city != null) {
                 recommendations = queryRecommendations(preference.category, null, allExcludeIds)
             }
@@ -608,7 +595,9 @@ class CatalogViewModel(
             try {
                 tokenManager?.let { tm ->
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
-                    val res = rApi.addReview(rating, comment, itemId)
+                    val res = rApi.addReview(
+                        com.tripify.tripify_android.data.model.CreateReviewRequest(rating, comment, itemId)
+                    )
                     if (res.isSuccessful) {
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
@@ -635,7 +624,10 @@ class CatalogViewModel(
             try {
                 tokenManager?.let { tm ->
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
-                    val res = rApi.updateReview(reviewId, rating, comment)
+                    val res = rApi.updateReview(
+                        reviewId,
+                        com.tripify.tripify_android.data.model.UpdateReviewRequest(rating, comment)
+                    )
                     if (res.isSuccessful) {
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
