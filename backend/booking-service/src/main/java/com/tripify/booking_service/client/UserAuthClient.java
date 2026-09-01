@@ -2,8 +2,10 @@ package com.tripify.booking_service.client;
 
 import com.tripify.booking_service.dto.PaymentMethodDTO;
 import com.tripify.booking_service.dto.TravelDocumentDTO;
+import com.tripify.booking_service.dto.UserSummaryDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 
@@ -22,4 +24,10 @@ public interface UserAuthClient {
 
     @GetMapping("/api/v1/profile/documents")
     List<TravelDocumentDTO> getTravelDocuments();
+
+    // Usato solo per verificare che un utente esista prima di invitarlo a un
+    // viaggio (vedi BookingService.inviteFriend): risponde 404 se l'id non
+    // corrisponde a nessun utente.
+    @GetMapping("/api/v1/profile/users/{id}/summary")
+    UserSummaryDTO getUserSummary(@PathVariable("id") String id);
 }

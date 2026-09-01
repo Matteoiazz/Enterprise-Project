@@ -20,7 +20,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -40,12 +42,19 @@ public class ShoppingCartService {
     // aggiunge B, tra 5 minuti scade solo A mentre a B restano ancora 10 minuti.
     private static final long CART_ITEM_TTL_MINUTES = 15;
 
+    // Stesso limite del singolo @Max su AddToCartRequestDTO.quantity, ma qui
+    // applicato al TOTALE cumulativo di una riga dopo il merge: senza questo
+    // controllo, richieste ripetute (ognuna singolarmente sotto il limite)
+    // potrebbero far crescere la quantità di una riga senza fine.
+    private static final int MAX_CART_ITEM_QUANTITY = 20;
+
     private final ShoppingCartRepository cartRepository;
     private final CartItemRepository itemRepository;
 
     // INIETTIAMO IL CLIENT FEIGN PER PARLARE COL CATALOGO
     private final CatalogClient catalogClient;
     private final RabbitTemplate rabbitTemplate;
+    private final PlatformTransactionManager transactionManager;
     // 1. Recupera il carrello (entità) di un utente. Uso interno di altri
     // service (es. BookingService.checkout) che leggono cart.getItems()
     // già dentro una propria transazione: per esporlo via API vedi
@@ -62,10 +71,26 @@ public class ShoppingCartService {
                 });
     }
 
+    // Variante di getCartForUser ad uso esclusivo del checkout (vedi
+    // BookingService.checkout): prende il lock pessimistico sulla riga del
+    // carrello, così un secondo checkout concorrente per lo stesso utente resta
+    // in attesa finché il primo non ha finito (commit o rollback) invece di
+    // leggere in parallelo lo stesso carrello pieno e generare due Booking dagli
+    // stessi articoli. Se il carrello non esiste ancora non c'è nulla da
+    // bloccare: lo si crea normalmente (nessuna race possibile su un carrello vuoto).
+    public ShoppingCart getCartForCheckout(String userId) {
+        return cartRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> getCartForUser(userId));
+    }
+
     // 1bis. Versione esposta via API: costruisce il DTO dentro la stessa
-    // transazione di lettura, così cart.getItems() (LAZY) viene inizializzata
-    // qui e non fallisce in fase di serializzazione JSON nel controller.
-    @Transactional(readOnly = true)
+    // transazione, così cart.getItems() (LAZY) viene inizializzata qui e non
+    // fallisce in fase di serializzazione JSON nel controller. NON readOnly:
+    // getCartForUser() può dover salvare il carrello se è la prima apertura
+    // di un utente nuovo (orElseGet sotto) - con readOnly=true quel save
+    // veniva rifiutato dal driver JDBC ("read-only transaction"), risultando
+    // in un 500 alla primissima apertura del carrello.
+    @Transactional
     public CartDTO getCartDTOForUser(String userId) {
         ShoppingCart cart = getCartForUser(userId);
 
@@ -75,6 +100,7 @@ public class ShoppingCartService {
                         item.getCatalogItemId(),
                         item.getQuantity(),
                         item.getPriceAtAdded(),
+                        item.getCurrency(),
                         item.getRoomTypeId(),
                         item.getFareClassId(),
                         item.getCheckIn(),
@@ -94,13 +120,22 @@ public class ShoppingCartService {
     // la riga: evita che due utenti prenotino più camere/posti di quelli
     // realmente disponibili nella finestra tra "aggiungi al carrello" e
     // "checkout" (vedi anche confirmPayment/cancelBooking in BookingService).
-    @Transactional
+    //
+    // NIENTE @Transactional sul metodo: getItem/holdRoom/holdSeats sono
+    // chiamate HTTP verso catalog-service (fino a 15s di response-timeout).
+    // Farle senza una transazione locale aperta evita di tenere bloccata una
+    // connessione al nostro DB per tutto quel tempo (vedi audit §2.9). L'unica
+    // transazione reale è quella breve, tutta locale, in persistCartItem.
     public void addItem(String userId, AddToCartRequestDTO request) {
         if (request.roomTypeId() != null && request.fareClassId() != null) {
             throw new IllegalArgumentException("Non è possibile specificare sia roomTypeId che fareClassId per lo stesso articolo.");
         }
-
-        ShoppingCart cart = getCartForUser(userId);
+        if (request.roomTypeId() != null && (request.checkIn() == null || request.checkOut() == null)) {
+            throw new IllegalArgumentException("checkIn e checkOut sono obbligatori per prenotare una camera d'hotel.");
+        }
+        if (request.roomTypeId() != null && !request.checkOut().isAfter(request.checkIn())) {
+            throw new IllegalArgumentException("La data di check-out deve essere successiva alla data di check-in.");
+        }
 
         // LA CHIAMATA DI SICUREZZA: chiediamo l'articolo completo al microservizio
         // Catalogo (non solo il prezzo base) per poter usare il prezzo della
@@ -109,13 +144,6 @@ public class ShoppingCartService {
 
         if (catalogItem == null) {
             throw new CatalogItemNotFoundException("Articolo non trovato nel catalogo: " + request.catalogItemId());
-        }
-
-        if (request.roomTypeId() != null && (request.checkIn() == null || request.checkOut() == null)) {
-            throw new IllegalArgumentException("checkIn e checkOut sono obbligatori per prenotare una camera d'hotel.");
-        }
-        if (request.roomTypeId() != null && !request.checkOut().isAfter(request.checkIn())) {
-            throw new IllegalArgumentException("La data di check-out deve essere successiva alla data di check-in.");
         }
 
         BigDecimal price = resolveRealPrice(catalogItem, request);
@@ -131,40 +159,56 @@ public class ShoppingCartService {
             holdId = hold.holdId();
         }
 
-        // Gli item con un hold aperto (camera/posto) non vengono mai uniti a uno
-        // esistente: ogni hold su catalog-service ha una propria quantity fissa
-        // e non esiste un endpoint per "aumentarla", quindi ogni aggiunta con
-        // roomTypeId/fareClassId diventa una nuova riga con un nuovo hold.
-        if (holdId == null) {
-            Optional<CartItem> existingItem = cart.getItems().stream()
-                    .filter(item -> item.getCatalogItemId().equals(request.catalogItemId())
-                            && item.getRoomTypeId() == null && item.getFareClassId() == null)
-                    .findFirst();
+        persistCartItem(userId, request, catalogItem, price, holdId);
+    }
 
-            if (existingItem.isPresent()) {
-                CartItem item = existingItem.get();
-                item.setQuantity(item.getQuantity() + request.quantity());
-                itemRepository.save(item);
-                sendNotification(userId, "Carrello Aggiornato 🛒", "Hai aggiunto ulteriori quantità.");
+    // Solo scritture locali (nessuna chiamata remota): transazione breve,
+    // aperta solo da qui in poi, non per tutta la durata di addItem().
+    private void persistCartItem(String userId, AddToCartRequestDTO request,
+                                  CatalogItemSummaryDTO catalogItem, BigDecimal price, String holdId) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            ShoppingCart cart = getCartForUser(userId);
 
-                return;
+            // Gli item con un hold aperto (camera/posto) non vengono mai uniti a uno
+            // esistente: ogni hold su catalog-service ha una propria quantity fissa
+            // e non esiste un endpoint per "aumentarla", quindi ogni aggiunta con
+            // roomTypeId/fareClassId diventa una nuova riga con un nuovo hold.
+            if (holdId == null) {
+                Optional<CartItem> existingItem = cart.getItems().stream()
+                        .filter(item -> item.getCatalogItemId().equals(request.catalogItemId())
+                                && item.getRoomTypeId() == null && item.getFareClassId() == null)
+                        .findFirst();
+
+                if (existingItem.isPresent()) {
+                    CartItem item = existingItem.get();
+                    int newQuantity = item.getQuantity() + request.quantity();
+                    if (newQuantity > MAX_CART_ITEM_QUANTITY) {
+                        throw new IllegalArgumentException(
+                                "Non puoi avere più di " + MAX_CART_ITEM_QUANTITY + " unità di questo articolo nel carrello.");
+                    }
+                    item.setQuantity(newQuantity);
+                    itemRepository.save(item);
+                    sendNotification(userId, "Carrello Aggiornato 🛒", "Hai aggiunto ulteriori quantità.");
+                    return;
+                }
             }
-        }
 
-        CartItem newItem = CartItem.builder()
-                .cart(cart)
-                .catalogItemId(request.catalogItemId())
-                .quantity(request.quantity())
-                .priceAtAdded(price)
-                .roomTypeId(request.roomTypeId())
-                .fareClassId(request.fareClassId())
-                .checkIn(request.checkIn())
-                .checkOut(request.checkOut())
-                .holdId(holdId)
-                .addedAt(LocalDateTime.now())
-                .build();
-        itemRepository.save(newItem);
-        sendNotification(userId, "Aggiunto al carrello 🛒", "Hai aggiunto un nuovo elemento.");
+            CartItem newItem = CartItem.builder()
+                    .cart(cart)
+                    .catalogItemId(request.catalogItemId())
+                    .quantity(request.quantity())
+                    .priceAtAdded(price)
+                    .currency(catalogItem.currency())
+                    .roomTypeId(request.roomTypeId())
+                    .fareClassId(request.fareClassId())
+                    .checkIn(request.checkIn())
+                    .checkOut(request.checkOut())
+                    .holdId(holdId)
+                    .addedAt(LocalDateTime.now())
+                    .build();
+            itemRepository.save(newItem);
+            sendNotification(userId, "Aggiunto al carrello 🛒", "Hai aggiunto un nuovo elemento.");
+        });
     }
 
     /**

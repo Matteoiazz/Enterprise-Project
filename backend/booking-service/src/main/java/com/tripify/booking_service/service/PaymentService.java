@@ -13,12 +13,16 @@ import java.math.BigDecimal;
 public class PaymentService {
 
     private final UserAuthClient userAuthClient;
+    private final PaymentGateway paymentGateway;
 
-    // Simula l'addebito sulla carta di credito. Due modalità: una carta nuova
-    // inserita a mano (cardNumber) oppure un metodo già salvato su user-auth-service
-    // (paymentMethodId) - in quel caso non arriva mai un numero di carta reale
-    // (non viene salvato per intero nemmeno lì), quindi il "pagamento" si considera
-    // approvato se l'id corrisponde davvero a un metodo dell'utente che ha chiamato.
+    // Due modalità: una carta nuova inserita a mano (cardNumber) oppure un
+    // metodo già salvato su user-auth-service (paymentMethodId) - in quel caso
+    // non arriva mai un numero di carta reale (non viene salvato per intero
+    // nemmeno lì). L'appartenenza del metodo salvato all'utente che ha
+    // chiamato è verificata qui (serve UserAuthClient, non è compito del
+    // gateway di pagamento); l'addebito vero e proprio (anche solo simulato)
+    // è delegato a PaymentGateway, così PaymentService non deve sapere come è
+    // fatto un numero di carta valido o come si registra un rimborso.
     public boolean executePayment(String userId, Long bookingId, String cardNumber, String paymentMethodId, BigDecimal amount) {
         log.info("Avvio pagamento per l'utente {} sul viaggio {}. Importo: {}€", userId, bookingId, amount);
 
@@ -26,27 +30,34 @@ public class PaymentService {
             boolean isOwnMethod = userAuthClient.getPaymentMethods().stream()
                     .anyMatch(method -> method.id().toString().equals(paymentMethodId));
 
-            if (isOwnMethod) {
-                log.info("Pagamento APPROVATO con metodo salvato {} per la prenotazione {}", paymentMethodId, bookingId);
-                return true;
+            if (!isOwnMethod) {
+                log.error("Metodo di pagamento {} non trovato tra quelli salvati dell'utente {}", paymentMethodId, userId);
+                return false;
             }
 
-            log.error("Metodo di pagamento {} non trovato tra quelli salvati dell'utente {}", paymentMethodId, userId);
-            return false;
+            boolean approved = paymentGateway.chargeToken(paymentMethodId, amount);
+            if (approved) {
+                log.info("Pagamento APPROVATO con metodo salvato {} per la prenotazione {}", paymentMethodId, bookingId);
+            } else {
+                log.error("Pagamento RIFIUTATO per la prenotazione {}", bookingId);
+            }
+            return approved;
         }
 
-        // Simulazione base: se la carta non è vuota e ha un numero plausibile, il pagamento passa
-        if (cardNumber != null && !cardNumber.isBlank() && cardNumber.length() >= 12) {
+        boolean approved = paymentGateway.chargeCard(cardNumber, amount);
+        if (approved) {
             log.info("Pagamento APPROVATO dalla banca per la prenotazione {}", bookingId);
-            return true;
+        } else {
+            log.error("Pagamento RIFIUTATO per la prenotazione {}", bookingId);
         }
-
-        log.error("Pagamento RIFIUTATO per la prenotazione {}", bookingId);
-        return false;
+        return approved;
     }
 
-    // Simula il rimborso in caso di cancellazione
+    // Rimborso in caso di cancellazione: registra almeno un riferimento alla
+    // transazione (anche se solo simulata, vedi MockPaymentGateway), invece
+    // di limitarsi a un log senza alcuna traccia di *cosa* è stato rimborsato.
     public void refund(Long bookingId, BigDecimal amount) {
-        log.info("Avvio pratica di rimborso per la prenotazione {}. Accredito di {}€ in corso...", bookingId, amount);
+        String reference = paymentGateway.refund(bookingId, amount);
+        log.info("Rimborso registrato per la prenotazione {} (riferimento {})", bookingId, reference);
     }
 }

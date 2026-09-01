@@ -32,6 +32,15 @@ public class CartItem {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal priceAtAdded;
 
+    // Valuta in cui è espresso priceAtAdded, congelata al momento dell'aggiunta
+    // (codice ISO a 3 lettere, es. "EUR"/"USD" - viene da CatalogItem.currency
+    // su catalog-service). Nullable a livello di colonna nonostante il codice
+    // la valorizzi sempre: stesso motivo di addedAt sotto (ddl-auto=update su
+    // una tabella già popolata). Serve al frontend per convertire/visualizzare
+    // correttamente il totale quando il carrello contiene articoli in valute
+    // diverse, invece di sommarli come se fossero tutti nella stessa valuta.
+    private String currency;
+
     // Valorizzato solo per articoli hotel: id del RoomType (catalog-service)
     // scelto, diverso dall'id del CatalogItem generico sopra.
     private Long roomTypeId;

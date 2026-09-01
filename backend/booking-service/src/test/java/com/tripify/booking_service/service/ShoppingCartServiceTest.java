@@ -59,7 +59,7 @@ class ShoppingCartServiceTest {
     @BeforeEach
     void setUp() {
         when(catalogClient.getItem(anyLong())).thenReturn(
-                new CatalogItemSummaryDTO(1L, "Activity", java.math.BigDecimal.valueOf(99.0), null, null));
+                new CatalogItemSummaryDTO(1L, "Activity", java.math.BigDecimal.valueOf(99.0), "EUR", null, null));
     }
 
     private void addItem(AddToCartRequestDTO request) {
@@ -77,6 +77,7 @@ class ShoppingCartServiceTest {
         CartItem item = cart.getItems().get(0);
         assertThat(item.getQuantity()).isEqualTo(2);
         assertThat(item.getPriceAtAdded()).isEqualByComparingTo("99.0");
+        assertThat(item.getCurrency()).isEqualTo("EUR");
         assertThat(item.getHoldId()).isNull();
     }
 
@@ -182,7 +183,7 @@ class ShoppingCartServiceTest {
     void removeCheckedOutItemsLasciaGliAltriArticoliNelCarrello() {
         addItem(new AddToCartRequestDTO(1L, 1, null, null, null, null));
         when(catalogClient.getItem(2L)).thenReturn(
-                new com.tripify.booking_service.dto.CatalogItemSummaryDTO(2L, "Activity", java.math.BigDecimal.valueOf(50.0), null, null));
+                new com.tripify.booking_service.dto.CatalogItemSummaryDTO(2L, "Activity", java.math.BigDecimal.valueOf(50.0), "EUR", null, null));
         addItem(new AddToCartRequestDTO(2L, 1, null, null, null, null));
         Long firstItemId = cartService.getCartForUser(USER_ID).getItems().stream()
                 .filter(i -> i.getCatalogItemId().equals(1L)).findFirst().get().getId();
@@ -241,6 +242,19 @@ class ShoppingCartServiceTest {
     }
 
     @Test
+    void getCartDTOForUserRiportaLaValutaDiCiascunArticolo() {
+        addItem(new AddToCartRequestDTO(1L, 1, null, null, null, null)); // EUR (setUp)
+        when(catalogClient.getItem(2L)).thenReturn(
+                new CatalogItemSummaryDTO(2L, "Activity", java.math.BigDecimal.valueOf(40.0), "USD", null, null));
+        addItem(new AddToCartRequestDTO(2L, 1, null, null, null, null));
+
+        CartDTO dto = cartService.getCartDTOForUser(USER_ID);
+
+        assertThat(dto.items()).extracting(com.tripify.booking_service.dto.CartItemDTO::currency)
+                .containsExactlyInAnyOrder("EUR", "USD");
+    }
+
+    @Test
     void getCartDTOForUserCalcolaIlTotaleCorrettamente() {
         addItem(new AddToCartRequestDTO(1L, 2, null, null, null, null)); // 2 * 99.0
 
@@ -248,5 +262,28 @@ class ShoppingCartServiceTest {
 
         assertThat(dto.totalAmount()).isEqualByComparingTo("198.0");
         assertThat(dto.items()).hasSize(1);
+    }
+
+    // getCartDTOForUser() non deve più essere readOnly: deve poter creare il
+    // carrello al primissimo accesso di un utente che non ne ha ancora uno
+    // (vedi getCartForUser). Su H2 una scrittura dentro una transazione
+    // readOnly non viene rifiutata come su Postgres, quindi questo test non
+    // riproduce il crash originale (500 in produzione) - verifica però che
+    // il comportamento atteso (carrello vuoto creato al volo) resti corretto.
+    @Test
+    void getCartDTOForUserCreaIlCarrelloAlPrimoAccessoDiUnUtenteNuovo() {
+        CartDTO dto = cartService.getCartDTOForUser("utente-mai-visto-prima");
+
+        assertThat(dto.items()).isEmpty();
+        assertThat(dto.totalAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void rifiutaLaSommaDelMergeSeSuperaIlLimiteMassimo() {
+        addItem(new AddToCartRequestDTO(1L, 15, null, null, null, null));
+
+        assertThatThrownBy(() -> cartService.addItem(USER_ID, new AddToCartRequestDTO(1L, 10, null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(cartService.getCartForUser(USER_ID).getItems().get(0).getQuantity()).isEqualTo(15);
     }
 }

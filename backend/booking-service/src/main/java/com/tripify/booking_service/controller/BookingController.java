@@ -33,10 +33,11 @@ public class BookingController {
     @PostMapping("/checkout")
     public ResponseEntity<BookingResponseDTO> checkoutCart(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody(required = false) CheckoutRequestDTO request) {
         String userId = jwt.getSubject();
         List<Long> selectedCartItemIds = request != null ? request.cartItemIds() : null;
-        return ResponseEntity.ok(bookingService.checkout(userId, selectedCartItemIds));
+        return ResponseEntity.ok(bookingService.checkout(userId, selectedCartItemIds, idempotencyKey));
     }
 
     @GetMapping("/user")
