@@ -108,7 +108,8 @@ public class ProfileController {
         String email = jwt.getClaimAsString("email");
         String keycloakUserId = jwt.getSubject();
 
-        profileService.deleteUserAccount(email, keycloakUserId);
+        profileService.deleteUserAccount(email);
+        profileService.finalizeKeycloakDeletion(keycloakUserId, email);
 
         return ResponseEntity.noContent().build();
     }

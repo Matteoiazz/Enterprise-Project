@@ -5,6 +5,7 @@ gateway:
   rate-limit:
     enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
     max-per-minute: ${GATEWAY_RATE_LIMIT_MAX:3000}
+    global-max-per-minute: ${GATEWAY_RATE_LIMIT_GLOBAL_MAX:20000}
 
 spring:
   application:

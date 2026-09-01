@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +40,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -388,5 +392,84 @@ class ProfileServiceTest {
 
         assertThat(result).hasSize(2);
         assertThat(result).allSatisfy(r -> assertThat(r.email()).isNotNull());
+    }
+
+    @Test
+    void getOrganizerById_whenSubjectAlreadySynced_returnsKeycloakSubjectNotLocalUuid() {
+        User u = freshUser(Role.ROLE_ORGANIZER);
+        String sub = u.getUsername();
+        when(userRepository.findByUsername(sub)).thenReturn(Optional.of(u));
+
+        UserResponse response = service.getOrganizerById(sub);
+
+        assertThat(response.id()).isEqualTo(sub);
+        assertThat(response.id()).isNotEqualTo(u.getId().toString());
+    }
+
+    @Test
+    void getUserSummary_whenSubjectNeverSyncedAndKeycloakUnreachable_returnsNullIdNeverLocalUuid() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        u.setUsername(null);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+
+        UserResponse response = service.getUserSummary(EMAIL);
+
+        assertThat(response.id()).isNull();
+    }
+
+    @Test
+    void deleteUserAccount_removesChildRecordsBeforeDeletingTheUser() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+        when(companionRepository.findByUser(u)).thenReturn(List.of());
+        when(paymentMethodRepository.findByUser(u)).thenReturn(List.of());
+        when(documentRepository.findByUser_Id(u.getId())).thenReturn(List.of());
+
+        service.deleteUserAccount(EMAIL);
+
+        InOrder order = inOrder(companionRepository, paymentMethodRepository, documentRepository, userRepository);
+        order.verify(companionRepository).deleteAll(anyList());
+        order.verify(paymentMethodRepository).deleteAll(anyList());
+        order.verify(documentRepository).deleteAll(anyList());
+        order.verify(userRepository).delete(u);
+    }
+
+    @Test
+    void deleteUserAccount_whenUserMissing_throwsResourceNotFoundAndDeletesNothing() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.deleteUserAccount(EMAIL))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(userRepository, never()).delete(any());
+    }
+
+    @Test
+    void finalizeKeycloakDeletion_whenKeycloakUnreachable_throwsIllegalState() {
+        assertThatThrownBy(() -> service.finalizeKeycloakDeletion("kc-id", EMAIL))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void updateUserProfile_whenKeycloakRejectsNewPassword_throwsIllegalArgumentNotServerError() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+
+        org.keycloak.admin.client.Keycloak kc = mock(org.keycloak.admin.client.Keycloak.class);
+        org.keycloak.admin.client.resource.RealmResource realm = mock(org.keycloak.admin.client.resource.RealmResource.class);
+        org.keycloak.admin.client.resource.UsersResource users = mock(org.keycloak.admin.client.resource.UsersResource.class);
+        org.keycloak.admin.client.resource.UserResource userResource = mock(org.keycloak.admin.client.resource.UserResource.class);
+        when(kc.realm("tripify")).thenReturn(realm);
+        when(realm.users()).thenReturn(users);
+        when(users.get("kc-id")).thenReturn(userResource);
+        org.mockito.Mockito.doThrow(new jakarta.ws.rs.BadRequestException("Password policy not met"))
+                .when(userResource).resetPassword(any());
+        ReflectionTestUtils.setField(service, "keycloakAdminClient", kc);
+
+        UpdateProfileRequestDTO req = new UpdateProfileRequestDTO();
+        req.setNewPassword("weakpass");
+
+        assertThatThrownBy(() -> service.updateUserProfile(EMAIL, "kc-id", req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("requisiti di sicurezza");
     }
 }
