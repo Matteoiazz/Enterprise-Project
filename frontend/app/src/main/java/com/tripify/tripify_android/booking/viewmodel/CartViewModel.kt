@@ -12,6 +12,7 @@ import com.tripify.tripify_android.data.model.CheckoutRequestDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.data.model.PaymentRequestDTO
+import com.tripify.tripify_android.data.model.TravelDocumentDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -225,13 +226,20 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     // Paga con un metodo già salvato in Impostazioni: solo il suo id viaggia
     // verso il backend, mai un numero di carta (che non viene più chiesto).
-    fun payWithSavedMethod(paymentMethodId: String, guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap()) {
+    // documentToSave: vedi payWithNewCard, si applica indipendentemente da
+    // quale metodo di pagamento si sta usando.
+    fun payWithSavedMethod(
+        paymentMethodId: String,
+        guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap(),
+        documentToSave: TravelDocumentDto? = null
+    ) {
         viewModelScope.launch {
             _paymentState.value = PaymentState.Processing
             try {
-                checkoutThenPay(guestsByCartItemId) { booking ->
+                val booking = checkoutThenPay(guestsByCartItemId) { booking ->
                     PaymentRequestDTO(bookingId = booking.id, amount = booking.totalAmount, paymentMethodId = paymentMethodId)
                 }
+                saveNewDocumentIfNeeded(booking, documentToSave)
             } catch (e: Exception) {
                 _paymentState.value = PaymentState.Error("Nessuna connessione: ${e.message}")
             }
@@ -242,12 +250,15 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // pagamento riuscito la carta viene aggiunta anche ai metodi salvati in
     // Impostazioni Profilo: un suo eventuale fallimento non deve far sembrare
     // fallito il pagamento appena andato a buon fine, quindi viene ignorato.
+    // documentToSave: stesso criterio, ma per il documento del primo ospite -
+    // non null solo se l'utente ha scelto "Nuovo documento" e spuntato di salvarlo.
     fun payWithNewCard(
         cardNumber: String,
         cardProvider: String,
         expirationMonthYear: String,
         saveCard: Boolean,
-        guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap()
+        guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap(),
+        documentToSave: TravelDocumentDto? = null
     ) {
         viewModelScope.launch {
             _paymentState.value = PaymentState.Processing
@@ -265,9 +276,21 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
                         // vedi commento sopra: il pagamento è comunque riuscito
                     }
                 }
+                saveNewDocumentIfNeeded(booking, documentToSave)
             } catch (e: Exception) {
                 _paymentState.value = PaymentState.Error("Nessuna connessione: ${e.message}")
             }
+        }
+    }
+
+    // Stesso criterio di saveCard: un fallimento nel salvare il documento non
+    // deve far sembrare fallito un pagamento già andato a buon fine.
+    private suspend fun saveNewDocumentIfNeeded(booking: BookingResponseDTO?, documentToSave: TravelDocumentDto?) {
+        if (booking == null || documentToSave == null) return
+        try {
+            profileApi.addTravelDocument(documentToSave)
+        } catch (e: Exception) {
+            android.util.Log.w("CartViewModel", "addTravelDocument fallita", e)
         }
     }
 

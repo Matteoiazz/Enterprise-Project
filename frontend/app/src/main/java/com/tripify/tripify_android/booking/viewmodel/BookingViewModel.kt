@@ -25,6 +25,7 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
     val uiState: StateFlow<BookingState> = _uiState
 
     private val profileApi = RetrofitClient.createProfileApi(tokenManager)
+    private val authApi = RetrofitClient.createApi(tokenManager)
 
     // Documenti di viaggio già salvati in Impostazioni Profilo, mostrati nella
     // schermata "Aggiungi passeggero" per evitare di doverli reinserire a mano.
@@ -37,6 +38,25 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val documents = profileApi.getTravelDocuments()
                 _savedTravelDocuments.value = documents
             } catch (e: Exception) {
+            }
+        }
+    }
+
+    // A differenza di documenti/carte, in Impostazioni c'è un solo numero di
+    // telefono per utente: serve solo a precompilare il campo in checkout,
+    // non a scegliere tra più valori.
+    private val _myPhoneNumber = MutableStateFlow<String?>(null)
+    val myPhoneNumber: StateFlow<String?> = _myPhoneNumber
+
+    fun fetchMyPhoneNumber() {
+        viewModelScope.launch {
+            try {
+                val response = authApi.getCurrentUser()
+                if (response.isSuccessful) {
+                    _myPhoneNumber.value = response.body()?.phone
+                }
+            } catch (e: Exception) {
+                // Il checkout resta possibile inserendo il telefono a mano.
             }
         }
     }

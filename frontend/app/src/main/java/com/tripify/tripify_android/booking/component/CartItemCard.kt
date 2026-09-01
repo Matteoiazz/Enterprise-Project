@@ -101,9 +101,8 @@ fun CartItemCard(
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                // Prezzo dell'articolo nella SUA valuta originale, non convertita:
-                // la conversione riguarda solo il totale aggregato (vedi
-                // CartScreen/CheckoutScreen), qui si mostra esattamente cosa costa.
+                // Valuta originale dell'articolo, non convertita: la conversione
+                // riguarda solo il totale aggregato.
                 Text(
                     text = "${currencySymbol(item.currency ?: "EUR")}${"%.2f".format(item.priceAtAdded * item.quantity)}",
                     style = CatalogType.Price,

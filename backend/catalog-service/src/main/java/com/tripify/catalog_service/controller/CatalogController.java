@@ -16,6 +16,7 @@ import com.tripify.catalog_service.dto.request.CreateHotelRequestDTO;
 import com.tripify.catalog_service.dto.request.FareClassRequestDTO;
 import com.tripify.catalog_service.dto.RatingUpdateDTO;
 import com.tripify.catalog_service.dto.request.RoomTypeRequestDTO;
+import com.tripify.catalog_service.service.CatalogImageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -41,6 +43,7 @@ public class CatalogController {
 
     private final CatalogService catalogService;
     private final CatalogMapper catalogMapper;
+    private final CatalogImageService catalogImageService;
 
     @Value("${internal.service-key}")
     private String internalServiceKey;
@@ -243,6 +246,27 @@ public class CatalogController {
         requireOwnedItem(id, jwt);
         catalogService.deactivateItem(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Carica su Cloudinary una o più foto e le aggiunge all'annuncio (solo il proprietario). */
+    @PostMapping("/items/{id}/images")
+    public ResponseEntity<CatalogItemDTO> uploadImages(@PathVariable Long id,
+                                                        @RequestParam("files") List<MultipartFile> files,
+                                                        @AuthenticationPrincipal Jwt jwt) {
+        requireOwnedItem(id, jwt);
+        List<String> uploadedUrls = catalogImageService.upload(files);
+        CatalogItem updated = catalogService.addImages(id, uploadedUrls);
+        return ResponseEntity.ok(catalogMapper.toDto(updated));
+    }
+
+    /** Rimuove una foto dall'annuncio (solo il proprietario). */
+    @DeleteMapping("/items/{id}/images")
+    public ResponseEntity<CatalogItemDTO> deleteImage(@PathVariable Long id,
+                                                       @RequestParam("url") String imageUrl,
+                                                       @AuthenticationPrincipal Jwt jwt) {
+        requireOwnedItem(id, jwt);
+        CatalogItem updated = catalogService.removeImage(id, imageUrl);
+        return ResponseEntity.ok(catalogMapper.toDto(updated));
     }
 
     @GetMapping("/items/mine")

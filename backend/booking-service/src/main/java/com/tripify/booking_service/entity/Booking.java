@@ -44,24 +44,17 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus status;
 
-    // Chiave di idempotenza opzionale fornita dal client (header Idempotency-Key
-    // su POST /checkout): permette di riconoscere un retry dello stesso tentativo
-    // di checkout (doppio tap, timeout di rete con richiesta in realtà riuscita)
-    // e restituire la Booking già creata invece di crearne una seconda. Nullable
-    // perché resta valida anche una richiesta senza header (nessuna protezione
-    // aggiuntiva oltre al lock sul carrello, ma comportamento invariato).
+    // Chiave di idempotenza opzionale (header Idempotency-Key su /checkout):
+    // un retry con la stessa chiave restituisce la Booking già creata invece
+    // di duplicarla. Nullable, resta valida anche senza header.
     @Column(unique = true)
     private String idempotencyKey;
 
     // Lock ottimistico: senza questo, due richieste concorrenti sulla stessa
-    // Booking (es. due cancelBooking() sulla stessa prenotazione confermata,
-    // o un confirmPayment() e un cancelBooking() in corsa) leggono entrambe lo
-    // stesso stato "vecchio", passano entrambe i controlli, e l'ultima a
-    // salvare sovrascrive silenziosamente l'altra - nel caso peggiore un
-    // doppio rimborso quando il rimborso sarà reale. Con @Version, la seconda
-    // ad arrivare al salvataggio trova la riga già cambiata e fallisce con
-    // ObjectOptimisticLockingFailureException (mappata a 409 in
-    // GlobalExceptionHandler) invece di procedere alla cieca.
+    // Booking (es. due cancelBooking() in corsa) leggono lo stesso stato
+    // "vecchio" e l'ultima a salvare sovrascrive l'altra in silenzio - nel
+    // peggiore dei casi un doppio rimborso. Con @Version la seconda trova la
+    // riga già cambiata e fallisce (mappato a 409 in GlobalExceptionHandler).
     @Version
     private Long version;
 

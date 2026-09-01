@@ -42,11 +42,9 @@ public interface CatalogClient {
     @PostMapping("/holds/{holdId}/release")
     void releaseHold(@PathVariable("holdId") String holdId);
 
-    // Compensazione: a differenza di releaseHold, funziona anche su un hold già
-    // CONFIRMED (lo riporta a RELEASED) ed è idempotente. Serve al pattern saga
-    // di confirmPayment/cancelBooking quando bisogna disfare hold già confermati
-    // (vedi BookingService). Non è un'azione utente: autenticata con una chiave
-    // di servizio, non con il JWT dell'utente corrente.
+    // A differenza di releaseHold funziona anche su un hold già CONFIRMED (lo
+    // riporta a RELEASED) ed è idempotente. Non è un'azione utente: si
+    // autentica con una chiave di servizio, non il JWT corrente.
     @PostMapping("/holds/{holdId}/compensate")
     void compensateHold(@PathVariable("holdId") String holdId, @RequestHeader("X-Internal-Key") String internalKey);
 

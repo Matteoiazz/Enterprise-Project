@@ -264,12 +264,9 @@ class ShoppingCartServiceTest {
         assertThat(dto.items()).hasSize(1);
     }
 
-    // getCartDTOForUser() non deve più essere readOnly: deve poter creare il
-    // carrello al primissimo accesso di un utente che non ne ha ancora uno
-    // (vedi getCartForUser). Su H2 una scrittura dentro una transazione
-    // readOnly non viene rifiutata come su Postgres, quindi questo test non
-    // riproduce il crash originale (500 in produzione) - verifica però che
-    // il comportamento atteso (carrello vuoto creato al volo) resti corretto.
+    // Su H2 una scrittura in transazione readOnly non viene rifiutata come su
+    // Postgres, quindi questo test non riproduce il 500 originale - verifica
+    // solo che il comportamento atteso (carrello creato al volo) resti corretto.
     @Test
     void getCartDTOForUserCreaIlCarrelloAlPrimoAccessoDiUnUtenteNuovo() {
         CartDTO dto = cartService.getCartDTOForUser("utente-mai-visto-prima");

@@ -105,13 +105,13 @@ public class AvailabilityServiceImpl implements AvailabilityService {
     @Transactional
     public void confirm(String holdId, String userId) {
         if (holdId.startsWith(ROOM_PREFIX)) {
-            RoomHold hold = roomHoldRepository.findById(parseId(holdId, ROOM_PREFIX))
+            RoomHold hold = roomHoldRepository.findByIdForUpdate(parseId(holdId, ROOM_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
             requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnConfirm(hold.getStatus(), hold.getExpiresAt(), holdId));
             roomHoldRepository.save(hold);
         } else if (holdId.startsWith(SEAT_PREFIX)) {
-            SeatHold hold = seatHoldRepository.findById(parseId(holdId, SEAT_PREFIX))
+            SeatHold hold = seatHoldRepository.findByIdForUpdate(parseId(holdId, SEAT_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
             requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnConfirm(hold.getStatus(), hold.getExpiresAt(), holdId));
@@ -125,13 +125,13 @@ public class AvailabilityServiceImpl implements AvailabilityService {
     @Transactional
     public void release(String holdId, String userId) {
         if (holdId.startsWith(ROOM_PREFIX)) {
-            RoomHold hold = roomHoldRepository.findById(parseId(holdId, ROOM_PREFIX))
+            RoomHold hold = roomHoldRepository.findByIdForUpdate(parseId(holdId, ROOM_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
             requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnRelease(hold.getStatus(), holdId));
             roomHoldRepository.save(hold);
         } else if (holdId.startsWith(SEAT_PREFIX)) {
-            SeatHold hold = seatHoldRepository.findById(parseId(holdId, SEAT_PREFIX))
+            SeatHold hold = seatHoldRepository.findByIdForUpdate(parseId(holdId, SEAT_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
             requireOwner(hold.getUserId(), userId, holdId);
             hold.setStatus(nextStatusOnRelease(hold.getStatus(), holdId));
@@ -145,14 +145,14 @@ public class AvailabilityServiceImpl implements AvailabilityService {
     @Transactional
     public void compensate(String holdId) {
         if (holdId.startsWith(ROOM_PREFIX)) {
-            RoomHold hold = roomHoldRepository.findById(parseId(holdId, ROOM_PREFIX))
+            RoomHold hold = roomHoldRepository.findByIdForUpdate(parseId(holdId, ROOM_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
             if (hold.getStatus() != HoldStatus.RELEASED) {
                 hold.setStatus(HoldStatus.RELEASED);
                 roomHoldRepository.save(hold);
             }
         } else if (holdId.startsWith(SEAT_PREFIX)) {
-            SeatHold hold = seatHoldRepository.findById(parseId(holdId, SEAT_PREFIX))
+            SeatHold hold = seatHoldRepository.findByIdForUpdate(parseId(holdId, SEAT_PREFIX))
                     .orElseThrow(() -> new HoldNotFoundException(holdId));
             if (hold.getStatus() != HoldStatus.RELEASED) {
                 hold.setStatus(HoldStatus.RELEASED);

@@ -19,13 +19,10 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
-// Selettore compatto EUR/USD per la valuta con cui visualizzare il totale:
-// riusato sia in CartScreen che in CheckoutScreen, così la scelta fatta nel
-// carrello resta visibile (e modificabile) anche al pagamento - è lo stesso
-// storage di Impostazioni > Valuta (TokenManager.currencyFlow), quindi non
-// serve passare nulla tra le due schermate. Non cambia gli importi realmente
-// addebitati (sempre calcolati e verificati lato server nelle valute
-// originali degli articoli), solo come vengono mostrati.
+// Selettore compatto EUR/USD, riusato in CartScreen e CheckoutScreen: stesso
+// storage di Impostazioni > Valuta, quindi non serve passare nulla tra le
+// due schermate. Cambia solo come si mostra il totale, non quanto si paga
+// davvero (sempre calcolato lato server).
 @Composable
 fun CurrencyPicker(selected: String, onSelect: (String) -> Unit) {
     Text("Mostra il totale in:", style = CatalogType.Caption, color = CatalogColors.InkMuted)

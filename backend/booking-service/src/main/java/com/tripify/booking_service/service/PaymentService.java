@@ -18,11 +18,8 @@ public class PaymentService {
     // Due modalità: una carta nuova inserita a mano (cardNumber) oppure un
     // metodo già salvato su user-auth-service (paymentMethodId) - in quel caso
     // non arriva mai un numero di carta reale (non viene salvato per intero
-    // nemmeno lì). L'appartenenza del metodo salvato all'utente che ha
-    // chiamato è verificata qui (serve UserAuthClient, non è compito del
-    // gateway di pagamento); l'addebito vero e proprio (anche solo simulato)
-    // è delegato a PaymentGateway, così PaymentService non deve sapere come è
-    // fatto un numero di carta valido o come si registra un rimborso.
+    // nemmeno lì). L'appartenenza del metodo all'utente si verifica qui;
+    // l'addebito vero e proprio è delegato a PaymentGateway.
     public boolean executePayment(String userId, Long bookingId, String cardNumber, String paymentMethodId, BigDecimal amount) {
         log.info("Avvio pagamento per l'utente {} sul viaggio {}. Importo: {}€", userId, bookingId, amount);
 
@@ -53,9 +50,8 @@ public class PaymentService {
         return approved;
     }
 
-    // Rimborso in caso di cancellazione: registra almeno un riferimento alla
-    // transazione (anche se solo simulata, vedi MockPaymentGateway), invece
-    // di limitarsi a un log senza alcuna traccia di *cosa* è stato rimborsato.
+    // Registra almeno un riferimento alla transazione, invece di un log
+    // senza traccia di cosa è stato rimborsato.
     public void refund(Long bookingId, BigDecimal amount) {
         String reference = paymentGateway.refund(bookingId, amount);
         log.info("Rimborso registrato per la prenotazione {} (riferimento {})", bookingId, reference);

@@ -4,18 +4,22 @@ import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
+import com.tripify.tripify_android.catalog.ui.theme.Inter
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -60,11 +64,12 @@ import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 import com.tripify.tripify_android.profile.viewmodel.SettingsViewModel
 import com.tripify.tripify_android.profile.viewmodel.TravelDocumentsViewModel
 
-private val Ink = Color(0xFF1A1A1A)
-private val InkMuted = Color(0xFF7A7A73)
-private val TripifyGreen = Color(0xFF2E7D32)
-
-data class BottomNavItem(val route: String, val title: String, val icon: ImageVector)
+data class BottomNavItem(
+    val route: String,
+    val title: String,
+    val iconSelected: ImageVector,
+    val iconUnselected: ImageVector
+)
 
 @Composable
 fun TripifyApp(
@@ -98,11 +103,11 @@ fun TripifyApp(
     val bookingViewModel = remember { BookingViewModel(bookingTokenManager) }
 
     val bottomNavItems = listOf(
-        BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home),
-        BottomNavItem(Route.OrganizerSearch.path, "Esplora", Icons.Filled.Storefront),
-        BottomNavItem("itineraries", "Itinerari", Icons.Filled.Map),
-        BottomNavItem(Route.Bookings.path, "Prenotazioni", Icons.Filled.ConfirmationNumber),
-        BottomNavItem(Route.Profile.path, "Profilo", Icons.Filled.PersonOutline)
+        BottomNavItem(Route.Home.path, "Home", Icons.Filled.Home, Icons.Outlined.Home),
+        BottomNavItem(Route.OrganizerSearch.path, "Esplora", Icons.Filled.Storefront, Icons.Outlined.Storefront),
+        BottomNavItem("itineraries", "Itinerari", Icons.Filled.Map, Icons.Outlined.Map),
+        BottomNavItem(Route.Bookings.path, "Prenotazioni", Icons.Filled.ConfirmationNumber, Icons.Outlined.ConfirmationNumber),
+        BottomNavItem(Route.Profile.path, "Profilo", Icons.Filled.Person, Icons.Outlined.Person)
     )
 
     val showBottomBar = bottomNavItems.any { it.route == currentRoute }
@@ -111,21 +116,34 @@ fun TripifyApp(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = Color.White,
-                    contentColor = Ink,
-                    tonalElevation = 8.dp
+                    containerColor = CatalogColors.Surface,
+                    contentColor = CatalogColors.Ink,
+                    tonalElevation = 3.dp
                 ) {
                     bottomNavItems.forEach { item ->
                         val selected = currentRoute == item.route
                         NavigationBarItem(
-                            icon = { Icon(item.icon, contentDescription = item.title) },
-                            label = {
-                                Text(
-                                    item.title,
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                            icon = {
+                                Icon(
+                                    if (selected) item.iconSelected else item.iconUnselected,
+                                    contentDescription = item.title
                                 )
                             },
+                            // Solo la tab attiva mostra l'etichetta: con 5 voci e schermi stretti,
+                            // testi come "Prenotazioni" sempre visibili andavano a capo su due righe.
+                            label = if (selected) {
+                                {
+                                    Text(
+                                        item.title,
+                                        fontFamily = Inter,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            } else null,
+                            alwaysShowLabel = false,
                             selected = selected,
                             onClick = {
                                 if (!selected) {
@@ -142,11 +160,11 @@ fun TripifyApp(
                                 }
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = TripifyGreen,
-                                selectedTextColor = TripifyGreen,
-                                unselectedIconColor = InkMuted,
-                                unselectedTextColor = InkMuted,
-                                indicatorColor = TripifyGreen.copy(alpha = 0.15f)
+                                selectedIconColor = CatalogColors.AccentDark,
+                                selectedTextColor = CatalogColors.AccentDark,
+                                unselectedIconColor = CatalogColors.InkSubtle,
+                                unselectedTextColor = CatalogColors.InkSubtle,
+                                indicatorColor = CatalogColors.AccentSoft
                             )
                         )
                     }

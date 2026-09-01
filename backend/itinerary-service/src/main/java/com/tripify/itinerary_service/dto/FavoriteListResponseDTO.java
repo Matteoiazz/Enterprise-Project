@@ -40,8 +40,10 @@ public record FavoriteListResponseDTO(
         );
     }
 
-    /** Per un collaboratore/utente autenticato che non è il proprietario: niente collabToken. */
-    public static FavoriteListResponseDTO forViewer(FavoriteList list) {
+    /** Per un collaboratore (in sharedUserIds, non proprietario): gli servono gli altri
+     * sharedUserIds per il proprio controllo di canEdit lato app, ma niente collabToken
+     * (non è lui ad aver creato l'invito). */
+    public static FavoriteListResponseDTO forCollaborator(FavoriteList list) {
         return new FavoriteListResponseDTO(
                 list.getId(), list.getName(), list.getOwnerId(), list.getSharedUserIds(), list.getItems(),
                 list.getVisibility(), list.getPublicToken(), null, list.getCity(),
@@ -49,8 +51,10 @@ public record FavoriteListResponseDTO(
         );
     }
 
-    /** Per il feed pubblico e il link di sola visualizzazione (nessuna autenticazione): niente collabToken né sharedUserIds. */
-    public static FavoriteListResponseDTO forPublic(FavoriteList list) {
+    /** Per chi vede la lista senza esserne proprietario né collaboratore (es. autenticato
+     * che sfoglia il feed pubblico): niente collabToken né sharedUserIds, non gli servono
+     * e rivelerebbero gli id degli altri collaboratori a chi non c'entra nulla. */
+    public static FavoriteListResponseDTO forViewer(FavoriteList list) {
         return new FavoriteListResponseDTO(
                 list.getId(), list.getName(), list.getOwnerId(), List.of(), list.getItems(),
                 list.getVisibility(), list.getPublicToken(), null, list.getCity(),
@@ -58,10 +62,19 @@ public record FavoriteListResponseDTO(
         );
     }
 
-    /** Sceglie forOwner/forViewer in base a chi sta chiedendo (null = non autenticato, vedi forPublic per quel caso). */
+    /** Per il feed pubblico e il link di sola visualizzazione (nessuna autenticazione): niente collabToken né sharedUserIds. */
+    public static FavoriteListResponseDTO forPublic(FavoriteList list) {
+        return forViewer(list);
+    }
+
+    /** Sceglie owner/collaboratore/viewer in base a chi sta chiedendo (null = non autenticato). */
     public static FavoriteListResponseDTO forRequester(FavoriteList list, String requesterId) {
-        return requesterId != null && requesterId.equals(list.getOwnerId())
-                ? forOwner(list)
-                : forViewer(list);
+        if (requesterId != null && requesterId.equals(list.getOwnerId())) {
+            return forOwner(list);
+        }
+        if (requesterId != null && list.getSharedUserIds().contains(requesterId)) {
+            return forCollaborator(list);
+        }
+        return forViewer(list);
     }
 }

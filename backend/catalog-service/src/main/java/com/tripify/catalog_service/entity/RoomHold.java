@@ -46,6 +46,9 @@ public class RoomHold {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Version
+    private Long version;
+
     public boolean coversNight(LocalDate date) {
         return !date.isBefore(checkIn) && date.isBefore(checkOut);
     }
