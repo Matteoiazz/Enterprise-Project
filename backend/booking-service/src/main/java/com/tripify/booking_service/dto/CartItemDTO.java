@@ -8,6 +8,7 @@ public record CartItemDTO(
         Long catalogItemId,
         Integer quantity,
         BigDecimal priceAtAdded,
+        String currency,
         Long roomTypeId,
         Long fareClassId,
         LocalDate checkIn,

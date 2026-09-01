@@ -26,9 +26,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.tripify.tripify_android.booking.component.CardPaymentFormState
 import com.tripify.tripify_android.booking.component.CartItemCard
+import com.tripify.tripify_android.booking.component.CurrencyPicker
 import com.tripify.tripify_android.booking.component.PaymentMethodSection
 import com.tripify.tripify_android.booking.model.CartState
 import com.tripify.tripify_android.booking.model.PaymentState
+import com.tripify.tripify_android.booking.util.convertCartAmount
+import com.tripify.tripify_android.booking.util.currencySymbol
 import com.tripify.tripify_android.booking.util.isDocumentNumberLengthValid
 import com.tripify.tripify_android.booking.util.isTaxCodeChecksumValid
 import com.tripify.tripify_android.booking.util.isTaxCodeFormatValid
@@ -37,10 +40,13 @@ import com.tripify.tripify_android.booking.viewmodel.CartViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
+import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.CartItemDTO
 import com.tripify.tripify_android.data.model.PassengerRequestDTO
 import com.tripify.tripify_android.data.model.PaymentMethodDto
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Calendar
@@ -155,6 +161,16 @@ fun CheckoutScreen(
     val selectedItemIds by viewModel.selectedItemIds.collectAsState()
     val savedTravelDocuments by bookingViewModel.savedTravelDocuments.collectAsState()
 
+    // Stessa valuta scelta in CartScreen (e in Impostazioni > Valuta): resta
+    // valida qui perché è lo stesso storage condiviso (TokenManager.currencyFlow),
+    // ma si può cambiare anche da qui all'ultimo momento. Converte solo la
+    // CIFRA MOSTRATA: l'importo realmente inviato per il pagamento resta
+    // sempre booking.totalAmount calcolato dal server (vedi CartViewModel.checkoutThenPay).
+    val displayCurrency by rememberCatalogCurrency()
+    val currencyContext = LocalContext.current
+    val currencyTokenManager = remember { TokenManager(currencyContext) }
+    val currencyScope = rememberCoroutineScope()
+
     // Stato del metodo di pagamento (salvato o carta nuova) e la sua
     // validazione: condiviso con RetryPaymentScreen, vedi CardPaymentForm.kt.
     val paymentFormState = remember { CardPaymentFormState() }
@@ -183,7 +199,13 @@ fun CheckoutScreen(
     // Solo gli articoli scelti in CartScreen vengono mostrati/pagati qui: gli
     // altri restano nel carrello (vedi CartViewModel.selectedItemIds).
     val selectedItems = cart?.items?.filter { it.id in selectedItemIds } ?: emptyList()
-    val selectedTotal = selectedItems.sumOf { it.priceAtAdded * it.quantity }
+    // Ogni articolo si converte dalla sua valuta originale a quella scelta per
+    // la visualizzazione (vedi CartScreen): niente più somma grezza di
+    // priceAtAdded, che avrebbe senso solo se tutti gli articoli selezionati
+    // fossero nella stessa valuta.
+    val selectedTotal = selectedItems.sumOf {
+        convertCartAmount(it.priceAtAdded, it.currency, displayCurrency) * it.quantity
+    }
 
     // Un set di campi ospite per ogni "posto" acquistato (quantity) su ogni
     // articolo selezionato, tenuti vivi per tutta la sessione di checkout;
@@ -232,10 +254,15 @@ fun CheckoutScreen(
             if (selectedItems.isNotEmpty()) {
                 Surface(color = CatalogColors.Surface, shadowElevation = 8.dp) {
                     Column(modifier = Modifier.padding(20.dp)) {
+                        CurrencyPicker(
+                            selected = displayCurrency,
+                            onSelect = { currency -> currencyScope.launch { currencyTokenManager.setCurrency(currency) } }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Totale da pagare (${selectedItems.size} articoli)", style = CatalogType.Body, color = CatalogColors.InkMuted)
                             Text(
-                                text = "€${"%.2f".format(selectedTotal)}",
+                                text = "${currencySymbol(displayCurrency)} ${"%.2f".format(selectedTotal)}",
                                 style = CatalogType.PriceLarge,
                                 color = CatalogColors.AccentDark
                             )
@@ -275,7 +302,7 @@ fun CheckoutScreen(
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                Text("Paga €${"%.2f".format(selectedTotal)}", style = CatalogType.Button)
+                                Text("Paga ${currencySymbol(displayCurrency)} ${"%.2f".format(selectedTotal)}", style = CatalogType.Button)
                             }
                         }
                     }

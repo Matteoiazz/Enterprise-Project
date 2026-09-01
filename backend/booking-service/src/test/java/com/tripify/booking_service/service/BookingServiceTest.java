@@ -72,7 +72,7 @@ class BookingServiceTest {
     @BeforeEach
     void setUp() {
         when(catalogClient.getItem(anyLong())).thenReturn(
-                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), null, null));
+                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), "EUR", null, null));
     }
 
     private void addItem(String userId, AddToCartRequestDTO request) {
@@ -101,7 +101,7 @@ class BookingServiceTest {
     void ilCheckoutSelettivoPrenotaSoloGliArticoliScelti() {
         addItem(LEADER_ID, new AddToCartRequestDTO(1L, 1, null, null, null, null)); // 50.0
         when(catalogClient.getItem(2L)).thenReturn(
-                new CatalogItemSummaryDTO(2L, "Activity", BigDecimal.valueOf(30.0), null, null));
+                new CatalogItemSummaryDTO(2L, "Activity", BigDecimal.valueOf(30.0), "EUR", null, null));
         addItem(LEADER_ID, new AddToCartRequestDTO(2L, 1, null, null, null, null)); // 30.0, riga separata
 
         Long secondItemId = cartService.getCartDTOForUser(LEADER_ID).items().stream()
@@ -319,7 +319,7 @@ class BookingServiceTest {
         BookingResponseDTO booking = checkoutSimpleCartFor(OTHER_USER_ID); // catalogItemId = 1
 
         when(catalogClient.getMyItems()).thenReturn(
-                java.util.List.of(new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), null, null)));
+                java.util.List.of(new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), "EUR", null, null)));
 
         var received = bookingService.getReceivedBookings();
 

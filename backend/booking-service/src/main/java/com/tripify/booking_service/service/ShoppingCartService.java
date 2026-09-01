@@ -40,6 +40,12 @@ public class ShoppingCartService {
     // aggiunge B, tra 5 minuti scade solo A mentre a B restano ancora 10 minuti.
     private static final long CART_ITEM_TTL_MINUTES = 15;
 
+    // Stesso limite del singolo @Max su AddToCartRequestDTO.quantity, ma qui
+    // applicato al TOTALE cumulativo di una riga dopo il merge: senza questo
+    // controllo, richieste ripetute (ognuna singolarmente sotto il limite)
+    // potrebbero far crescere la quantità di una riga senza fine.
+    private static final int MAX_CART_ITEM_QUANTITY = 20;
+
     private final ShoppingCartRepository cartRepository;
     private final CartItemRepository itemRepository;
 
@@ -63,9 +69,13 @@ public class ShoppingCartService {
     }
 
     // 1bis. Versione esposta via API: costruisce il DTO dentro la stessa
-    // transazione di lettura, così cart.getItems() (LAZY) viene inizializzata
-    // qui e non fallisce in fase di serializzazione JSON nel controller.
-    @Transactional(readOnly = true)
+    // transazione, così cart.getItems() (LAZY) viene inizializzata qui e non
+    // fallisce in fase di serializzazione JSON nel controller. NON readOnly:
+    // getCartForUser() può dover salvare il carrello se è la prima apertura
+    // di un utente nuovo (orElseGet sotto) - con readOnly=true quel save
+    // veniva rifiutato dal driver JDBC ("read-only transaction"), risultando
+    // in un 500 alla primissima apertura del carrello.
+    @Transactional
     public CartDTO getCartDTOForUser(String userId) {
         ShoppingCart cart = getCartForUser(userId);
 
@@ -75,6 +85,7 @@ public class ShoppingCartService {
                         item.getCatalogItemId(),
                         item.getQuantity(),
                         item.getPriceAtAdded(),
+                        item.getCurrency(),
                         item.getRoomTypeId(),
                         item.getFareClassId(),
                         item.getCheckIn(),
@@ -143,7 +154,12 @@ public class ShoppingCartService {
 
             if (existingItem.isPresent()) {
                 CartItem item = existingItem.get();
-                item.setQuantity(item.getQuantity() + request.quantity());
+                int newQuantity = item.getQuantity() + request.quantity();
+                if (newQuantity > MAX_CART_ITEM_QUANTITY) {
+                    throw new IllegalArgumentException(
+                            "Non puoi avere più di " + MAX_CART_ITEM_QUANTITY + " unità di questo articolo nel carrello.");
+                }
+                item.setQuantity(newQuantity);
                 itemRepository.save(item);
                 sendNotification(userId, "Carrello Aggiornato 🛒", "Hai aggiunto ulteriori quantità.");
 
@@ -156,6 +172,7 @@ public class ShoppingCartService {
                 .catalogItemId(request.catalogItemId())
                 .quantity(request.quantity())
                 .priceAtAdded(price)
+                .currency(catalogItem.currency())
                 .roomTypeId(request.roomTypeId())
                 .fareClassId(request.fareClassId())
                 .checkIn(request.checkIn())

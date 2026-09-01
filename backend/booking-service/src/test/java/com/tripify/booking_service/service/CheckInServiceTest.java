@@ -70,7 +70,7 @@ class CheckInServiceTest {
     @BeforeEach
     void setUp() {
         when(catalogClient.getItem(anyLong())).thenReturn(
-                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), null, null));
+                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), "EUR", null, null));
     }
 
     private void flushAndClear() {
