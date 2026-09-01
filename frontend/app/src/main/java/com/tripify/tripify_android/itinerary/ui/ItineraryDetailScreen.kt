@@ -143,6 +143,16 @@ fun ItineraryDetailScreen(
                 val canEdit = isOwner || (currentUserId != null && list.sharedUserIds.contains(currentUserId))
                 var showRenameDialog by remember { mutableStateOf(false) }
 
+                // Risolti tutti insieme (non riga per riga) cosi' si possono raggruppare
+                // per giorno prima di disegnare la timeline sotto.
+                var resolvedComponents by remember(list.items) { mutableStateOf<List<CatalogItem?>>(emptyList()) }
+                var isResolvingComponents by remember(list.items) { mutableStateOf(true) }
+                LaunchedEffect(list.items) {
+                    isResolvingComponents = true
+                    resolvedComponents = list.items.map { catalogViewModel.getOrFetchItem(it.catalogItemId.toInt()) }
+                    isResolvingComponents = false
+                }
+
                 if (showRenameDialog) {
                     RenameDialog(
                         currentName = list.name,
@@ -232,6 +242,17 @@ fun ItineraryDetailScreen(
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(90.dp)
+                                .align(Alignment.BottomCenter)
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, CatalogColors.Scrim.copy(alpha = 0.35f))
+                                    )
+                                )
                         )
                         IconButton(
                             onClick = {
@@ -457,15 +478,41 @@ fun ItineraryDetailScreen(
                             Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            list.items.forEachIndexed { index, item ->
-                                ItineraryComponentRow(
-                                    item = item,
-                                    catalogViewModel = catalogViewModel,
-                                    canRemove = canEdit,
-                                    onClick = { onNavigateToComponent(item.catalogItemId.toString()) },
-                                    onRemove = { indexToRemove = index }
-                                )
+                        if (isResolvingComponents) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.size(22.dp))
+                            }
+                        } else {
+                            val days = groupItineraryByDay(list.items, resolvedComponents)
+                            Column {
+                                days.forEachIndexed { dayIndex, (dateKey, entries) ->
+                                    if (dateKey != null) {
+                                        DayHeader(dayNumber = dayIndex + 1, dateLabel = formatDayLabel(dateKey))
+                                    }
+                                    entries.forEachIndexed { posInDay, entry ->
+                                        val (icon, accent) = when (entry.resolved) {
+                                            is CatalogItem.Flight -> Icons.Filled.Flight to CatalogColors.AccentDark
+                                            is CatalogItem.Hotel -> Icons.Filled.Hotel to CatalogColors.Gold
+                                            is CatalogItem.Excursion -> Icons.Filled.Tour to CatalogColors.Accent
+                                            null -> Icons.Filled.QuestionMark to CatalogColors.InkSubtle
+                                        }
+                                        TimelineRail(
+                                            accentColor = accent,
+                                            icon = icon,
+                                            isFirstOfDay = posInDay == 0,
+                                            isLastOfDay = posInDay == entries.lastIndex
+                                        ) {
+                                            ItineraryComponentCard(
+                                                item = entry.item,
+                                                resolved = entry.resolved,
+                                                canRemove = canEdit,
+                                                onClick = { onNavigateToComponent(entry.item.catalogItemId.toString()) },
+                                                onRemove = { indexToRemove = entry.index }
+                                            )
+                                        }
+                                        if (posInDay != entries.lastIndex) Spacer(modifier = Modifier.height(2.dp))
+                                    }
+                                }
                             }
                         }
 
@@ -597,25 +644,105 @@ fun ItineraryDetailScreen(
     }
 }
 
+/** Una tappa gia' risolta contro il catalogo, con l'indice originale in list.items (serve a onRemove). */
+private data class TimelineEntry(val index: Int, val item: FavoriteListItemDto, val resolved: CatalogItem?)
+
+/** Chiave del giorno a cui appartiene una tappa: data del volo/check-in/attivita'. Null se non risolvibile. */
+private fun dayKeyFor(item: FavoriteListItemDto, resolved: CatalogItem?): String? = when (resolved) {
+    is CatalogItem.Flight -> resolved.departureTime.take(10)
+    is CatalogItem.Hotel -> item.checkIn
+    is CatalogItem.Excursion -> item.activityDate
+    null -> null
+}
+
+/** Raggruppa le tappe (gia' in ordine cronologico) in giorni consecutivi con la stessa data. */
+private fun groupItineraryByDay(items: List<FavoriteListItemDto>, resolved: List<CatalogItem?>): List<Pair<String?, List<TimelineEntry>>> {
+    val groups = mutableListOf<Pair<String?, MutableList<TimelineEntry>>>()
+    items.forEachIndexed { index, item ->
+        val entry = TimelineEntry(index, item, resolved.getOrNull(index))
+        val key = dayKeyFor(item, entry.resolved)
+        if (groups.isNotEmpty() && groups.last().first == key) {
+            groups.last().second.add(entry)
+        } else {
+            groups.add(key to mutableListOf(entry))
+        }
+    }
+    return groups
+}
+
+private fun formatDayLabel(dayKey: String): String = try {
+    java.time.LocalDate.parse(dayKey)
+        .format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", java.util.Locale.ITALIAN))
+} catch (e: Exception) {
+    dayKey
+}
+
 @Composable
-private fun ItineraryComponentRow(
+private fun DayHeader(dayNumber: Int, dateLabel: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = if (dayNumber == 1) 0.dp else 20.dp, bottom = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(24.dp).clip(CircleShape).background(CatalogColors.AccentDark),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("$dayNumber", style = CatalogType.Caption.copy(fontWeight = FontWeight.Bold), color = Color.White)
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text("Giorno $dayNumber", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(dateLabel, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+    }
+}
+
+/**
+ * Riga della timeline: pallino colorato per tipo di componente su una linea verticale
+ * continua (assente sopra la prima tappa del giorno e sotto l'ultima), con il contenuto
+ * a destra. L'altezza della rotaia segue quella del contenuto (Row a IntrinsicSize.Min).
+ */
+@Composable
+private fun TimelineRail(
+    accentColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isFirstOfDay: Boolean,
+    isLastOfDay: Boolean,
+    content: @Composable () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(32.dp).fillMaxHeight()) {
+            Box(
+                modifier = Modifier.width(2.dp).weight(1f)
+                    .background(if (isFirstOfDay) Color.Transparent else CatalogColors.Hairline)
+            )
+            Box(
+                modifier = Modifier.size(26.dp).clip(CircleShape).background(accentColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+            }
+            Box(
+                modifier = Modifier.width(2.dp).weight(1f)
+                    .background(if (isLastOfDay) Color.Transparent else CatalogColors.Hairline)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Box(modifier = Modifier.weight(1f).padding(vertical = 4.dp)) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ItineraryComponentCard(
     item: FavoriteListItemDto,
-    catalogViewModel: CatalogViewModel,
+    resolved: CatalogItem?,
     canRemove: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
-    var resolvedItem by remember(item.catalogItemId) { mutableStateOf<CatalogItem?>(null) }
-    var isResolving by remember(item.catalogItemId) { mutableStateOf(true) }
     val currency by rememberCatalogCurrency()
 
-    LaunchedEffect(item.catalogItemId) {
-        isResolving = true
-        resolvedItem = catalogViewModel.getOrFetchItem(item.catalogItemId.toInt())
-        isResolving = false
-    }
-
-    val resolved = resolvedItem
     Surface(
         shape = CatalogShapes.Field,
         color = CatalogColors.Surface,
@@ -623,11 +750,7 @@ private fun ItineraryComponentRow(
         modifier = Modifier.fillMaxWidth().clickable(enabled = resolved != null) { onClick() }
     ) {
         Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (resolved == null && isResolving) {
-                Box(modifier = Modifier.size(52.dp).clip(CatalogShapes.Badge).background(CatalogColors.SurfaceMuted))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("Caricamento…", style = CatalogType.Caption, color = CatalogColors.InkMuted)
-            } else if (resolved == null) {
+            if (resolved == null) {
                 Box(
                     modifier = Modifier.size(52.dp).clip(CatalogShapes.Badge).background(CatalogColors.SurfaceMuted),
                     contentAlignment = Alignment.Center

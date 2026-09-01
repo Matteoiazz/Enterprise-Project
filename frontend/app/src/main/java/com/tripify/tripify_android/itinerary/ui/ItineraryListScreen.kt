@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.itinerary.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
+import com.tripify.tripify_android.itinerary.data.FavoriteListItemDto
 import com.tripify.tripify_android.itinerary.viewmodel.ItineraryFeedState
 import com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel
 import kotlinx.coroutines.flow.first
@@ -29,6 +31,36 @@ private fun itineraryImageUrl(list: FavoriteListDto): String =
     "https://picsum.photos/seed/itinerary${list.id}/600/800"
 
 private enum class ItineraryTab { PUBLIC, MINE }
+
+/**
+ * Anteprima del percorso: un'icona per tappa nell'ordine in cui compaiono nella lista,
+ * stessa codifica colore della timeline nel dettaglio (volo/hotel/attività). Il tipo si
+ * deduce dai campi già presenti nel DTO (obbligatori lato server per hotel/attività, vedi
+ * ItineraryService.validateResolvedCoherence) senza bisogno di richiamare il catalogo per
+ * ogni componente di ogni card della lista.
+ */
+@Composable
+private fun RoutePreview(items: List<FavoriteListItemDto>, maxIcons: Int = 6) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        items.take(maxIcons).forEachIndexed { index, item ->
+            if (index > 0) {
+                Spacer(modifier = Modifier.width(3.dp))
+                Box(modifier = Modifier.width(8.dp).height(1.dp).background(Color.White.copy(alpha = 0.5f)))
+                Spacer(modifier = Modifier.width(3.dp))
+            }
+            val (icon, tint) = when {
+                item.checkIn != null && item.checkOut != null -> Icons.Filled.Hotel to CatalogColors.Gold
+                item.activityDate != null -> Icons.Filled.Tour to CatalogColors.AccentLight
+                else -> Icons.Filled.Flight to Color.White
+            }
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
+        }
+        if (items.size > maxIcons) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("+${items.size - maxIcons}", style = CatalogType.Meta, color = Color.White.copy(alpha = 0.85f))
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -252,6 +284,10 @@ fun ItineraryListScreen(
                                         // (solo nella tab "Miei itinerari") serve comunque essere autenticati.
                                         onClick = { onNavigateToDetail(list.id, list.publicToken) }
                                     ) {
+                                        if (list.items.isNotEmpty()) {
+                                            RoutePreview(items = list.items)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                        }
                                         val componentsLabel = if (list.items.size == 1) "1 tappa" else "${list.items.size} tappe"
                                         PhotoMeta(icon = Icons.Filled.Route, text = componentsLabel)
                                     }
