@@ -92,6 +92,15 @@ fun ItineraryDetailScreen(
                     }
                 },
                 actions = {
+                    if (currentList != null) {
+                        IconButton(onClick = {
+                            viewModel.exportCalendar(context, currentList.id, currentList.name) { error ->
+                                scope.launch { snackbarHostState.showSnackbar(error) }
+                            }
+                        }) {
+                            Icon(Icons.Filled.Event, contentDescription = "Esporta calendario", tint = CatalogColors.Ink)
+                        }
+                    }
                     val shareToken = currentList?.publicToken
                     if (!shareToken.isNullOrBlank()) {
                         IconButton(onClick = {

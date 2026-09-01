@@ -10,7 +10,10 @@ import com.tripify.itinerary_service.entity.FavoriteList;
 import com.tripify.itinerary_service.service.ItineraryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -131,6 +134,21 @@ public class ItineraryController {
         service.applyLikedByMe(list, jwt.getSubject());
         service.applyTotalPrice(list);
         return ResponseEntity.ok(FavoriteListResponseDTO.forRequester(list, jwt.getSubject()));
+    }
+
+    /** Esporta la lista come file .ics per l'app Calendario del telefono. */
+    @GetMapping("/{id}/calendar.ics")
+    public ResponseEntity<String> exportCalendar(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        String ics = service.exportToIcs(id, jwt.getSubject());
+        String safeName = service.getAccessibleById(id, jwt.getSubject()).getName()
+                .replaceAll("[^a-zA-Z0-9 -]", "").trim();
+        String filename = (safeName.isBlank() ? "itinerario" : safeName) + ".ics";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/calendar;charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename).build().toString())
+                .body(ics);
     }
 
     @PatchMapping("/{id}/visibility")

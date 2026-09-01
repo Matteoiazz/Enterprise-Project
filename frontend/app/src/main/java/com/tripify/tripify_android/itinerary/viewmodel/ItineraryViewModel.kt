@@ -1,5 +1,8 @@
 package com.tripify.tripify_android.itinerary.viewmodel
 
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 sealed class ItineraryFeedState {
     data object Loading : ItineraryFeedState()
@@ -266,6 +270,37 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 }
             } catch (e: Exception) {
                 onResult(0, list.items.size, emptyList())
+            }
+        }
+    }
+
+    /**
+     * Scarica il file .ics della lista e lo apre con l'app Calendario del telefono
+     * tramite un content:// URI (FileProvider, vedi AndroidManifest.xml): il file
+     * .ics grezzo non passa dal converter Gson, per questo l'endpoint restituisce
+     * un ResponseBody invece di un DTO.
+     */
+    fun exportCalendar(context: Context, id: Long, listName: String, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.exportCalendar(id)
+                val body = response.body()
+                if (!response.isSuccessful || body == null) {
+                    onError("Impossibile scaricare il calendario")
+                    return@launch
+                }
+                val safeName = listName.replace(Regex("[^a-zA-Z0-9 -]"), "").trim().ifBlank { "itinerario" }
+                val file = File(context.cacheDir, "$safeName.ics")
+                file.outputStream().use { output -> body.byteStream().copyTo(output) }
+
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "text/calendar")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "Apri con"))
+            } catch (e: Exception) {
+                onError("Nessuna connessione al server")
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.tripify.tripify_android.itinerary.data
 
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -78,4 +79,9 @@ interface ItineraryApi {
     /** "Prenota tutto": booking-service riceve ogni componente della lista con hold su room/fare quando presenti. */
     @POST("api/v1/itinerary/{id}/book-all")
     suspend fun bookAll(@Path("id") id: Long): Response<BookAllResultDto>
+
+    /** File .ics grezzo, non JSON: va salvato su file e aperto con l'app Calendario. */
+    @Streaming
+    @GET("api/v1/itinerary/{id}/calendar.ics")
+    suspend fun exportCalendar(@Path("id") id: Long): Response<ResponseBody>
 }
