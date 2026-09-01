@@ -39,6 +39,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 
+                        // Compensazione: chiamata di servizio da booking-service, non un utente
+                        // (vedi AvailabilityController.compensate), protetta dalla chiave interna.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/catalog/holds/*/compensate").permitAll()
                         // Hold/confirm/release richiedono un utente reale autenticato: l'id viene letto dal JWT (sub).
                         .requestMatchers(HttpMethod.POST, "/api/v1/catalog/room-types/**", "/api/v1/catalog/fare-classes/**", "/api/v1/catalog/holds/**").authenticated()
 

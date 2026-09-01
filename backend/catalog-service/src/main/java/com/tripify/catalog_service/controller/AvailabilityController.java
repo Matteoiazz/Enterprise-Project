@@ -7,6 +7,7 @@ import com.tripify.catalog_service.dto.SeatHoldRequestDTO;
 import com.tripify.catalog_service.service.AvailabilityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,9 @@ import java.time.LocalDate;
 public class AvailabilityController {
 
     private final AvailabilityService availabilityService;
+
+    @Value("${internal.service-key}")
+    private String internalServiceKey;
 
     @GetMapping("/room-types/{id}/availability")
     public ResponseEntity<AvailabilityDTO> roomAvailability(
@@ -61,6 +65,22 @@ public class AvailabilityController {
     @PostMapping("/holds/{holdId}/release")
     public ResponseEntity<Void> release(@PathVariable String holdId, @AuthenticationPrincipal Jwt jwt) {
         availabilityService.release(holdId, jwt.getSubject());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Compensazione per booking-service: rilascia un hold anche se già CONFIRMED, per
+     * quando un'altra parte della transazione (altro hold, pagamento) fallisce dopo
+     * averlo confermato. Non è un'azione utente: niente JWT, protetto dalla chiave di
+     * servizio (stesso meccanismo di CatalogController.updateRating).
+     */
+    @PostMapping("/holds/{holdId}/compensate")
+    public ResponseEntity<Void> compensate(@PathVariable String holdId,
+                                            @RequestHeader("X-Internal-Key") String internalKey) {
+        if (!internalServiceKey.equals(internalKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        availabilityService.compensate(holdId);
         return ResponseEntity.ok().build();
     }
 }

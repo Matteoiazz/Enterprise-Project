@@ -141,6 +141,28 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         }
     }
 
+    @Override
+    @Transactional
+    public void compensate(String holdId) {
+        if (holdId.startsWith(ROOM_PREFIX)) {
+            RoomHold hold = roomHoldRepository.findById(parseId(holdId, ROOM_PREFIX))
+                    .orElseThrow(() -> new HoldNotFoundException(holdId));
+            if (hold.getStatus() != HoldStatus.RELEASED) {
+                hold.setStatus(HoldStatus.RELEASED);
+                roomHoldRepository.save(hold);
+            }
+        } else if (holdId.startsWith(SEAT_PREFIX)) {
+            SeatHold hold = seatHoldRepository.findById(parseId(holdId, SEAT_PREFIX))
+                    .orElseThrow(() -> new HoldNotFoundException(holdId));
+            if (hold.getStatus() != HoldStatus.RELEASED) {
+                hold.setStatus(HoldStatus.RELEASED);
+                seatHoldRepository.save(hold);
+            }
+        } else {
+            throw new HoldNotFoundException(holdId);
+        }
+    }
+
     // Non riveliamo se l'hold esiste a chi non ne è il proprietario: stesso
     // errore "non trovato" usato per un id inesistente.
     private void requireOwner(String ownerId, String requesterId, String holdId) {
