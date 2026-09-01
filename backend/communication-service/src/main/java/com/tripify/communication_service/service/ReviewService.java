@@ -1,10 +1,12 @@
 package com.tripify.communication_service.service;
 
 import com.tripify.communication_service.client.BookingClient;
+import com.tripify.communication_service.client.CatalogClient;
 import com.tripify.communication_service.dto.ReviewResponse;
 import com.tripify.communication_service.entity.Review;
 import com.tripify.communication_service.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,10 +14,12 @@ import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final BookingClient bookingClient;
+    private final CatalogClient catalogClient;
 
     public ReviewResponse createReview(Integer rating, String comment, String travelerId, Long catalogItemId) {
         validate(rating, comment);
@@ -36,7 +40,9 @@ public class ReviewService {
                 .catalogItemId(catalogItemId)
                 .build();
 
-        return ReviewResponse.from(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        recomputeItemRating(catalogItemId);
+        return ReviewResponse.from(saved);
     }
 
     public ReviewResponse updateReview(Long id, Integer rating, String comment, String travelerId) {
@@ -50,7 +56,9 @@ public class ReviewService {
 
         review.setRating(rating);
         review.setComment(comment);
-        return ReviewResponse.from(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        recomputeItemRating(review.getCatalogItemId());
+        return ReviewResponse.from(saved);
     }
 
     public void deleteReview(Long id, String travelerId) {
@@ -60,7 +68,9 @@ public class ReviewService {
         if (!review.getTravelerId().equals(travelerId)) {
             throw new IllegalStateException("Non puoi cancellare la recensione di un altro utente");
         }
+        Long catalogItemId = review.getCatalogItemId();
         reviewRepository.delete(review);
+        recomputeItemRating(catalogItemId);
     }
 
     public List<ReviewResponse> getReviewsByItem(Long catalogItemId) {
@@ -73,6 +83,20 @@ public class ReviewService {
         return reviewRepository.findByTravelerId(travelerId).stream()
                 .map(ReviewResponse::from)
                 .toList();
+    }
+
+    private void recomputeItemRating(Long catalogItemId) {
+        try {
+            List<Review> all = reviewRepository.findByCatalogItemId(catalogItemId);
+            if (all.isEmpty()) {
+                catalogClient.updateRating(catalogItemId, new CatalogClient.RatingUpdate(null, 0));
+            } else {
+                double average = all.stream().mapToInt(Review::getRating).average().orElse(0.0);
+                catalogClient.updateRating(catalogItemId, new CatalogClient.RatingUpdate(average, all.size()));
+            }
+        } catch (Exception e) {
+            log.warn("Rating dell'annuncio {} non aggiornato: {}", catalogItemId, e.getMessage());
+        }
     }
 
     private void validate(Integer rating, String comment) {

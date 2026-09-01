@@ -14,7 +14,6 @@ public interface CatalogService {
 
     CatalogItemDTO getItemById(Long id);
 
-    // Firma estesa con i filtri, paginata
     Page<CatalogItemDTO> search(
             String category,
             String query,
@@ -37,11 +36,15 @@ public interface CatalogService {
 
     CatalogItem saveItem(CatalogItem item);
 
-    /** Entità grezza (non mappata a DTO): serve per i controlli di proprietà e per l'update. */
     CatalogItem getRawItemById(Long id);
 
-    /** Disattiva l'item (soft delete: vedi @SQLDelete su CatalogItem). */
     void deactivateItem(Long id);
 
     List<String> getCitySuggestions(String query);
+
+    CatalogItem addImages(Long itemId, List<String> imageUrls);
+
+    CatalogItem removeImage(Long itemId, String imageUrl);
+
+    CatalogItem updateRating(Long itemId, Double average, Integer count);
 }

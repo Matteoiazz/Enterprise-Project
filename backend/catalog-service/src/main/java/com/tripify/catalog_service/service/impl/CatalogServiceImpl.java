@@ -111,4 +111,38 @@ public class CatalogServiceImpl implements CatalogService {
     public List<String> getCitySuggestions(String query) {
         return catalogItemRepository.findCitySuggestions(query);
     }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public CatalogItem addImages(Long itemId, List<String> imageUrls) {
+        CatalogItem item = getRawItemById(itemId);
+        for (String url : imageUrls) {
+            item.addImage(com.tripify.catalog_service.entity.CatalogImage.builder().imageUrl(url).build());
+        }
+        return catalogItemRepository.save(item);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public CatalogItem removeImage(Long itemId, String imageUrl) {
+        CatalogItem item = getRawItemById(itemId);
+        item.getImages().removeIf(image -> image.getImageUrl().equals(imageUrl));
+        return catalogItemRepository.save(item);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public CatalogItem updateRating(Long itemId, Double average, Integer count) {
+        CatalogItem item = getRawItemById(itemId);
+        if (average == null || count == null || count <= 0) {
+            item.setRatingAvg(null);
+            item.setReviewCount(0);
+        } else {
+            double clamped = Math.max(1.0, Math.min(5.0, average));
+            item.setRatingAvg(Math.round(clamped * 10.0) / 10.0);
+            item.setReviewCount(count);
+            item.setRating((int) Math.round(clamped));
+        }
+        return catalogItemRepository.save(item);
+    }
 }

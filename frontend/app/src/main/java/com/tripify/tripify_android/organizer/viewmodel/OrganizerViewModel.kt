@@ -1,5 +1,7 @@
 package com.tripify.tripify_android.organizer.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -13,14 +15,11 @@ import com.tripify.tripify_android.data.model.ReceivedBookingLineDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
-/**
- * Zona organizzatore: annunci posseduti (creazione/modifica/cancellazione) e
- * prenotazioni ricevute su quegli annunci. Nessun controllo di ruolo qui: se
- * il token non ha ROLE_ORGANIZER, il backend rifiuta le chiamate di scrittura
- * con 403 (vedi CatalogController) e getMyItems/getReceivedBookings tornano
- * semplicemente vuoti per chi non ha ancora annunci.
- */
+
 class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
 
     private val catalogApi = RetrofitClient.createCatalogApi(tokenManager)
@@ -69,14 +68,80 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     fun clearError() { _errorMessage.value = null }
 
     fun createFlight(request: CreateFlightRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.createFlight(request) }
-    fun createHotel(request: CreateHotelRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.createHotel(request) }
     fun createActivity(request: CreateActivityRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.createActivity(request) }
 
     fun updateFlight(id: Int, request: CreateFlightRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.updateFlight(id, request) }
-    fun updateHotel(id: Int, request: CreateHotelRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.updateHotel(id, request) }
     fun updateActivity(id: Int, request: CreateActivityRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.updateActivity(id, request) }
 
     fun deleteItem(id: Int, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.deleteItem(id) }
+
+
+    fun createHotel(request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = catalogApi.createHotel(request)
+                if (!response.isSuccessful) {
+                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    onResult(false); return@launch
+                }
+                val newId = response.body()?.id
+                if (newId != null && imageUris.isNotEmpty()) uploadImages(newId, imageUris, context)
+                loadMyItems()
+                onResult(true)
+            } catch (e: Exception) {
+                _errorMessage.value = "Nessuna connessione al server"; onResult(false)
+            }
+        }
+    }
+
+    fun updateHotel(id: Int, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = catalogApi.updateHotel(id, request)
+                if (!response.isSuccessful) {
+                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    onResult(false); return@launch
+                }
+                if (imageUris.isNotEmpty()) uploadImages(id, imageUris, context)
+                loadMyItems()
+                onResult(true)
+            } catch (e: Exception) {
+                _errorMessage.value = "Nessuna connessione al server"; onResult(false)
+            }
+        }
+    }
+
+    fun deleteHotelImage(id: Int, imageUrl: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = catalogApi.deleteItemImage(id, imageUrl)
+                if (!response.isSuccessful) _errorMessage.value = "Impossibile rimuovere la foto"
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                _errorMessage.value = "Nessuna connessione al server"; onResult(false)
+            }
+        }
+    }
+
+    private suspend fun uploadImages(itemId: Int, uris: List<Uri>, context: Context) {
+        val parts = uris.mapIndexedNotNull { index, uri ->
+            try {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@mapIndexedNotNull null
+                val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val body = bytes.toRequestBody(mime.toMediaTypeOrNull())
+                MultipartBody.Part.createFormData("files", "photo_$index.${mime.substringAfter('/', "jpg")}", body)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (parts.isEmpty()) return
+        try {
+            val response = catalogApi.uploadItemImages(itemId, parts)
+            if (!response.isSuccessful) _errorMessage.value = "Annuncio salvato, ma alcune foto non sono state caricate"
+        } catch (e: Exception) {
+            _errorMessage.value = "Annuncio salvato, ma le foto non sono state caricate"
+        }
+    }
 
     private fun launchWrite(onResult: (Boolean) -> Unit, call: suspend () -> retrofit2.Response<*>) {
         viewModelScope.launch {
