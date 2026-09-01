@@ -575,7 +575,7 @@ fun TripifyApp(
             Surface(
                 color = CatalogColors.Surface,
                 contentColor = CatalogColors.Ink,
-                shape = CatalogShapes.Card,
+                shape = CatalogShapes.Pill,
                 shadowElevation = 10.dp,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
