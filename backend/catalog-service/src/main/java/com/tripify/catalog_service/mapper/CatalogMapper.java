@@ -33,6 +33,8 @@ public class CatalogMapper {
                 .currency(item.getCurrency())
                 .category(item.getCategory())
                 .rating(item.getRating())
+                .ratingAvg(item.getRatingAvg())
+                .reviewCount(item.getReviewCount())
                 .imageUrls(extractedUrls)
                 .hostId(item.getHostId() != null ? item.getHostId().toString() : null)
                 .isUserGenerated(item.isUserGenerated())

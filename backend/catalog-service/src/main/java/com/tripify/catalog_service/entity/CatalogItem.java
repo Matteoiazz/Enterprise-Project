@@ -22,9 +22,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 
-// Il fetch diretto per id resta valido anche per un item disattivato (es. per chi
-// lo ha già prenotato o salvato in un itinerario): il filtro "is_active" si applica
-// solo dove si fa discovery, vedi CatalogItemSpecification e findByHostIdAndIsActiveTrue.
 @SQLDelete(sql = "UPDATE catalog_items SET is_active = false WHERE id = ?")
 public abstract class CatalogItem {
 
@@ -56,9 +53,6 @@ public abstract class CatalogItem {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
-    // false per gli item di data.sql (nessun organizzatore reale dietro), true per quelli
-    // creati davvero da un Organizzatore autenticato: serve a decidere se mostrare "Chatta
-    // con l'organizzatore" (altrimenti si aprirebbe una chat con un host inesistente).
     @Column(name = "is_user_generated", nullable = false, columnDefinition = "boolean default false")
     private boolean isUserGenerated = false;
 
@@ -68,7 +62,13 @@ public abstract class CatalogItem {
     @Min(value = 1, message = "il rating minimo è 1")
     @Max(value = 5, message = "il rating massimo è 5")
     @Column
-    private Integer rating; // Da 1 a 5
+    private Integer rating;
+
+    @Column(name = "rating_avg")
+    private Double ratingAvg;
+
+    @Column(name = "review_count", nullable = false, columnDefinition = "integer default 0")
+    private Integer reviewCount = 0;
 
 
     @OneToMany(mappedBy = "catalogItem", cascade = CascadeType.ALL, orphanRemoval = true)

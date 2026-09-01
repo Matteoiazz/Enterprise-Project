@@ -11,6 +11,8 @@ data class CatalogItemDto(
     val itemType: String,
     val category: String?,
     val rating: Int?,
+    val ratingAvg: Double? = null,
+    val reviewCount: Int? = null,
     val imageUrls: List<String>?,
     val hostId: String?,
 
