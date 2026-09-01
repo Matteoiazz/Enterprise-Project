@@ -119,7 +119,7 @@ public class ChatController {
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
         String senderId;
 
-        // 1. Fallback di Sicurezza per il Principal
+        // 1. Fallback di Sicurezza per il Principal (lasciato intatto)
         try {
             if (principal != null) {
                 if (principal instanceof JwtAuthenticationToken jwtToken) {
@@ -128,7 +128,6 @@ public class ChatController {
                     senderId = principal.getName();
                 }
             } else {
-                // Se Spring ha perso il token nella sessione, usiamo l'ID inviato dall'app
                 senderId = chatMessage.getSenderId();
                 log.warn("Principal nullo. Fallback su senderId del payload: {}", senderId);
             }
@@ -140,17 +139,24 @@ public class ChatController {
         chatMessage.setSenderId(senderId);
         chatMessage.setIsRead(false);
 
-        // 2. Controllo stanza flessibile (logga invece di bloccare)
+        // 2. Controllo stanza
         Optional<ChatRoom> roomOpt = chatRoomRepository.findById(chatMessage.getRoomId());
         if (roomOpt.isEmpty()) {
             log.warn("Stanza {} non trovata nel DB. Salvo comunque per evitare perdite di dati.", chatMessage.getRoomId());
+        } else {
+            // INSERITO QUI: Controllo di appartenenza richiesto dal report dei colleghi
+            ChatRoom room = roomOpt.get();
+            if (!senderId.equals(room.getTravelerId()) && !senderId.equals(room.getHostId())) {
+                log.error("Tentativo di invio non autorizzato: l'utente {} non appartiene alla stanza {}", senderId, chatMessage.getRoomId());
+                throw new IllegalArgumentException("Non sei un membro di questa stanza di chat");
+            }
         }
 
         // 3. Salvataggio e Invio sbloccati
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
         messagingTemplate.convertAndSend("/topic/room/" + chatMessage.getRoomId(), savedMessage);
 
-        // 4. Logica Notifiche
+        // 4. Logica Notifiche (lasciata intatta)
         if (roomOpt.isPresent()) {
             ChatRoom room = roomOpt.get();
             String recipientId = senderId.equals(room.getTravelerId()) ? room.getHostId() : room.getTravelerId();

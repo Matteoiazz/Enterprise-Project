@@ -3,12 +3,14 @@ package com.tripify.communication_service.messaging;
 import com.tripify.communication_service.service.NotificationService;
 import com.tripify.communication_service.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationConsumer {
 
     private final NotificationService notificationService;
@@ -28,7 +30,7 @@ public class NotificationConsumer {
                 event.getMessage()
         );
 
-        System.out.println("Nuova notifica salvata per l'utente " + userId + ": " + event.getTitle());
+        log.info("Nuova notifica salvata per l'utente {}: {}", userId, event.getTitle());
         // 2. MAGIA DEL TEMPO REALE: Invio sul canale WebSocket personale dell'utente
         messagingTemplate.convertAndSend("/topic/notifications/" + userId, event);
     }
