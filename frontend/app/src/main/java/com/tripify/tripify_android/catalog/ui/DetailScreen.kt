@@ -952,7 +952,7 @@ private fun DetailContent(
                                 RatingRow(rating = myReview.rating.toDouble())
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(myReview.comment, style = CatalogType.Body, color = CatalogColors.Ink)
-                                ReviewReplySection(review = myReview, isHost = false, onReply = { _, done -> done() })
+                                ReviewReplySection(review = myReview, isHost = false, onReply = { _, done -> done(true) })
                             }
                         }
                     }
@@ -1021,6 +1021,9 @@ private fun DetailContent(
                     }
                 } else {
                     var reviewStarFilter by remember(item.id) { mutableStateOf<Int?>(null) }
+                    LaunchedEffect(otherReviews.size) {
+                        if (otherReviews.size < 3) reviewStarFilter = null
+                    }
 
                     if (otherReviews.size >= 3) {
                         val countsByStar = (5 downTo 1).map { star -> star to otherReviews.count { it.rating == star } }
@@ -1092,11 +1095,11 @@ private fun DetailContent(
                                                 itemId = item.id.toLong(),
                                                 reply = text,
                                                 onSuccess = {
-                                                    done()
+                                                    done(true)
                                                     scope.launch { snackbarHostState.showSnackbar("Risposta pubblicata") }
                                                 },
                                                 onError = { msg ->
-                                                    done()
+                                                    done(false)
                                                     scope.launch { snackbarHostState.showSnackbar(msg) }
                                                 }
                                             )
@@ -1175,16 +1178,14 @@ private fun ReviewFilterChip(
 private fun ReviewReplySection(
     review: com.tripify.tripify_android.data.model.ReviewDto,
     isHost: Boolean,
-    onReply: (String, () -> Unit) -> Unit
+    onReply: (String, (Boolean) -> Unit) -> Unit
 ) {
     var editing by remember(review.id) { mutableStateOf(false) }
     var text by remember(review.id) { mutableStateOf(review.reply ?: "") }
     var sending by remember(review.id) { mutableStateOf(false) }
 
     LaunchedEffect(review.reply) {
-        editing = false
-        sending = false
-        text = review.reply ?: ""
+        if (!editing) text = review.reply ?: ""
     }
 
     val existing = review.reply
@@ -1244,7 +1245,10 @@ private fun ReviewReplySection(
                     onClick = {
                         if (text.isNotBlank()) {
                             sending = true
-                            onReply(text.trim()) { sending = false }
+                            onReply(text.trim()) { success ->
+                                sending = false
+                                if (success) editing = false
+                            }
                         }
                     },
                     enabled = !sending && text.isNotBlank(),
