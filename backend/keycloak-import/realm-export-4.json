@@ -862,7 +862,9 @@
       "redirectUris": [
         "com.tripify.app://oauth"
       ],
-      "webOrigins": [],
+      "webOrigins": [
+        "*"
+      ],
       "notBefore": 0,
       "bearerOnly": false,
       "consentRequired": false,
@@ -882,7 +884,6 @@
         "standard.token.exchange.enabled": "false",
         "frontchannel.logout.session.required": "true",
         "post.logout.redirect.uris": "com.tripify.app://oauth",
-        "pkce.code.challenge.method": "S256",
         "display.on.consent.screen": "false",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
