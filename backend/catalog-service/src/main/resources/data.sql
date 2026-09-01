@@ -1,9 +1,11 @@
 -- Le DELETE sono scoped al seed statico (id 1-62) e alla fascia riservata ai voli
 -- ricorrenti generati più sotto (id >= 100000): un item creato da un organizzatore
 -- tramite l'app riceve sempre un id fuori da queste due fasce (vedi i setval in
--- fondo al file), quindi resta intatto tra un riavvio e l'altro.
-DELETE FROM room_holds;
-DELETE FROM seat_holds;
+-- fondo al file), quindi resta intatto tra un riavvio e l'altro. Gli hold seguono
+-- lo stesso scoping delle camere/tariffe che referenziano, cosi' un hold aperto o
+-- confermato su un item creato da un organizzatore non viene mai cancellato.
+DELETE FROM room_holds WHERE room_type_id IN (SELECT id FROM room_types WHERE hotel_id <= 62);
+DELETE FROM seat_holds WHERE fare_class_id IN (SELECT id FROM fare_classes WHERE flight_id <= 62 OR flight_id >= 100000);
 DELETE FROM room_type_images WHERE room_type_id IN (SELECT id FROM room_types WHERE hotel_id <= 62);
 DELETE FROM room_type_benefits WHERE room_type_id IN (SELECT id FROM room_types WHERE hotel_id <= 62);
 DELETE FROM room_types WHERE hotel_id <= 62;

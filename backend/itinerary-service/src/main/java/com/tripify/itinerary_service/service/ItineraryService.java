@@ -19,6 +19,8 @@ import com.tripify.itinerary_service.repository.CatalogItemLikeRepository;
 import com.tripify.itinerary_service.repository.FavoriteListLikeRepository;
 import com.tripify.itinerary_service.repository.FavoriteListRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +56,7 @@ public class ItineraryService {
         return repository.save(list);
     }
 
+    @Transactional
     public void addItemToList(Long listId, AddListItemRequestDTO request, String requesterId) {
         FavoriteList list = getEditableList(listId, requesterId);
         FavoriteListItem newItem = FavoriteListItem.builder()
@@ -98,6 +101,7 @@ public class ItineraryService {
      * il volo di andata): in quel caso vengono troncati anche quelli, e i loro titoli
      * tornano nel risultato così il chiamante può avvisare l'utente.
      */
+    @Transactional
     public RemoveItemResultDTO removeItemFromList(Long listId, int index, String requesterId) {
         FavoriteList list = getEditableList(listId, requesterId);
         if (index < 0 || index >= list.getItems().size()) {
@@ -106,30 +110,31 @@ public class ItineraryService {
         list.getItems().remove(index);
 
         List<FavoriteListItem> items = list.getItems();
-        int keep = longestCoherentPrefix(items);
-        List<String> alsoRemoved = new ArrayList<>();
-        if (keep < items.size()) {
-            for (int i = keep; i < items.size(); i++) {
-                try {
-                    alsoRemoved.add(catalogClient.getItem(items.get(i).getCatalogItemId()).title());
-                } catch (Exception ignored) {
-                    // non blocchiamo la rimozione per un titolo che non riusciamo a recuperare
-                }
-            }
-            while (items.size() > keep) {
-                items.remove(items.size() - 1);
-            }
+        // Risolti una sola volta, poi riusati sia per trovare il prefisso coerente
+        // (longestCoherentPrefix) sia per i titoli di alsoRemoved: senza questo, ogni
+        // lunghezza di prefisso provata rifarebbe le stesse chiamate a catalog-service.
+        List<ResolvedItem> resolved = resolveItems(items);
+        int keep = longestCoherentPrefix(resolved);
+        List<String> alsoRemoved = resolved.subList(keep, resolved.size()).stream()
+                .map(r -> r.catalog().title())
+                .toList();
+        while (items.size() > keep) {
+            items.remove(items.size() - 1);
         }
 
         repository.save(list);
         return new RemoveItemResultDTO(alsoRemoved);
     }
 
-    /** La porzione iniziale più lunga di items che forma ancora un itinerario coerente. */
-    private int longestCoherentPrefix(List<FavoriteListItem> items) {
-        for (int k = items.size(); k > 0; k--) {
+    /**
+     * Come longestCoherentPrefix, ma su una lista già risolta (vedi resolveItems):
+     * evita di richiamare catalog-service una volta per ogni lunghezza di prefisso
+     * provata, che per una lista di M componenti farebbe fino a M+(M-1)+...+1 chiamate.
+     */
+    private int longestCoherentPrefix(List<ResolvedItem> resolved) {
+        for (int k = resolved.size(); k > 0; k--) {
             try {
-                validateItineraryCoherence(items.subList(0, k));
+                validateResolvedCoherence(resolved.subList(0, k));
                 return k;
             } catch (IllegalArgumentException e) {
                 // prefisso ancora troppo lungo, proviamo quello più corto
@@ -171,8 +176,11 @@ public class ItineraryService {
      * trovato: nessun salvataggio parziale, nessun semplice avviso.
      */
     private void validateItineraryCoherence(List<FavoriteListItem> items) {
-        List<ResolvedItem> resolved = resolveItems(items);
+        validateResolvedCoherence(resolveItems(items));
+    }
 
+    /** Stessa validazione di validateItineraryCoherence, su componenti già risolti (vedi resolveItems). */
+    private void validateResolvedCoherence(List<ResolvedItem> resolved) {
         List<CatalogItemSummaryDTO> flights = resolved.stream()
                 .map(ResolvedItem::catalog)
                 .filter(c -> "Flight".equals(c.itemType()))
@@ -335,9 +343,16 @@ public class ItineraryService {
         for (FavoriteList list : repository.findByOwnerId(userId)) merged.put(list.getId(), list);
         for (FavoriteList list : repository.findBySharedUserIdsContaining(userId)) merged.putIfAbsent(list.getId(), list);
 
+        // Una lista non propria/condivisa entra qui solo perché ci è stato messo like: se
+        // nel frattempo il proprietario l'ha resa di nuovo privata, non deve più comparire
+        // (il like resta registrato, ma smette di dare visibilità sui "Salvati").
         List<Long> likedListIds = likeRepository.findByUserId(userId).stream().map(FavoriteListLike::getListId).toList();
         if (!likedListIds.isEmpty()) {
-            for (FavoriteList list : repository.findAllById(likedListIds)) merged.putIfAbsent(list.getId(), list);
+            for (FavoriteList list : repository.findAllById(likedListIds)) {
+                if (list.getVisibility() == Visibility.PUBLIC) {
+                    merged.putIfAbsent(list.getId(), list);
+                }
+            }
         }
 
         List<FavoriteList> result = new ArrayList<>(merged.values());
@@ -404,6 +419,7 @@ public class ItineraryService {
      * enableLinkSharing/disableLinkSharing): diventare pubblici ne genera uno se manca,
      * ma tornare privati non lo disattiva.
      */
+    @Transactional
     public FavoriteList setVisibility(Long listId, Visibility newVisibility, String city, String requesterId) {
         FavoriteList list = getOwnedList(listId, requesterId);
 
@@ -520,16 +536,23 @@ public class ItineraryService {
         }
     }
 
+    /**
+     * Limite del feed pubblico: un endpoint anonimo non deve poter scaricare l'intera
+     * tabella in una chiamata (vedi il Pageable passato alle query sotto).
+     */
+    private static final int PUBLIC_FEED_MAX_SIZE = 50;
+
     public List<FavoriteList> getPublicFeed(String city, String sort) {
         boolean byLikes = !"recent".equalsIgnoreCase(sort);
+        Pageable page = PageRequest.of(0, PUBLIC_FEED_MAX_SIZE);
         if (city != null && !city.isBlank()) {
             return byLikes
-                    ? repository.findByVisibilityAndCityIgnoreCaseOrderByLikesCountDesc(Visibility.PUBLIC, city.trim())
-                    : repository.findByVisibilityAndCityIgnoreCaseOrderByCreatedAtDesc(Visibility.PUBLIC, city.trim());
+                    ? repository.findByVisibilityAndCityIgnoreCaseOrderByLikesCountDesc(Visibility.PUBLIC, city.trim(), page)
+                    : repository.findByVisibilityAndCityIgnoreCaseOrderByCreatedAtDesc(Visibility.PUBLIC, city.trim(), page);
         }
         return byLikes
-                ? repository.findByVisibilityOrderByLikesCountDesc(Visibility.PUBLIC)
-                : repository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC);
+                ? repository.findByVisibilityOrderByLikesCountDesc(Visibility.PUBLIC, page)
+                : repository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC, page);
     }
 
     @Transactional

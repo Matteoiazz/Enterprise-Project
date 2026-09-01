@@ -40,6 +40,9 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         if (checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
             throw new IllegalArgumentException("checkIn deve essere una data precedente a checkOut");
         }
+        if (checkIn.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("checkIn non può essere nel passato");
+        }
         if (rooms < 1) {
             throw new IllegalArgumentException("il numero di camere richieste deve essere almeno 1");
         }

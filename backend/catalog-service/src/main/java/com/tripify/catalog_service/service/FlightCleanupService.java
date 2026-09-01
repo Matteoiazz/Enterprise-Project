@@ -1,6 +1,7 @@
 package com.tripify.catalog_service.service;
 
 import com.tripify.catalog_service.entity.Flight;
+import com.tripify.catalog_service.entity.HoldStatus;
 import com.tripify.catalog_service.repository.FlightRepository;
 import com.tripify.catalog_service.repository.SeatHoldRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Rimuove dal catalogo i voli il cui orario di partenza è già passato: un volo
@@ -33,11 +35,20 @@ public class FlightCleanupService {
     public void removeExpiredFlights() {
         LocalDateTime now = LocalDateTime.now();
 
-        // Gli hold (anche scaduti/confermati) sui voli in questione vanno rimossi
-        // prima delle fare_classes, altrimenti la FK seat_holds -> fare_classes blocca la delete.
-        seatHoldRepository.deleteByFareClass_Flight_DepartureTimeBefore(now);
+        // Solo gli hold non confermati (HELD/RELEASED/EXPIRED) vengono ripuliti: sono
+        // prenotazioni mai andate a buon fine, prerequisito per poter cancellare le
+        // fare_classes senza violare la FK di seat_holds. Gli hold CONFIRMED restano.
+        seatHoldRepository.deleteByFareClass_Flight_DepartureTimeBeforeAndStatusNot(now, HoldStatus.CONFIRMED);
 
-        List<Flight> expired = flightRepository.findByDepartureTimeBefore(now);
+        // Un volo con almeno un hold CONFIRMED è stato davvero prenotato: cancellarlo
+        // cancellerebbe anche quello storico (cascade su fare_classes). Resta a
+        // catalogo anche se ormai partito, semplicemente non più cercabile come volo
+        // futuro.
+        Set<Long> flightIdsWithConfirmedHold = Set.copyOf(seatHoldRepository.findFlightIdsWithConfirmedHoldBefore(now));
+
+        List<Flight> expired = flightRepository.findByDepartureTimeBefore(now).stream()
+                .filter(flight -> !flightIdsWithConfirmedHold.contains(flight.getId()))
+                .toList();
         if (!expired.isEmpty()) {
             flightRepository.deleteAll(expired);
             log.info("Rimossi {} voli scaduti dal catalogo", expired.size());

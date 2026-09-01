@@ -2,12 +2,19 @@ package com.tripify.catalog_service.controller;
 
 import com.tripify.catalog_service.entity.Activity;
 import com.tripify.catalog_service.entity.CatalogItem;
+import com.tripify.catalog_service.entity.FareClass;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
+import com.tripify.catalog_service.entity.RoomType;
 import com.tripify.catalog_service.exception.AccessDeniedException;
 import com.tripify.catalog_service.mapper.CatalogMapper;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.dto.CatalogItemDTO;
+import com.tripify.catalog_service.dto.request.CreateActivityRequestDTO;
+import com.tripify.catalog_service.dto.request.CreateFlightRequestDTO;
+import com.tripify.catalog_service.dto.request.CreateHotelRequestDTO;
+import com.tripify.catalog_service.dto.request.FareClassRequestDTO;
+import com.tripify.catalog_service.dto.request.RoomTypeRequestDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -63,28 +70,89 @@ public class CatalogController {
         return ResponseEntity.ok(results);
     }
 
+    /**
+     * Il body è un DTO dedicato, non l'entità: id/hostId/isActive/isUserGenerated/rating
+     * non sono campi accettabili dal client, li decide sempre il server qui sotto. Senza
+     * questo, un id nel body farebbe merge() su un annuncio altrui invece di crearne uno
+     * nuovo (save() su un'entità con id esistente è un UPDATE, non un INSERT).
+     */
     @PostMapping("/items/flights")
-    public ResponseEntity<CatalogItemDTO> createFlight(@Valid @RequestBody Flight flight, @AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<CatalogItemDTO> createFlight(@Valid @RequestBody CreateFlightRequestDTO request, @AuthenticationPrincipal Jwt jwt) {
+        Flight flight = new Flight();
         flight.setHostId(hostIdOf(jwt));
         flight.setUserGenerated(true);
-        flight.getFareClasses().forEach(fareClass -> fareClass.setFlight(flight));
+        flight.setTitle(request.getTitle());
+        flight.setDescription(request.getDescription());
+        flight.setPrice(request.getPrice());
+        flight.setCurrency(request.getCurrency());
+        flight.setCategory(request.getCategory());
+        flight.setDepartureAirport(request.getDepartureAirport());
+        flight.setArrivalAirport(request.getArrivalAirport());
+        flight.setDepartureCity(request.getDepartureCity());
+        flight.setArrivalCity(request.getArrivalCity());
+        flight.setDepartureTime(request.getDepartureTime());
+        flight.setArrivalTime(request.getArrivalTime());
+        flight.setTotalSeats(request.getTotalSeats());
+        flight.setStops(request.getStops());
+        for (FareClassRequestDTO fc : request.getFareClasses()) {
+            FareClass fareClass = new FareClass();
+            fareClass.setName(fc.getName());
+            fareClass.setPrice(fc.getPrice());
+            fareClass.setTotalSeats(fc.getTotalSeats());
+            fareClass.setFlight(flight);
+            flight.getFareClasses().add(fareClass);
+        }
         Flight savedFlight = (Flight) catalogService.saveItem(flight);
         return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedFlight));
     }
 
     @PostMapping("/items/hotels")
-    public ResponseEntity<CatalogItemDTO> createHotel(@Valid @RequestBody Hotel hotel, @AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<CatalogItemDTO> createHotel(@Valid @RequestBody CreateHotelRequestDTO request, @AuthenticationPrincipal Jwt jwt) {
+        Hotel hotel = new Hotel();
         hotel.setHostId(hostIdOf(jwt));
         hotel.setUserGenerated(true);
-        hotel.getRoomTypes().forEach(roomType -> roomType.setHotel(hotel));
+        hotel.setTitle(request.getTitle());
+        hotel.setDescription(request.getDescription());
+        hotel.setPrice(request.getPrice());
+        hotel.setCurrency(request.getCurrency());
+        hotel.setCategory(request.getCategory());
+        hotel.setLocationLat(request.getLocationLat());
+        hotel.setLocationLng(request.getLocationLng());
+        hotel.setAddress(request.getAddress());
+        hotel.setCity(request.getCity());
+        hotel.setAmenities(request.getAmenities());
+        for (RoomTypeRequestDTO rt : request.getRoomTypes()) {
+            RoomType roomType = new RoomType();
+            roomType.setName(rt.getName());
+            roomType.setDescription(rt.getDescription());
+            roomType.setPrice(rt.getPrice());
+            roomType.setTotalRooms(rt.getTotalRooms());
+            roomType.setMaxOccupancy(rt.getMaxOccupancy());
+            roomType.setBenefits(rt.getBenefits());
+            roomType.setImageUrls(rt.getImageUrls());
+            roomType.setHotel(hotel);
+            hotel.getRoomTypes().add(roomType);
+        }
         Hotel savedHotel = (Hotel) catalogService.saveItem(hotel);
         return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedHotel));
     }
 
     @PostMapping("/items/activities")
-    public ResponseEntity<CatalogItemDTO> createActivity(@Valid @RequestBody Activity activity, @AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<CatalogItemDTO> createActivity(@Valid @RequestBody CreateActivityRequestDTO request, @AuthenticationPrincipal Jwt jwt) {
+        Activity activity = new Activity();
         activity.setHostId(hostIdOf(jwt));
         activity.setUserGenerated(true);
+        activity.setTitle(request.getTitle());
+        activity.setDescription(request.getDescription());
+        activity.setPrice(request.getPrice());
+        activity.setCurrency(request.getCurrency());
+        activity.setCategory(request.getCategory());
+        activity.setActivityType(request.getActivityType());
+        activity.setDuration(request.getDuration());
+        activity.setMeetingPoint(request.getMeetingPoint());
+        activity.setCity(request.getCity());
+        activity.setMaxParticipants(request.getMaxParticipants());
+        activity.setGuideIncluded(request.isGuideIncluded());
         Activity savedActivity = (Activity) catalogService.saveItem(activity);
         return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedActivity));
     }

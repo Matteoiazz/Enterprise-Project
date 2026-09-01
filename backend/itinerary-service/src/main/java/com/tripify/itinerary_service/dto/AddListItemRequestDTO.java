@@ -1,6 +1,7 @@
 package com.tripify.itinerary_service.dto;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDate;
 
@@ -9,7 +10,7 @@ import java.time.LocalDate;
 // (servono a booking-service per aprire l'hold in fase di "prenota tutto").
 public record AddListItemRequestDTO(
         @NotNull(message = "catalogItemId è obbligatorio") Long catalogItemId,
-        Integer quantity,
+        @Positive(message = "la quantità deve essere maggiore di zero") Integer quantity,
         Long roomTypeId,
         Long fareClassId,
         LocalDate checkIn,

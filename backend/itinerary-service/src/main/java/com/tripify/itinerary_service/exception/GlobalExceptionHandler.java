@@ -1,5 +1,6 @@
 package com.tripify.itinerary_service.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -8,6 +9,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /** Race su un vincolo unico (es. due "like" concorrenti sullo stesso utente/lista): 409, non 500. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(HttpStatus.CONFLICT.value(), "Conflict", "Operazione già in corso, riprova"));
+    }
 
     @ExceptionHandler(ListNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ListNotFoundException ex) {
