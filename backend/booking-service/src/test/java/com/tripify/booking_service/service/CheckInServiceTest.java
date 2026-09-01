@@ -1,6 +1,7 @@
 package com.tripify.booking_service.service;
 
 import com.tripify.booking_service.client.CatalogClient;
+import com.tripify.booking_service.client.UserAuthClient;
 import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
@@ -57,6 +58,8 @@ class CheckInServiceTest {
     @MockitoBean
     private CatalogClient catalogClient;
     @MockitoBean
+    private UserAuthClient userAuthClient;
+    @MockitoBean
     private PaymentService paymentService;
     @MockitoBean
     private BookingEventPublisher eventPublisher;
@@ -70,7 +73,7 @@ class CheckInServiceTest {
     @BeforeEach
     void setUp() {
         when(catalogClient.getItem(anyLong())).thenReturn(
-                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), null, null));
+                new CatalogItemSummaryDTO(1L, "Activity", BigDecimal.valueOf(50.0), "EUR", null, null));
     }
 
     private void flushAndClear() {

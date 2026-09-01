@@ -11,6 +11,7 @@ public record CatalogItemSummaryDTO(
         Long id,
         String itemType,
         BigDecimal price,
+        String currency,
         List<RoomTypeSummaryDTO> roomTypes,
         List<FareClassSummaryDTO> fareClasses
 ) {

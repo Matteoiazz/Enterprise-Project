@@ -153,8 +153,6 @@ private fun DetailContent(
         }
     }
 
-    // Serve per capire, nella lista recensioni, quale (se c'è) è la propria - per mostrarci
-    // sopra i controlli di modifica/cancellazione invece che nella lista di sola lettura.
     var currentUserId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         val token = com.tripify.tripify_android.data.TokenManager(context).tokenFlow.first()
@@ -747,6 +745,30 @@ private fun DetailContent(
                 SectionLabel("Recensioni degli utenti")
                 Spacer(modifier = Modifier.height(16.dp))
 
+                if (reviews.isNotEmpty()) {
+                    val avg = reviews.map { it.rating }.average()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 20.dp)
+                    ) {
+                        Text(
+                            text = String.format(Locale.ITALY, "%.1f", avg),
+                            style = CatalogType.PriceLarge,
+                            color = CatalogColors.Ink
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            RatingRow(rating = avg)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (reviews.size == 1) "1 recensione" else "${reviews.size} recensioni",
+                                style = CatalogType.Caption,
+                                color = CatalogColors.InkMuted
+                            )
+                        }
+                    }
+                }
+
                 val myReview = reviews.find { it.travelerId == currentUserId }
 
                 if (hasBooked && myReview == null) {
@@ -976,8 +998,6 @@ private fun DetailContent(
                     }
                 }
 
-                // La propria recensione (se c'è) è già mostrata sopra con i controlli di
-                // modifica/cancellazione: qui sotto va esclusa per non farla comparire due volte.
                 val otherReviews = reviews.filter { it.travelerId != currentUserId }
 
                 if (otherReviews.isEmpty()) {
@@ -1072,7 +1092,6 @@ fun HotelHighlight(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
     }
 }
 
-/** Numero di rimanenze in sovraimpressione su foto/icona di una tipologia: rosso quando è agli ultimi posti. */
 @Composable
 private fun RemainingBadge(count: Int, modifier: Modifier = Modifier) {
     val isCritical = count in 1..3
@@ -1092,10 +1111,6 @@ private fun RemainingBadge(count: Int, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Una card di tipologia camera selezionabile, in stile Booking: foto, nome, benefit,
- * prezzo a notte e disponibilità vera per le date scelte (non un numero statico).
- */
 @Composable
 private fun RoomTypeOption(roomType: RoomTypeUi, isSelected: Boolean, available: Int?, currency: String, onClick: () -> Unit) {
     val soldOut = available != null && available <= 0

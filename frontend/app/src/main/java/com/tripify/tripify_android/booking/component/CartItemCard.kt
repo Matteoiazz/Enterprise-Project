@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.tripify.tripify_android.booking.util.currencySymbol
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.viewmodel.CatalogViewModel
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
@@ -100,8 +101,11 @@ fun CartItemCard(
             }
 
             Column(horizontalAlignment = Alignment.End) {
+                // Prezzo dell'articolo nella SUA valuta originale, non convertita:
+                // la conversione riguarda solo il totale aggregato (vedi
+                // CartScreen/CheckoutScreen), qui si mostra esattamente cosa costa.
                 Text(
-                    text = "€${"%.2f".format(item.priceAtAdded * item.quantity)}",
+                    text = "${currencySymbol(item.currency ?: "EUR")}${"%.2f".format(item.priceAtAdded * item.quantity)}",
                     style = CatalogType.Price,
                     color = CatalogColors.AccentDark
                 )

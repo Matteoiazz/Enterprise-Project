@@ -1,18 +1,34 @@
 package com.tripify.tripify_android.organizer.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
@@ -36,7 +52,6 @@ private val FormFieldColors: TextFieldColors
 private data class FareClassField(val name: String, val price: String, val seats: String)
 private data class RoomTypeField(val name: String, val price: String, val totalRooms: String, val maxOccupancy: String)
 
-/** "2026-09-05T10:00:00" -> ("2026-09-05", "10:00"); mancante -> ("", ""). */
 private fun splitIso(iso: String?): Pair<String, String> {
     if (iso == null || iso.length < 16) return "" to ""
     return iso.substring(0, 10) to iso.substring(11, 16)
@@ -103,21 +118,74 @@ private fun DateOnlyField(label: String, value: String, onValueChange: (String) 
 
 @Composable
 private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled: Boolean, onSubmit: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        containerColor = CatalogColors.Surface,
-        shape = CatalogShapes.Card,
-        title = { Text(title, style = CatalogType.Section, color = CatalogColors.Ink) },
-        text = {
-            Column(modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                content()
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = CatalogShapes.Sheet,
+            color = CatalogColors.Background,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.94f)
+                .padding(top = 24.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CatalogColors.Surface)
+                        .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Close, contentDescription = "Chiudi", tint = CatalogColors.Ink)
+                    }
+                    Text(title, style = CatalogType.Section, color = CatalogColors.Ink, modifier = Modifier.weight(1f))
+                }
+                HorizontalDivider(color = CatalogColors.Hairline)
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    content()
+                }
+
+                HorizontalDivider(color = CatalogColors.Hairline)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CatalogColors.Surface)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = CatalogShapes.Field,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CatalogColors.InkMuted),
+                        border = BorderStroke(1.dp, CatalogColors.Hairline)
+                    ) { Text("Annulla", style = CatalogType.Button) }
+                    Button(
+                        onClick = onSubmit,
+                        enabled = submitEnabled,
+                        modifier = Modifier.weight(1f),
+                        shape = CatalogShapes.Field,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CatalogColors.AccentDark,
+                            contentColor = CatalogColors.Surface,
+                            disabledContainerColor = CatalogColors.Hairline,
+                            disabledContentColor = CatalogColors.InkSubtle
+                        )
+                    ) { Text("Salva", style = CatalogType.Button) }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onSubmit, enabled = submitEnabled) { Text("Salva", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) } }
-    )
+        }
+    }
 }
 
 @Composable
@@ -264,7 +332,39 @@ fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit:
 }
 
 @Composable
-fun HotelFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: (CreateHotelRequest) -> Unit) {
+private fun PhotoThumb(model: Any, onRemove: () -> Unit) {
+    Box(modifier = Modifier.size(72.dp)) {
+        AsyncImage(
+            model = model,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CatalogShapes.Field)
+                .background(CatalogColors.SurfaceMuted)
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(CatalogColors.Scrim.copy(alpha = 0.6f))
+                .clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.Close, contentDescription = "Rimuovi", tint = CatalogColors.Surface, modifier = Modifier.size(13.dp))
+        }
+    }
+}
+
+@Composable
+fun HotelFormDialog(
+    existing: CatalogItemDto?,
+    onDismiss: () -> Unit,
+    onSubmit: (CreateHotelRequest, List<Uri>) -> Unit,
+    onDeleteImage: (String) -> Unit = {}
+) {
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var price by remember { mutableStateOf(existing?.price?.toString() ?: "") }
@@ -273,6 +373,12 @@ fun HotelFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: 
     var lat by remember { mutableStateOf(existing?.locationLat?.toString() ?: "") }
     var lng by remember { mutableStateOf(existing?.locationLng?.toString() ?: "") }
     var amenitiesText by remember { mutableStateOf(existing?.amenities?.joinToString(", ") ?: "") }
+
+    val existingPhotos = remember { mutableStateListOf<String>().apply { existing?.imageUrls?.let { addAll(it) } } }
+    val newPhotos = remember { mutableStateListOf<Uri>() }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        newPhotos.addAll(uris)
+    }
     val roomTypes = remember {
         mutableStateListOf<RoomTypeField>().apply {
             existing?.roomTypes?.forEach { add(RoomTypeField(it.name, it.price.toString(), it.totalRooms.toString(), it.maxOccupancy?.toString() ?: "")) }
@@ -298,7 +404,8 @@ fun HotelFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: 
                     roomTypes = roomTypes.map {
                         CreateRoomTypeRequest(it.name, null, it.price.toDouble(), it.totalRooms.toIntOrNull() ?: 1, it.maxOccupancy.toIntOrNull())
                     }
-                )
+                ),
+                newPhotos.toList()
             )
         }
     ) {
@@ -306,6 +413,37 @@ fun HotelFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: 
             LabeledField("Titolo", title, { title = it })
             LabeledField("Descrizione", description, { description = it })
             LabeledField("Prezzo base (€)", price, { price = it }, keyboardType = KeyboardType.Decimal)
+        }
+
+        FormSection("Foto") {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                existingPhotos.forEach { url ->
+                    PhotoThumb(model = url, onRemove = {
+                        existingPhotos.remove(url)
+                        existing?.let { onDeleteImage(url) }
+                    })
+                }
+                newPhotos.forEach { uri ->
+                    PhotoThumb(model = uri, onRemove = { newPhotos.remove(uri) })
+                }
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CatalogShapes.Field)
+                        .background(CatalogColors.AccentSoft)
+                        .border(BorderStroke(1.dp, CatalogColors.AccentLight), CatalogShapes.Field)
+                        .clickable { photoPicker.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.AddAPhoto, contentDescription = "Aggiungi foto", tint = CatalogColors.AccentDark)
+                }
+            }
+            if (existingPhotos.isEmpty() && newPhotos.isEmpty()) {
+                Text("Aggiungi le foto dell'hotel", style = CatalogType.Caption, color = CatalogColors.InkMuted)
+            }
         }
 
         FormSection("Posizione") {

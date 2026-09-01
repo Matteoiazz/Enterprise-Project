@@ -41,6 +41,19 @@ public class GlobalExceptionHandler {
         return buildError(ex.getMessage(), HttpStatus.CONFLICT, "Stato non valido");
     }
 
+    // 409: lock ottimistico (@Version su Booking) - un'altra richiesta ha
+    // modificato la stessa prenotazione nel frattempo (es. due cancelBooking()
+    // concorrenti sulla stessa Booking). Senza questo handler finirebbe nel
+    // fallback generico sotto come 500, nascondendo che si tratta solo di un
+    // conflitto di concorrenza su cui vale la pena riprovare, non di un bug.
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleOptimisticLock(org.springframework.dao.OptimisticLockingFailureException ex) {
+        log.warn("Conflitto di concorrenza su una Booking: {}", ex.getMessage());
+        return buildError(
+                "Questa prenotazione è stata modificata da un'altra richiesta nel frattempo. Riprova.",
+                HttpStatus.CONFLICT, "Conflitto di concorrenza");
+    }
+
     // 400: uno o più campi del body non rispettano le regole di validazione (@Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {

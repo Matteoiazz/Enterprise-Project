@@ -21,6 +21,8 @@ public class CatalogItemDTO {
     private String itemType;
     private String category;
     private Integer rating;
+    private Double ratingAvg;
+    private Integer reviewCount;
     private List<String> imageUrls;
     // --- CHAT ---
     private String hostId;
