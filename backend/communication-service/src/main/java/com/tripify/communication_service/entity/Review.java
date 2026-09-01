@@ -3,11 +3,13 @@ package com.tripify.communication_service.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "reviews")
+@Table(name = "reviews", uniqueConstraints = @UniqueConstraint(
+        name = "uk_reviews_traveler_item", columnNames = {"traveler_id", "catalog_item_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,7 +28,7 @@ public class Review {
     private String comment;
 
     @Column(name = "traveler_id", nullable = false)
-    private String travelerId; // <-- Cambiato in String
+    private String travelerId;
 
     @Column(name = "catalog_item_id", nullable = false)
     private Long catalogItemId;

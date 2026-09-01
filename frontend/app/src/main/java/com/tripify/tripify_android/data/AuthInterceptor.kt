@@ -18,24 +18,26 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
         val response = chain.proceed(requestBuilder.build())
 
         if (response.code == 401) {
-            val newAccessToken = runBlocking { tokenManager.refreshAccessToken() }
-
-            if (newAccessToken != null) {
-                response.close()
-                val newRequest = chain.request().newBuilder()
-                    .header("Authorization", "Bearer $newAccessToken")
-                    .build()
-                return chain.proceed(newRequest)
-            }
-
-            if (!token.isNullOrEmpty()) {
-                runBlocking { tokenManager.clearTokens() }
-
-                response.close()
-                val anonymousRequest = chain.request().newBuilder()
-                    .removeHeader("Authorization")
-                    .build()
-                return chain.proceed(anonymousRequest)
+            when (val result = runBlocking { tokenManager.refreshAccessToken(token) }) {
+                is TokenManager.RefreshResult.Success -> {
+                    response.close()
+                    return chain.proceed(
+                        chain.request().newBuilder()
+                            .header("Authorization", "Bearer ${result.accessToken}")
+                            .build()
+                    )
+                }
+                TokenManager.RefreshResult.InvalidGrant -> {
+                    if (!token.isNullOrEmpty()) {
+                        runBlocking { tokenManager.clearTokens() }
+                        response.close()
+                        return chain.proceed(
+                            chain.request().newBuilder().removeHeader("Authorization").build()
+                        )
+                    }
+                }
+                TokenManager.RefreshResult.TransientError -> {
+                }
             }
         }
 

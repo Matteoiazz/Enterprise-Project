@@ -96,7 +96,8 @@ public class ProfileController {
 
         return ResponseEntity.ok(new com.tripify.user_auth_service.dto.response.UserResponse(
                 keycloakId,
-                displayNome, displayCognome, email, user.getProfilePictureUrl(),
+                displayNome, displayCognome, email,
+                com.tripify.user_auth_service.service.ProfileService.normalizeImageUrl(user.getProfilePictureUrl()),
                 user.getPhone(), user.getAddress(),
                 user.getCompanyName(), user.getVatNumber(), user.getPec()
         ));

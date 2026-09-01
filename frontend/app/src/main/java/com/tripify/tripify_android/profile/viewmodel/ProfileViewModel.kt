@@ -64,8 +64,6 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     address = user.address ?: ""
                     companyName = user.companyName ?: ""
                     pec = user.pec ?: ""
-
-                    tokenManager.refreshAccessToken()
                 } else {
                     errorMessage = "Impossibile recuperare i dati. Errore: ${response.code()}"
                 }

@@ -32,9 +32,14 @@ class TokenManager(private val context: Context) {
         val CURRENCY_KEY = androidx.datastore.preferences.core.stringPreferencesKey("selected_currency")
         val NOTIFICATIONS_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("notifications_enabled")
         val CHAT_ALERTS_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("chat_alerts_enabled")
+        private val refreshMutex = Mutex()
     }
 
-    private val refreshMutex = Mutex()
+    sealed class RefreshResult {
+        data class Success(val accessToken: String) : RefreshResult()
+        object InvalidGrant : RefreshResult()
+        object TransientError : RefreshResult()
+    }
 
     val useMetricSystemFlow: Flow<Boolean> = context.dataStore.data.map { it[METRIC_SYSTEM_KEY] ?: true }
     val currencyFlow: Flow<String> = context.dataStore.data.map { it[CURRENCY_KEY] ?: "EUR" }
@@ -78,9 +83,14 @@ class TokenManager(private val context: Context) {
         }
     }
 
+    suspend fun refreshAccessToken(previousAccessToken: String? = null): RefreshResult = refreshMutex.withLock {
+        val currentAccessToken = tokenFlow.first()
+        if (!currentAccessToken.isNullOrEmpty() && previousAccessToken != null && currentAccessToken != previousAccessToken) {
+            return@withLock RefreshResult.Success(currentAccessToken)
+        }
 
-    suspend fun refreshAccessToken(): String? = refreshMutex.withLock {
-        val refreshToken = getRefreshToken()?.takeIf { it.isNotEmpty() } ?: return@withLock null
+        val refreshToken = getRefreshToken()?.takeIf { it.isNotEmpty() }
+            ?: return@withLock RefreshResult.InvalidGrant
 
         withContext(Dispatchers.IO) {
             try {
@@ -97,27 +107,23 @@ class TokenManager(private val context: Context) {
                     .build()
 
                 val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string()
-                    if (responseBody == null) {
-                        null
-                    } else {
-                        val json = JSONObject(responseBody)
-                        val newAccessToken = json.getString("access_token")
-                        val newRefreshToken = if (json.has("refresh_token")) {
-                            json.getString("refresh_token")
-                        } else {
-                            refreshToken
-                        }
+                val body = response.body?.string()
 
-                        saveToken(newAccessToken)
-                        saveRefreshToken(newRefreshToken)
-                        newAccessToken
-                    }
-                } else null
+                if (response.isSuccessful && body != null) {
+                    val json = JSONObject(body)
+                    val newAccessToken = json.getString("access_token")
+                    val newRefreshToken = if (json.has("refresh_token")) json.getString("refresh_token") else refreshToken
+                    saveToken(newAccessToken)
+                    saveRefreshToken(newRefreshToken)
+                    RefreshResult.Success(newAccessToken)
+                } else if (response.code == 400 || response.code == 401 || body?.contains("invalid_grant") == true) {
+                    RefreshResult.InvalidGrant
+                } else {
+                    RefreshResult.TransientError
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
+                RefreshResult.TransientError
             }
         }
     }

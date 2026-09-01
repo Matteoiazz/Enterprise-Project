@@ -8,6 +8,7 @@ import com.tripify.communication_service.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -44,7 +45,14 @@ public class ReviewService {
                 .catalogItemId(catalogItemId)
                 .build();
 
-        Review saved = reviewRepository.save(review);
+        Review saved;
+        try {
+            saved = reviewRepository.save(review);
+        } catch (DataIntegrityViolationException duplicate) {
+            // Rete di sicurezza per il vincolo unico (traveler_id, catalog_item_id):
+            // due richieste concorrenti dello stesso utente superano entrambe l'existsBy.
+            throw new IllegalStateException("Hai già recensito questa esperienza");
+        }
         recomputeItemRating(catalogItemId);
         return ReviewResponse.from(saved);
     }

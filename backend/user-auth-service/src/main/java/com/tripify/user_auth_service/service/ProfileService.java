@@ -42,6 +42,8 @@ public class ProfileService {
     private final TravelDocumentRepository documentRepository;
     private final Cloudinary cloudinary;
 
+    private static final long KEYCLOAK_SYNC_TTL_MINUTES = 10;
+
 
     @Value("${keycloak.admin.server-url:http://localhost:8180}")
     private String keycloakAdminServerUrl;
@@ -81,15 +83,23 @@ public class ProfileService {
             return createAndSyncUserFromKeycloak(email);
         }
 
+        java.time.Instant now = java.time.Instant.now();
+        boolean syncDue = user.getLastSyncedAt() == null
+                || user.getLastSyncedAt().isBefore(now.minus(java.time.Duration.ofMinutes(KEYCLOAK_SYNC_TTL_MINUTES)));
+        if (!syncDue) {
+            return user;
+        }
+
         if (user.getName() == null || user.getSurname() == null || user.getPhone() == null) {
             user = backfillMissingProfileFieldsFromKeycloak(user, email);
         }
 
         if (user.getRole() == Role.ROLE_TRAVELER) {
-            return syncRoleFromKeycloak(user, email);
+            user = syncRoleFromKeycloak(user, email);
         }
 
-        return user;
+        user.setLastSyncedAt(now);
+        return userRepository.save(user);
     }
 
     private String getAttributeValue(UserRepresentation kcUser, String key) {
@@ -242,7 +252,9 @@ public class ProfileService {
         } catch (org.springframework.dao.DataIntegrityViolationException raceLost) {
             savedUser = userRepository.findByEmail(email).orElseThrow(() -> raceLost);
         }
-        return syncRoleFromKeycloak(savedUser, email);
+        User synced = syncRoleFromKeycloak(savedUser, email);
+        synced.setLastSyncedAt(java.time.Instant.now());
+        return userRepository.save(synced);
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -469,12 +481,17 @@ public class ProfileService {
 
     @org.springframework.transaction.annotation.Transactional
     public String uploadProfilePicture(String email, org.springframework.web.multipart.MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Il file deve essere un'immagine");
+        }
         User user = getUser(email);
         try {
             java.util.Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
                     com.cloudinary.utils.ObjectUtils.asMap("folder", "tripify_profiles"));
 
-            String imageUrl = uploadResult.get("url").toString();
+            Object secure = uploadResult.get("secure_url");
+            String imageUrl = normalizeImageUrl((secure != null ? secure : uploadResult.get("url")).toString());
 
             user.setProfilePictureUrl(imageUrl);
             userRepository.save(user);
@@ -485,11 +502,18 @@ public class ProfileService {
         }
     }
 
+    public static String normalizeImageUrl(String url) {
+        if (url != null && url.startsWith("http://") && url.contains("cloudinary.com")) {
+            return "https://" + url.substring("http://".length());
+        }
+        return url;
+    }
+
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
-                .map(u -> toPublicResponse(u, "Organizzatore"))
+                .map(u -> toPublicResponse(u, "Organizzatore", true))
                 .toList();
     }
 
@@ -501,14 +525,15 @@ public class ProfileService {
         if (u.getRole() != Role.ROLE_ORGANIZER) {
             throw new ResourceNotFoundException("L'utente richiesto non è un organizzatore");
         }
-        return toPublicResponse(u, "Organizzatore");
+        return toPublicResponse(u, "Organizzatore", true);
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
         User u = findExistingUser(identifier)
                 .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
-        return toPublicResponse(u, "Utente");
+
+        return toPublicResponse(u, "Utente", false);
     }
 
     private java.util.Optional<User> findExistingUser(String identifier) {
@@ -525,14 +550,14 @@ public class ProfileService {
                 });
     }
 
-    private com.tripify.user_auth_service.dto.response.UserResponse toPublicResponse(User u, String fallbackName) {
+    private com.tripify.user_auth_service.dto.response.UserResponse toPublicResponse(User u, String fallbackName, boolean includeEmail) {
         String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
         return new com.tripify.user_auth_service.dto.response.UserResponse(
                 kcId,
                 u.getName() != null ? u.getName() : fallbackName,
                 u.getSurname() != null ? u.getSurname() : "",
-                u.getEmail(),
-                u.getProfilePictureUrl(),
+                includeEmail ? u.getEmail() : null,
+                normalizeImageUrl(u.getProfilePictureUrl()),
                 null,
                 null,
                 u.getCompanyName(),
