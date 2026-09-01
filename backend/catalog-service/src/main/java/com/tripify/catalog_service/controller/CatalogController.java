@@ -6,8 +6,10 @@ import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
 import com.tripify.catalog_service.exception.AccessDeniedException;
 import com.tripify.catalog_service.mapper.CatalogMapper;
+import com.tripify.catalog_service.service.CatalogImageService;
 import com.tripify.catalog_service.service.CatalogService;
 import com.tripify.catalog_service.dto.CatalogItemDTO;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +34,7 @@ public class CatalogController {
 
     private final CatalogService catalogService;
     private final CatalogMapper catalogMapper;
+    private final CatalogImageService catalogImageService;
 
     @GetMapping("/items/{id}")
     public ResponseEntity<CatalogItemDTO> getItemById(@PathVariable Long id) {
@@ -89,12 +92,6 @@ public class CatalogController {
         return ResponseEntity.status(HttpStatus.CREATED).body(catalogMapper.toDto(savedActivity));
     }
 
-    /**
-     * Modifica i campi descrittivi/di base di un annuncio già esistente. Tariffe e
-     * camere (fareClasses/roomTypes) NON si toccano da qui apposta: sono referenziate
-     * da hold/prenotazioni già aperti (FK da seat_holds/room_holds), sostituirle in
-     * blocco le romperebbe. La gestione di tariffe/camere è una funzionalità a parte.
-     */
     @PutMapping("/items/flights/{id}")
     public ResponseEntity<CatalogItemDTO> updateFlight(@PathVariable Long id, @Valid @RequestBody Flight incoming, @AuthenticationPrincipal Jwt jwt) {
         Flight existing = requireOwnedItem(id, jwt, Flight.class);
@@ -201,6 +198,37 @@ public class CatalogController {
                 .map(catalogMapper::toDto)
                 .toList();
         return ResponseEntity.ok(items);
+    }
+
+    /** Aggiunge una o più foto a un annuncio del chiamante. */
+    @PostMapping("/items/{id}/images")
+    public ResponseEntity<CatalogItemDTO> uploadImages(
+            @PathVariable Long id,
+            @RequestParam("files") List<MultipartFile> files,
+            @AuthenticationPrincipal Jwt jwt) {
+        requireOwnedItem(id, jwt);
+        List<String> urls = catalogImageService.upload(files);
+        CatalogItem updated = catalogService.addImages(id, urls);
+        return ResponseEntity.ok(catalogMapper.toDto(updated));
+    }
+
+    /** Rimuove una foto (per URL) da un annuncio del chiamante. */
+    @DeleteMapping("/items/{id}/images")
+    public ResponseEntity<CatalogItemDTO> deleteImage(
+            @PathVariable Long id,
+            @RequestParam("url") String url,
+            @AuthenticationPrincipal Jwt jwt) {
+        requireOwnedItem(id, jwt);
+        CatalogItem updated = catalogService.removeImage(id, url);
+        return ResponseEntity.ok(catalogMapper.toDto(updated));
+    }
+
+    /** Rating ricalcolato dalle recensioni: chiamato da communication-service. */
+    @PutMapping("/items/{id}/rating")
+    public ResponseEntity<Void> updateRating(@PathVariable Long id,
+                                             @RequestBody com.tripify.catalog_service.dto.RatingUpdateDTO body) {
+        catalogService.updateRating(id, body.average(), body.count());
+        return ResponseEntity.ok().build();
     }
 
 }

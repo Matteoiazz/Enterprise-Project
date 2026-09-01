@@ -10,13 +10,16 @@ import com.tripify.tripify_android.data.model.OrganizerItemDto
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.RoomHoldRequest
 import com.tripify.tripify_android.data.model.SeatHoldRequest
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Headers
+import retrofit2.http.Multipart
 import retrofit2.http.PUT
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -91,6 +94,19 @@ interface CatalogApi {
 
     @DELETE("/api/v1/catalog/items/{id}")
     suspend fun deleteItem(@Path("id") id: Int): Response<Unit>
+
+    @Multipart
+    @POST("/api/v1/catalog/items/{id}/images")
+    suspend fun uploadItemImages(
+        @Path("id") id: Int,
+        @Part files: List<MultipartBody.Part>
+    ): Response<CatalogItemDto>
+
+    @DELETE("/api/v1/catalog/items/{id}/images")
+    suspend fun deleteItemImage(
+        @Path("id") id: Int,
+        @Query("url") url: String
+    ): Response<CatalogItemDto>
 
     @GET("/api/v1/catalog/items/host/{hostId}")
     @Headers("ngrok-skip-browser-warning: true")

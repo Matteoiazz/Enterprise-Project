@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -138,9 +139,27 @@ fun OrganizerShowcaseScreen(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = displayName, style = CatalogType.Hero, color = CatalogColors.Ink)
+                        Text(text = displayName, style = CatalogType.Hero, color = CatalogColors.Ink, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(text = org.email, style = CatalogType.Body, color = CatalogColors.InkMuted)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier
+                                .clip(CatalogShapes.Badge)
+                                .background(CatalogColors.AccentSoft)
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.Verified, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = if (organizerItems.isEmpty()) "PARTNER VERIFICATO"
+                                else "PARTNER VERIFICATO · ${organizerItems.size} ANNUNCI",
+                                style = CatalogType.Overline,
+                                color = CatalogColors.AccentDark
+                            )
+                        }
 
                         // SEZIONE INFORMAZIONI AZIENDALI
                         if (!org.companyName.isNullOrBlank() || !org.vatNumber.isNullOrBlank() || !org.pec.isNullOrBlank()) {
@@ -213,11 +232,24 @@ fun OrganizerShowcaseScreen(
 
                 if (organizerItems.isEmpty()) {
                     item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier.size(72.dp).background(CatalogColors.SurfaceMuted, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.Storefront, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(30.dp))
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Nessun annuncio", style = CatalogType.Section, color = CatalogColors.Ink)
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Nessun annuncio pubblicato.",
+                                "Questo organizzatore non ha ancora pubblicato esperienze.",
                                 style = CatalogType.Body,
-                                color = CatalogColors.InkMuted
+                                color = CatalogColors.InkMuted,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }

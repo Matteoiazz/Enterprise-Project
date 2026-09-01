@@ -32,6 +32,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/catalog/items/flights/**",
                                 "/api/v1/catalog/items/hotels/**", "/api/v1/catalog/items/activities/**")
                                 .hasAuthority("ROLE_ORGANIZER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/catalog/items/*/images").hasAuthority("ROLE_ORGANIZER")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/*/rating").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 

@@ -119,6 +119,20 @@
         }
         .tf-input-wrap input:focus{ border-color:var(--tf-green); background:var(--tf-white); }
         .tf-input-wrap input::placeholder{ color:#B7BBB2; }
+        .tf-input-wrap{ position:relative; }
+        .tf-input-wrap input.tf-has-eye{ padding-right:48px; }
+        .tf-eye{
+            position:absolute; top:0; right:6px; height:100%;
+            display:flex; align-items:center; justify-content:center;
+            width:34px; padding:0; border:none; background:transparent;
+            color:var(--tf-gray); cursor:pointer; border-radius:10px;
+            transition:color .15s ease, background .15s ease;
+        }
+        .tf-eye:hover{ color:var(--tf-dark-green); background:rgba(11,61,46,0.06); }
+        .tf-eye svg{ width:20px; height:20px; display:block; }
+        .tf-eye .tf-eye-off{ display:none; }
+        .tf-eye.is-showing .tf-eye-open{ display:none; }
+        .tf-eye.is-showing .tf-eye-off{ display:block; }
         .tf-input-error{ border-color:var(--tf-error) !important; }
         .tf-field-error-text{ color:var(--tf-error); font-size:12px; margin-top:5px; font-weight:600; display:none; }
 
@@ -198,7 +212,11 @@
             <div class="tf-field">
                 <label for="password-new">Nuova Password</label>
                 <div class="tf-input-wrap">
-                    <input type="password" id="password-new" name="password-new" class="<#if messagesPerField.existsError('password','password-confirm')>tf-input-error</#if>" placeholder="••••••••" autocomplete="new-password" required />
+                    <input type="password" id="password-new" name="password-new" class="tf-has-eye <#if messagesPerField.existsError('password','password-confirm')>tf-input-error</#if>" placeholder="••••••••" autocomplete="new-password" required />
+                    <button type="button" class="tf-eye" tabindex="-1" aria-pressed="false" aria-label="Mostra o nascondi la password" onclick="tfTogglePwd(this, 'password-new')">
+                        <svg class="tf-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="tf-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
                 </div>
                 <!-- CHECKLIST LIVE PASSWORD -->
                 <div id="password-checklist">
@@ -212,7 +230,11 @@
             <div class="tf-field">
                 <label for="password-confirm">Conferma Password</label>
                 <div class="tf-input-wrap">
-                    <input type="password" id="password-confirm" name="password-confirm" class="<#if messagesPerField.existsError('password-confirm')>tf-input-error</#if>" placeholder="••••••••" autocomplete="new-password" required />
+                    <input type="password" id="password-confirm" name="password-confirm" class="tf-has-eye <#if messagesPerField.existsError('password-confirm')>tf-input-error</#if>" placeholder="••••••••" autocomplete="new-password" required />
+                    <button type="button" class="tf-eye" tabindex="-1" aria-pressed="false" aria-label="Mostra o nascondi la password" onclick="tfTogglePwd(this, 'password-confirm')">
+                        <svg class="tf-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="tf-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
                 </div>
                 <!-- ERRORE LIVE PASSWORD UGUALI -->
                 <div id="pwd-match-error" class="tf-field-error-text">Le password non coincidono</div>
@@ -305,6 +327,15 @@
 
         validateForm();
     });
+
+    function tfTogglePwd(btn, inputId){
+        var input = document.getElementById(inputId);
+        if(!input) return;
+        var reveal = input.getAttribute('type') === 'password';
+        input.setAttribute('type', reveal ? 'text' : 'password');
+        btn.classList.toggle('is-showing', reveal);
+        btn.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+    }
 </script>
 </body>
 </html>

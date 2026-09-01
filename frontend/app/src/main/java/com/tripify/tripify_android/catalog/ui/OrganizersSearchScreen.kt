@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -80,6 +81,17 @@ fun OrganizersSearchScreen(
                     text = "Esplora le migliori agenzie",
                     style = CatalogType.Hero,
                     color = CatalogColors.Ink,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Text(
+                    text = when {
+                        isLoading -> "Caricamento organizzatori…"
+                        organizers.isEmpty() -> "Nessun organizzatore disponibile"
+                        searchQuery.isBlank() -> "${organizers.size} organizzatori su Tripify"
+                        else -> "${filteredOrganizers.size} risultati"
+                    },
+                    style = CatalogType.Caption,
+                    color = CatalogColors.InkMuted,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
@@ -126,12 +138,30 @@ fun OrganizersSearchScreen(
                 }
             } else if (filteredOrganizers.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Box(
+                            modifier = Modifier.size(72.dp).background(CatalogColors.AccentSoft, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (searchQuery.isEmpty()) Icons.Filled.Storefront else Icons.Default.Search,
+                                contentDescription = null,
+                                tint = CatalogColors.AccentDark,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (searchQuery.isEmpty()) "Nessun organizzatore disponibile." else "Nessun risultato per \"$searchQuery\"",
+                            text = if (searchQuery.isEmpty()) "Nessun organizzatore" else "Nessun risultato",
+                            style = CatalogType.Section,
+                            color = CatalogColors.Ink
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (searchQuery.isEmpty()) "Torna più tardi per scoprire le agenzie partner." else "Nessuna agenzia corrisponde a \"$searchQuery\".",
                             style = CatalogType.Body,
                             color = CatalogColors.InkMuted
                         )
@@ -184,15 +214,34 @@ fun OrganizersSearchScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = displayName,
-                                    style = CatalogType.DetailTitle,
-                                    color = CatalogColors.Ink
+                                    style = CatalogType.CardTitle,
+                                    color = CatalogColors.Ink,
+                                    maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = org.email,
                                     style = CatalogType.Caption,
-                                    color = CatalogColors.InkMuted
+                                    color = CatalogColors.InkMuted,
+                                    maxLines = 1
                                 )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .clip(CatalogShapes.Badge)
+                                        .background(CatalogColors.AccentSoft)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Verified,
+                                        contentDescription = null,
+                                        tint = CatalogColors.AccentDark,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("PARTNER", style = CatalogType.Overline, color = CatalogColors.AccentDark)
+                                }
                             }
 
                             Icon(

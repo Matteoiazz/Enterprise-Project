@@ -313,6 +313,27 @@ fun LoggedProfileContent(
                         style = CatalogType.BodyStrong,
                         color = CatalogColors.Surface.copy(alpha = 0.7f)
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(CatalogShapes.Badge)
+                            .background(CatalogColors.Surface.copy(alpha = 0.14f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isOrganizer) Icons.Outlined.Storefront else Icons.Outlined.Luggage,
+                            contentDescription = null,
+                            tint = CatalogColors.Surface,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (isOrganizer) "ORGANIZZATORE" else "VIAGGIATORE",
+                            style = CatalogType.Overline,
+                            color = CatalogColors.Surface
+                        )
+                    }
                 }
             }
         }
@@ -349,15 +370,53 @@ fun LoggedProfileContent(
                     ProfileMenuRow(
                         icon = Icons.Outlined.Settings,
                         text = "Impostazioni App",
-                        hasDivider = isOrganizer,
+                        hasDivider = false,
                         onClick = onNavigateToSettings
                     )
-                    if (isOrganizer) {
-                        ProfileMenuRow(
-                            icon = Icons.Outlined.Storefront,
-                            text = "Modalità organizzatore",
-                            hasDivider = false,
-                            onClick = onNavigateToOrganizer
+                }
+            }
+        }
+
+        if (isOrganizer) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = CatalogSpacing.Gutter)
+                        .offset(y = -cardOverlap + 12.dp)
+                        .clickable { onNavigateToOrganizer() },
+                    shape = CatalogShapes.Card,
+                    colors = CardDefaults.cardColors(containerColor = CatalogColors.AccentDark),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(CatalogColors.Surface.copy(alpha = 0.16f), CatalogShapes.Badge),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Storefront,
+                                contentDescription = null,
+                                tint = CatalogColors.Surface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Modalità organizzatore", style = CatalogType.LabelStrong, color = CatalogColors.Surface)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Gestisci annunci e prenotazioni ricevute", style = CatalogType.Caption, color = CatalogColors.Surface.copy(alpha = 0.7f))
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Vai",
+                            tint = CatalogColors.Surface.copy(alpha = 0.7f),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -370,7 +429,7 @@ fun LoggedProfileContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CatalogSpacing.Gutter)
-                    .offset(y = -cardOverlap + 16.dp)
+                    .offset(y = -cardOverlap + (if (isOrganizer) 28.dp else 16.dp))
                     .height(56.dp),
                 shape = CatalogShapes.Card,
                 colors = ButtonDefaults.buttonColors(
