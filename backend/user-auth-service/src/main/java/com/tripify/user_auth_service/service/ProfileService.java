@@ -403,18 +403,46 @@ public class ProfileService {
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public void deleteUserAccount(String email, String keycloakUserId) {
-        User user = getUser(email);
-
-        Keycloak keycloak = getKeycloakAdminClient();
-        keycloak.realm("tripify").users().delete(keycloakUserId);
+    public void deleteUserAccount(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
 
         companionRepository.deleteAll(companionRepository.findByUser(user));
         paymentMethodRepository.deleteAll(paymentMethodRepository.findByUser(user));
         documentRepository.deleteAll(documentRepository.findByUser_Id(user.getId()));
         userRepository.delete(user);
 
-        log.info("Account eliminato definitivamente sia in locale che su Keycloak per: {}", email);
+        log.info("Dati account rimossi in locale per: {}", email);
+    }
+
+    public void finalizeKeycloakDeletion(String keycloakUserId, String email) {
+        try {
+            getKeycloakAdminClient().realm("tripify").users().delete(keycloakUserId);
+            log.info("Identita' Keycloak eliminata per: {}", email);
+            return;
+        } catch (Exception keycloakDeleteFailed) {
+            log.error("Dati locali gia' rimossi per {} ma la cancellazione su Keycloak e' fallita: {}",
+                    email, keycloakDeleteFailed.getMessage());
+        }
+
+        if (!disableKeycloakUser(keycloakUserId)) {
+            throw new IllegalStateException(
+                    "I dati dell'account sono stati rimossi ma non e' stato possibile revocare l'accesso. Contatta il supporto.");
+        }
+        log.warn("Accesso Keycloak revocato per {} tramite disabilitazione dopo il fallimento della cancellazione", email);
+    }
+
+    private boolean disableKeycloakUser(String keycloakUserId) {
+        try {
+            UserResource kcUser = getKeycloakAdminClient().realm("tripify").users().get(keycloakUserId);
+            UserRepresentation rep = kcUser.toRepresentation();
+            rep.setEnabled(false);
+            kcUser.update(rep);
+            return true;
+        } catch (Exception disableFailed) {
+            log.error("Impossibile disabilitare l'utente Keycloak {}: {}", keycloakUserId, disableFailed.getMessage());
+            return false;
+        }
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -460,7 +488,15 @@ public class ProfileService {
             passwordCred.setType(org.keycloak.representations.idm.CredentialRepresentation.PASSWORD);
             passwordCred.setValue(request.getNewPassword());
 
-            userResource.resetPassword(passwordCred);
+            try {
+                userResource.resetPassword(passwordCred);
+            } catch (jakarta.ws.rs.WebApplicationException passwordRejected) {
+                int status = passwordRejected.getResponse() != null ? passwordRejected.getResponse().getStatus() : 0;
+                if (status >= 400 && status < 500) {
+                    throw new IllegalArgumentException("La nuova password non rispetta i requisiti di sicurezza richiesti");
+                }
+                throw passwordRejected;
+            }
         }
 
         return user;
@@ -510,14 +546,14 @@ public class ProfileService {
     }
 
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
                 .map(u -> toPublicResponse(u, "Organizzatore", true))
                 .toList();
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public com.tripify.user_auth_service.dto.response.UserResponse getOrganizerById(String identifier) {
         User u = findExistingUser(identifier)
                 .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
@@ -528,7 +564,7 @@ public class ProfileService {
         return toPublicResponse(u, "Organizzatore", true);
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional
     public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
         User u = findExistingUser(identifier)
                 .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
@@ -550,10 +586,27 @@ public class ProfileService {
                 });
     }
 
+    private String resolveKeycloakSubject(User user) {
+        if (user.getUsername() != null && !user.getUsername().isEmpty()) {
+            return user.getUsername();
+        }
+        try {
+            List<UserRepresentation> matches = getKeycloakAdminClient()
+                    .realm("tripify").users().searchByEmail(user.getEmail(), true);
+            if (!matches.isEmpty() && matches.get(0).getId() != null && !matches.get(0).getId().isBlank()) {
+                user.setUsername(matches.get(0).getId());
+                userRepository.save(user);
+                return user.getUsername();
+            }
+        } catch (Exception e) {
+            log.warn("Impossibile risolvere il subject Keycloak per {}: {}", user.getEmail(), e.getMessage());
+        }
+        return null;
+    }
+
     private com.tripify.user_auth_service.dto.response.UserResponse toPublicResponse(User u, String fallbackName, boolean includeEmail) {
-        String kcId = (u.getUsername() != null && !u.getUsername().isEmpty()) ? u.getUsername() : u.getId().toString();
         return new com.tripify.user_auth_service.dto.response.UserResponse(
-                kcId,
+                resolveKeycloakSubject(u),
                 u.getName() != null ? u.getName() : fallbackName,
                 u.getSurname() != null ? u.getSurname() : "",
                 includeEmail ? u.getEmail() : null,
