@@ -1,6 +1,7 @@
 package com.tripify.booking_service.service;
 
 import com.tripify.booking_service.client.CatalogClient;
+import com.tripify.booking_service.client.UserAuthClient;
 import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
@@ -11,6 +12,7 @@ import com.tripify.booking_service.exception.AccessDeniedException;
 import com.tripify.booking_service.exception.EmptyCartException;
 import com.tripify.booking_service.exception.InvalidBookingStateException;
 import com.tripify.booking_service.exception.PaymentValidationException;
+import com.tripify.booking_service.exception.ResourceNotFoundException;
 import com.tripify.booking_service.messaging.BookingEventPublisher;
 import com.tripify.booking_service.repository.BookingRepository;
 import feign.FeignException;
@@ -58,6 +60,8 @@ class BookingServiceTest {
     @MockitoBean
     private CatalogClient catalogClient;
     @MockitoBean
+    private UserAuthClient userAuthClient;
+    @MockitoBean
     private PaymentService paymentService;
     @MockitoBean
     private BookingEventPublisher eventPublisher;
@@ -66,8 +70,12 @@ class BookingServiceTest {
     @PersistenceContext
     private EntityManager entityManager;
 
-    private static final String LEADER_ID = "leader-1";
-    private static final String OTHER_USER_ID = "other-1";
+    // Formato UUID (non semplici stringhe come prima): da B10, inviteFriend
+    // valida che friendId sia un identificativo utente in formato UUID.
+    private static final String LEADER_ID = "11111111-1111-1111-1111-111111111111";
+    private static final String OTHER_USER_ID = "22222222-2222-2222-2222-222222222222";
+    private static final String FRIEND_ID = "33333333-3333-3333-3333-333333333333";
+    private static final String OTHER_FRIEND_ID = "44444444-4444-4444-4444-444444444444";
 
     @BeforeEach
     void setUp() {
@@ -137,6 +145,39 @@ class BookingServiceTest {
         staleCopy.setStatus(BookingStatus.CONFIRMED);
         assertThatThrownBy(() -> bookingRepository.saveAndFlush(staleCopy))
                 .isInstanceOf(org.springframework.orm.ObjectOptimisticLockingFailureException.class);
+    }
+
+    // Un retry (doppio tap, timeout di rete su una richiesta in realtà riuscita)
+    // con la stessa Idempotency-Key deve restituire la Booking già creata, non
+    // fallire con "carrello vuoto" (il primo checkout l'ha già svuotato) né
+    // crearne una seconda (vedi BookingService.checkout).
+    @Test
+    void unRetryConLaStessaIdempotencyKeyRestituisceLaStessaPrenotazioneSenzaDuplicarla() {
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 2, null, null, null, null));
+
+        BookingResponseDTO first = bookingService.checkout(LEADER_ID, null, "retry-key-1");
+        entityManager.flush();
+        entityManager.clear();
+
+        BookingResponseDTO retry = bookingService.checkout(LEADER_ID, null, "retry-key-1");
+
+        assertThat(retry.id()).isEqualTo(first.id());
+        assertThat(bookingRepository.count()).isEqualTo(1);
+    }
+
+    // Chiavi diverse (o nessuna chiave) restano tentativi distinti: nessun
+    // effetto collaterale della sola presenza del meccanismo di idempotenza.
+    @Test
+    void unaIdempotencyKeyDiversaProduceUnaPrenotazioneDistinta() {
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 2, null, null, null, null));
+        bookingService.checkout(LEADER_ID, null, "key-A");
+        entityManager.flush();
+        entityManager.clear();
+
+        addItem(LEADER_ID, new AddToCartRequestDTO(1L, 2, null, null, null, null));
+        bookingService.checkout(LEADER_ID, null, "key-B");
+
+        assertThat(bookingRepository.count()).isEqualTo(2);
     }
 
     @Test
@@ -274,10 +315,10 @@ class BookingServiceTest {
     void inviteFriendAggiungeUnPartecipanteEImpedisceIlDoppioInvito() {
         BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
 
-        BookingResponseDTO afterInvite = bookingService.inviteFriend(booking.id(), LEADER_ID, "amico-1");
-        assertThat(afterInvite.participantIds()).containsExactly("amico-1");
+        BookingResponseDTO afterInvite = bookingService.inviteFriend(booking.id(), LEADER_ID, FRIEND_ID);
+        assertThat(afterInvite.participantIds()).containsExactly(FRIEND_ID);
 
-        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, "amico-1"))
+        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, FRIEND_ID))
                 .isInstanceOf(InvalidBookingStateException.class);
     }
 
@@ -290,11 +331,30 @@ class BookingServiceTest {
     }
 
     @Test
+    void inviteFriendRifiutaUnFriendIdConFormatoNonValido() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+
+        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, "non-sono-un-uuid"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void inviteFriendRifiutaUnUtenteCheNonEsiste() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        FeignException notFound = mock(FeignException.class);
+        when(notFound.status()).thenReturn(404);
+        doThrow(notFound).when(userAuthClient).getUserSummary(FRIEND_ID);
+
+        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, FRIEND_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
     void inviteFriendRifiutaSeLaPrenotazioneEAnnullata() {
         BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
         bookingService.cancelBooking(booking.id(), LEADER_ID);
 
-        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, "amico-1"))
+        assertThatThrownBy(() -> bookingService.inviteFriend(booking.id(), LEADER_ID, FRIEND_ID))
                 .isInstanceOf(InvalidBookingStateException.class);
     }
 
@@ -340,6 +400,41 @@ class BookingServiceTest {
     }
 
     @Test
+    void getPassengersForLineMostraIDatiCompletiAlLeader() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        Long lineId = booking.lines().get(0).id();
+        bookingService.addPassenger(lineId, LEADER_ID, passengerRequest("Mario", "Rossi"));
+        entityManager.flush();
+        entityManager.clear();
+
+        var passengers = bookingService.getPassengersForLine(lineId, LEADER_ID);
+
+        assertThat(passengers).hasSize(1);
+        assertThat(passengers.get(0).taxCode()).isEqualTo("RSSMRA80A01H501U");
+        assertThat(passengers.get(0).documentNumber()).isEqualTo("AB1234567");
+    }
+
+    // taxCode/documentNumber sono dati sensibili di terzi: solo il leader (che
+    // li ha inseriti) li vede in chiaro (vedi BookingService.maskUnlessLeader).
+    @Test
+    void getPassengersForLineMascheraTaxCodeEDocumentoAiPartecipantiNonLeader() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        Long lineId = booking.lines().get(0).id();
+        bookingService.addPassenger(lineId, LEADER_ID, passengerRequest("Mario", "Rossi"));
+        bookingService.inviteFriend(booking.id(), LEADER_ID, FRIEND_ID);
+        entityManager.flush();
+        entityManager.clear();
+
+        var passengers = bookingService.getPassengersForLine(lineId, FRIEND_ID);
+
+        assertThat(passengers).hasSize(1);
+        assertThat(passengers.get(0).taxCode()).isEqualTo("************501U");
+        assertThat(passengers.get(0).documentNumber()).isEqualTo("*****4567");
+        // Nome/cognome restano visibili: serve comunque sapere chi partecipa al viaggio.
+        assertThat(passengers.get(0).firstName()).isEqualTo("Mario");
+    }
+
+    @Test
     void getUserHistoryRestituisceIViaggiDoveSeiLeaderOPartecipante() {
         BookingResponseDTO ownBooking = checkoutSimpleCartFor(LEADER_ID);
         BookingResponseDTO friendsBooking = checkoutSimpleCartFor(OTHER_USER_ID);
@@ -354,6 +449,23 @@ class BookingServiceTest {
         assertThat(history.getContent())
                 .filteredOn(b -> b.id().equals(friendsBooking.id()))
                 .allMatch(b -> !b.isLeader());
+    }
+
+    // Con la vecchia query derivata (JOIN su participantIds) una Booking con
+    // più partecipanti compariva duplicata una volta per partecipante, anche
+    // quando la si vede come leader: il JOIN produce una riga per ogni
+    // elemento della collection, indipendentemente da quale ramo dell'OR l'ha
+    // fatta corrispondere (vedi BookingRepository.findVisibleToUser).
+    @Test
+    void getUserHistoryNonDuplicaUnaPrenotazioneConPiuPartecipanti() {
+        BookingResponseDTO booking = checkoutSimpleCartFor(LEADER_ID);
+        bookingService.inviteFriend(booking.id(), LEADER_ID, FRIEND_ID);
+        bookingService.inviteFriend(booking.id(), LEADER_ID, OTHER_FRIEND_ID);
+
+        var history = bookingService.getUserHistory(LEADER_ID, PageRequest.of(0, 10));
+
+        assertThat(history.getTotalElements()).isEqualTo(1);
+        assertThat(history.getContent()).hasSize(1);
     }
 
     @Test

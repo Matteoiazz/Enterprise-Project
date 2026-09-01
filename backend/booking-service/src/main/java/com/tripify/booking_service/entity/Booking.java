@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "booking")
+@Table(name = "booking", indexes = @Index(name = "idx_booking_user_id", columnList = "user_id"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -43,6 +43,15 @@ public class Booking {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BookingStatus status;
+
+    // Chiave di idempotenza opzionale fornita dal client (header Idempotency-Key
+    // su POST /checkout): permette di riconoscere un retry dello stesso tentativo
+    // di checkout (doppio tap, timeout di rete con richiesta in realtà riuscita)
+    // e restituire la Booking già creata invece di crearne una seconda. Nullable
+    // perché resta valida anche una richiesta senza header (nessuna protezione
+    // aggiuntiva oltre al lock sul carrello, ma comportamento invariato).
+    @Column(unique = true)
+    private String idempotencyKey;
 
     // Lock ottimistico: senza questo, due richieste concorrenti sulla stessa
     // Booking (es. due cancelBooking() sulla stessa prenotazione confermata,

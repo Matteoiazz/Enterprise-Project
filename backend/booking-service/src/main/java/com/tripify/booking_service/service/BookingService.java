@@ -1,6 +1,7 @@
 package com.tripify.booking_service.service;
 
 import com.tripify.booking_service.client.CatalogClient;
+import com.tripify.booking_service.client.UserAuthClient;
 import com.tripify.booking_service.dto.AuditLogEntryDTO;
 import com.tripify.booking_service.dto.BookingLineDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
@@ -21,15 +22,19 @@ import feign.FeignException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,23 +48,47 @@ public class BookingService {
     private final ShoppingCartService cartService;
     private final BookingAuditService auditService;
     private final CatalogClient catalogClient;
+    private final UserAuthClient userAuthClient;
     private final PaymentService paymentService;
     private final BookingEventPublisher eventPublisher;
     private final RabbitTemplate rabbitTemplate;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public BookingResponseDTO checkout(String userId) {
-        return checkout(userId, null);
+        return checkout(userId, null, null);
+    }
+
+    @Transactional
+    public BookingResponseDTO checkout(String userId, List<Long> selectedCartItemIds) {
+        return checkout(userId, selectedCartItemIds, null);
     }
 
     // 1. Processo di Checkout: converte il carrello (o solo gli articoli
     // selezionati) in una Booking confermata. selectedCartItemIds nullo o
     // vuoto = tutto il carrello; altrimenti solo quegli articoli, lasciando
-    // gli altri nel carrello per un checkout successivo.
+    // gli altri nel carrello per un checkout successivo. idempotencyKey (header
+    // Idempotency-Key, opzionale) riconosce il retry di un checkout già andato
+    // a buon fine: se una Booking con la stessa chiave esiste già, la
+    // restituiamo così com'è invece di crearne una seconda (vedi commento su
+    // Booking.idempotencyKey).
     @Transactional
-    public BookingResponseDTO checkout(String userId, List<Long> selectedCartItemIds) {
-        // Recuperiamo il carrello dell'utente
-        ShoppingCart cart = cartService.getCartForUser(userId);
+    public BookingResponseDTO checkout(String userId, List<Long> selectedCartItemIds, String idempotencyKey) {
+        boolean hasIdempotencyKey = idempotencyKey != null && !idempotencyKey.isBlank();
+
+        if (hasIdempotencyKey) {
+            Optional<Booking> alreadyDone = bookingRepository.findByIdempotencyKey(idempotencyKey);
+            if (alreadyDone.isPresent()) {
+                return toResponseDTO(alreadyDone.get(), userId);
+            }
+        }
+
+        // getCartForCheckout (non getCartForUser): prende il lock pessimistico
+        // sulla riga del carrello per la durata di questa transazione, così un
+        // secondo checkout concorrente sullo stesso utente resta in attesa
+        // invece di leggere in parallelo lo stesso carrello pieno (vedi
+        // ShoppingCartService.getCartForCheckout).
+        ShoppingCart cart = cartService.getCartForCheckout(userId);
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
             throw new EmptyCartException("Impossibile fare il checkout: il carrello è vuoto!");
@@ -87,10 +116,25 @@ public class BookingService {
                 .totalAmount(totalAmount)
                 .bookingDate(LocalDateTime.now())
                 .status(BookingStatus.PENDING)
+                .idempotencyKey(hasIdempotencyKey ? idempotencyKey : null)
                 .lines(new ArrayList<>())
                 .build();
 
-        Booking savedBooking = bookingRepository.save(booking);
+        Booking savedBooking;
+        try {
+            savedBooking = bookingRepository.save(booking);
+        } catch (DataIntegrityViolationException ex) {
+            // Un'altra richiesta con la stessa Idempotency-Key ha vinto la corsa
+            // e ha già salvato la sua Booking tra il controllo sopra e questo
+            // save (constraint unique su idempotencyKey): non è un errore reale,
+            // restituiamo quella Booking invece di far fallire questa richiesta.
+            if (hasIdempotencyKey) {
+                return bookingRepository.findByIdempotencyKey(idempotencyKey)
+                        .map(existing -> toResponseDTO(existing, userId))
+                        .orElseThrow(() -> ex);
+            }
+            throw ex;
+        }
 
         // Trasformiamo i CartItem in BookingLine, portando avanti anche
         // quantity e l'eventuale hold aperto su catalog-service: da qui in poi
@@ -156,7 +200,7 @@ public class BookingService {
 
     @Transactional(readOnly = true)
     public Page<BookingResponseDTO> getUserHistory(String userId, Pageable pageable) {
-        Page<Booking> bookings = bookingRepository.findAllByUserIdOrParticipantIdsContaining(userId, userId, pageable);
+        Page<Booking> bookings = bookingRepository.findVisibleToUser(userId, pageable);
         return bookings.map(booking -> toResponseDTO(booking, userId));
     }
 
@@ -182,8 +226,27 @@ public class BookingService {
         if (friendId.equals(leaderId)) {
             throw new IllegalArgumentException("Non puoi invitare te stesso al viaggio.");
         }
+        // friendId deve essere un identificativo utente (sub Keycloak), non una
+        // stringa qualsiasi: senza questo controllo si può aggiungere come
+        // "partecipante" un valore arbitrario, mai verificato con user-auth-service.
+        try {
+            java.util.UUID.fromString(friendId);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("L'id dell'amico da invitare non è un identificativo utente valido.");
+        }
         if (booking.getParticipantIds().contains(friendId)) {
             throw new InvalidBookingStateException("Questo utente è già stato invitato al viaggio.");
+        }
+        // Verifica di esistenza vera e propria (chiamata a user-auth-service,
+        // quindi fatta per ultima tra i controlli su friendId): un formato UUID
+        // valido non garantisce che corrisponda a un utente reale.
+        try {
+            userAuthClient.getUserSummary(friendId);
+        } catch (FeignException ex) {
+            if (ex.status() == 404) {
+                throw new ResourceNotFoundException("L'utente da invitare non esiste.");
+            }
+            throw ex;
         }
 
         // Aggiunge l'amico alla lista e salva nel database
@@ -274,8 +337,72 @@ public class BookingService {
     // chiamante sia il proprietario, che la Booking sia ancora in attesa e che
     // l'importo pagato corrisponda esattamente al totale, poi conferma
     // definitivamente ogni hold aperto su catalog-service e passa lo stato a CONFIRMED.
-    @Transactional
+    //
+    // NIENTE @Transactional sul metodo: le chiamate a catalog-service (fase 2
+    // sotto) possono impiegare fino a response-timeout=15s, e tenerle dentro
+    // una transazione terrebbe bloccata una connessione al nostro DB per tutto
+    // quel tempo, esaurendo il pool sotto carico (vedi audit §2.9). Le uniche
+    // due transazioni reali sono le fasi 1 e 3, entrambe brevi e locali.
     public Booking confirmPayment(Long bookingId, String userId, BigDecimal amount) {
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
+        // Fase 1 (transazione breve): valida SENZA ancora contattare catalog-service.
+        // Se fallisce, nessuna chiamata remota viene mai fatta.
+        tx.executeWithoutResult(status -> loadAndValidateForPayment(bookingId, userId, amount));
+
+        // Fase 2 (FUORI da transazione): conferma ogni hold aperto su
+        // catalog-service. Nota: gli hold già confermati con successo in questo
+        // stesso ciclo NON possono più essere rilasciati da catalog-service (un
+        // hold CONFIRMED rifiuta la release), quindi un fallimento a metà lista
+        // può lasciare qualche riga "confermata" lato catalogo anche se la
+        // Booking resta PENDING: è un limite del modello di hold di
+        // catalog-service, non risolvibile da qui.
+        //
+        // Un 409 da catalog-service qui significa che il blocco non è più
+        // confermabile (scaduto, quindi la camera/il posto può essere finito a
+        // qualcun altro nel frattempo): capita soprattutto quando si riprova il
+        // pagamento di una Booking rimasta PENDING a lungo. Lo traduciamo in un
+        // messaggio chiaro invece di lasciarlo risalire come generico errore di
+        // integrazione (vedi GlobalExceptionHandler.handleFeignException).
+        Booking bookingWithLines = bookingRepository.findByIdWithLines(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prenotazione non trovata!"));
+        for (BookingLine line : bookingWithLines.getLines()) {
+            if (line.getHoldId() != null) {
+                try {
+                    catalogClient.confirmHold(line.getHoldId());
+                } catch (FeignException ex) {
+                    if (ex.status() == 409) {
+                        throw new InvalidBookingStateException(
+                                "Uno o più articoli di questa prenotazione non sono più disponibili: il blocco temporaneo è scaduto, probabilmente qualcun altro li ha prenotati nel frattempo. Annulla la prenotazione e riprova dal catalogo.");
+                    }
+                    throw ex;
+                }
+            }
+        }
+
+        // Fase 3 (transazione breve): ricarica e ri-valida da capo (non solo lo
+        // stato) prima di confermare davvero. Tra la fase 1 e qui sono passate
+        // le chiamate HTTP di fase 2: il ricontrollo + @Version su Booking (B5)
+        // proteggono dal caso in cui, in quella finestra, qualcun altro abbia
+        // già annullato o pagato questa stessa prenotazione.
+        return tx.execute(status -> {
+            Booking booking = loadAndValidateForPayment(bookingId, userId, amount);
+
+            booking.setStatus(BookingStatus.CONFIRMED);
+            bookingRepository.save(booking);
+
+            auditService.log(booking, userId, AuditAction.STATUS_CHANGED,
+                    "Pagamento di " + amount + "€ approvato, stato aggiornato a CONFIRMED");
+
+            eventPublisher.publishBookingConfirmed(booking);
+
+            sendNotification(userId, "Prenotazione Confermata! 🎉", "Il pagamento è andato a buon fine.");
+
+            return booking;
+        });
+    }
+
+    private Booking loadAndValidateForPayment(Long bookingId, String userId, BigDecimal amount) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Prenotazione non trovata!"));
 
@@ -290,45 +417,6 @@ public class BookingService {
             throw new PaymentValidationException(
                     "L'importo del pagamento non corrisponde al totale della prenotazione (" + booking.getTotalAmount() + "€).");
         }
-
-        // Confermiamo prima tutti gli hold su catalog-service: se uno fallisce (es.
-        // scaduto), l'eccezione risale prima che lo stato PENDING venga toccato.
-        // Nota: gli hold già confermati con successo in questo stesso ciclo NON
-        // possono più essere rilasciati da catalog-service (un hold CONFIRMED
-        // rifiuta la release), quindi un fallimento a metà lista può lasciare
-        // qualche riga "confermata" lato catalogo anche se la Booking resta PENDING:
-        // è un limite del modello di hold di catalog-service, non risolvibile da qui.
-        //
-        // Un 409 da catalog-service qui significa che il blocco non è più
-        // confermabile (scaduto, quindi la camera/il posto può essere finito a
-        // qualcun altro nel frattempo): capita soprattutto quando si riprova il
-        // pagamento di una Booking rimasta PENDING a lungo. Lo traduciamo in un
-        // messaggio chiaro invece di lasciarlo risalire come generico errore di
-        // integrazione (vedi GlobalExceptionHandler.handleFeignException).
-        for (BookingLine line : booking.getLines()) {
-            if (line.getHoldId() != null) {
-                try {
-                    catalogClient.confirmHold(line.getHoldId());
-                } catch (FeignException ex) {
-                    if (ex.status() == 409) {
-                        throw new InvalidBookingStateException(
-                                "Uno o più articoli di questa prenotazione non sono più disponibili: il blocco temporaneo è scaduto, probabilmente qualcun altro li ha prenotati nel frattempo. Annulla la prenotazione e riprova dal catalogo.");
-                    }
-                    throw ex;
-                }
-            }
-        }
-
-        booking.setStatus(BookingStatus.CONFIRMED);
-        bookingRepository.save(booking);
-
-        auditService.log(booking, userId, AuditAction.STATUS_CHANGED,
-                "Pagamento di " + amount + "€ approvato, stato aggiornato a CONFIRMED");
-
-        eventPublisher.publishBookingConfirmed(booking);
-
-        sendNotification(userId, "Prenotazione Confermata! 🎉", "Il pagamento è andato a buon fine.");
-
         return booking;
     }
 
@@ -460,18 +548,37 @@ public class BookingService {
             throw new AccessDeniedException("Accesso negato: non fai parte di questa prenotazione.");
         }
 
+        // Codice fiscale e numero documento sono dati sensibili di terzi: solo il
+        // leader (che li ha inseriti) li vede in chiaro. Gli altri partecipanti
+        // vedono comunque la lista viaggiatori (serve per sapere chi c'è), ma con
+        // questi due campi mascherati.
         return line.getPassengers().stream()
                 .map(passenger -> new PassengerResponseDTO(
                         passenger.getId(),
                         passenger.getFirstName(),
                         passenger.getLastName(),
                         passenger.getPhoneNumber(),
-                        passenger.getTaxCode(),
+                        maskUnlessLeader(passenger.getTaxCode(), isLeader),
                         passenger.getDocumentType(),
-                        passenger.getDocumentNumber(),
+                        maskUnlessLeader(passenger.getDocumentNumber(), isLeader),
                         passenger.getQrCodeData(),
                         passenger.isCheckedIn()))
                 .collect(Collectors.toList());
+    }
+
+    private static final int MASKED_VISIBLE_SUFFIX_LENGTH = 4;
+
+    // Mostra solo le ultime 4 cifre/caratteri, mascherando il resto con "*"
+    // (stesso criterio suggerito per altra PII simile nel progetto, es. il
+    // numero di documento in user-auth-service).
+    private String maskUnlessLeader(String value, boolean isLeader) {
+        if (isLeader || value == null || value.isBlank()) {
+            return value;
+        }
+        if (value.length() <= MASKED_VISIBLE_SUFFIX_LENGTH) {
+            return "*".repeat(value.length());
+        }
+        return "*".repeat(value.length() - MASKED_VISIBLE_SUFFIX_LENGTH) + value.substring(value.length() - MASKED_VISIBLE_SUFFIX_LENGTH);
     }
 
     public boolean hasUserBookedItem(String userId, Long catalogItemId) {

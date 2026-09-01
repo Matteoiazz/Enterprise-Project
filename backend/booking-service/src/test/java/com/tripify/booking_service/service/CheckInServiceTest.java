@@ -1,6 +1,7 @@
 package com.tripify.booking_service.service;
 
 import com.tripify.booking_service.client.CatalogClient;
+import com.tripify.booking_service.client.UserAuthClient;
 import com.tripify.booking_service.dto.AddToCartRequestDTO;
 import com.tripify.booking_service.dto.BookingResponseDTO;
 import com.tripify.booking_service.dto.CatalogItemSummaryDTO;
@@ -56,6 +57,8 @@ class CheckInServiceTest {
     private PassengerRepository passengerRepository;
     @MockitoBean
     private CatalogClient catalogClient;
+    @MockitoBean
+    private UserAuthClient userAuthClient;
     @MockitoBean
     private PaymentService paymentService;
     @MockitoBean
