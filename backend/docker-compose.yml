@@ -185,11 +185,11 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-catalog:5432/db_catalog
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP}:8180/realms/tripify
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?serve una chiave, vedi backend/.env.example}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     networks:
       - travel-network
 
@@ -204,7 +204,7 @@ services:
       - "8085:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-itinerary:5432/db_itinerary
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP}:8180/realms/tripify
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
       CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
       BOOKING_SERVICE_URL: http://booking-service:8083
     networks:
