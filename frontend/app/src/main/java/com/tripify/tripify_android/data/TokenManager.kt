@@ -87,6 +87,8 @@ class TokenManager(private val context: Context) {
                 val reason = body?.let { runCatching { JSONObject(it).optString("error_description").ifBlank { JSONObject(it).optString("error") } }.getOrNull() }
                 CodeExchangeResult.Failure(reason?.takeIf { it.isNotBlank() } ?: "HTTP ${response.code}")
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             CodeExchangeResult.Failure(e.message ?: "errore di rete verso Keycloak")
         }

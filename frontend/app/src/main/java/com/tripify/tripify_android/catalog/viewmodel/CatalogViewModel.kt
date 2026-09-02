@@ -712,6 +712,8 @@ class CatalogViewModel(
                         onError(reviewServerError(res) ?: "Impossibile registrare il voto.")
                     }
                 } ?: onError("Devi accedere per votare le recensioni.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }

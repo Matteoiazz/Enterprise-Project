@@ -33,8 +33,6 @@ public class RabbitMQConfig {
         Map<String, Class<?>> idClassMapping = new HashMap<>();
         idClassMapping.put("com.tripify.booking_service.messaging.BookingNotificationEvent",
                 com.tripify.communication_service.messaging.NotificationEvent.class);
-        idClassMapping.put("com.tripify.user_auth_service.messaging.NotificationEvent",
-                com.tripify.communication_service.messaging.NotificationEvent.class);
 
         classMapper.setIdClassMapping(idClassMapping);
         converter.setClassMapper(classMapper);

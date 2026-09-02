@@ -84,6 +84,8 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
 
                 loadDocuments()
                 onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: HttpException) {
                 val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
                 _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
