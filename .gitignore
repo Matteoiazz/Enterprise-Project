@@ -1,5 +1,6 @@
 .idea/
 .vscode/
+.claude/
 target/
 build/
 out/
@@ -31,3 +32,10 @@ backend/keycloak-data/
 * [0-9]
 *\ copy
 *\ copy.*
+
+# Variabili d'ambiente reali del backend (credenziali Cloudinary, chiavi
+# interne, ecc.): solo backend/.env.example va versionato, mai il .env vero.
+backend/.env
+
+# Log locale generato lanciando la build di booking-service a mano.
+backend/booking-service/booking-log.txt

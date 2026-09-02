@@ -1,0 +1,7 @@
+target/
+*.log
+booking-log.txt
+.git
+.idea
+*.iml
+.vscode

@@ -15,6 +15,7 @@ import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.data.parseErrorMessage // AGGIUNTO L'IMPORT PER LA MAGIA!
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
@@ -97,6 +98,13 @@ class BookingViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun fetchUserBookings(hideCancelled: Boolean = false) {
         viewModelScope.launch {
             _uiState.value = BookingState.Loading
+            // Senza token non ha senso nemmeno provare la chiamata: il backend
+            // risponderebbe 401 e verrebbe mostrato come un errore generico
+            // invece di un semplice invito ad accedere.
+            if (tokenManager.tokenFlow.first() == null) {
+                _uiState.value = BookingState.NotLoggedIn
+                return@launch
+            }
             try {
                 val response = api.getUserBookings()
 

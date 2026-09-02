@@ -139,6 +139,19 @@ fun BookingScreen(
                         modifier = Modifier.align(Alignment.Center).padding(16.dp)
                     )
                 }
+
+                is BookingState.NotLoggedIn -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Accedi o crea un account per prenotare!",
+                            style = CatalogType.Section,
+                            color = CatalogColors.Ink
+                        )
+                    }
+                }
             }
         }
     }
