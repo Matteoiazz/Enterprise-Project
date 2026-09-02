@@ -15,6 +15,21 @@ fun extractUserIdFromToken(token: String): String? {
     }
 }
 
+/** Estrae il nome dell'utente dal payload di un JWT. */
+fun extractUserNameFromToken(token: String): String? {
+    return try {
+        val parts = token.split(".")
+        if (parts.size != 3) return null
+        val payload = String(Base64.decode(parts[1], Base64.URL_SAFE))
+        val json = JSONObject(payload)
+        // Cerca il nome completo, se non c'è usa l'email/username
+        json.optString("name").takeIf { it.isNotBlank() }
+            ?: json.optString("preferred_username").takeIf { it.isNotBlank() }
+    } catch (e: Exception) {
+        null
+    }
+}
+
 /** Estrae i ruoli realm ("realm_access": {"roles": [...]}) dal payload di un JWT. */
 fun extractRolesFromToken(token: String): List<String> {
     return try {

@@ -24,6 +24,7 @@ import coil.compose.AsyncImage
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
+import com.tripify.tripify_android.itinerary.util.extractUserNameFromToken
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.catalog.util.CatalogPriceFormatter
 import com.tripify.tripify_android.catalog.util.rememberCatalogCurrency
@@ -562,9 +563,20 @@ fun ItineraryDetailScreen(
                                             snackbarHostState.showSnackbar("Accedi per contattare l'organizzatore")
                                             return@launch
                                         }
+
+                                        // Estraiamo il nome dal token
+                                        val travelerName = extractUserNameFromToken(token) ?: "Cliente"
+
                                         isChatting = true
-                                        val chatRoom = ChatRepository.getOrCreateChatRoom(hostId = list.ownerId, title = "Organizzatore ${list.name}", authToken = token)
+                                        // Passiamo anche il travelerName al backend
+                                        val chatRoom = ChatRepository.getOrCreateChatRoom(
+                                            hostId = list.ownerId,
+                                            title = "Organizzatore ${list.name}",
+                                            travelerName = travelerName,
+                                            authToken = token
+                                        )
                                         isChatting = false
+
                                         if (chatRoom != null) {
                                             onChatWithOrganizer(chatRoom.id)
                                         } else {

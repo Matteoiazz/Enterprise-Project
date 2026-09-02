@@ -41,15 +41,34 @@ services:
       - travel-network
 
   # Database per il servizio Communication (Gianmaria) - Porta spostata a 5437 per evitare conflitti
-  communication-service:
+    # Database per il servizio Communication (Gianmaria)
+  db-communication:
     image: postgres:15
-    container_name: communication-service
+    container_name: db-communication
     ports:
       - "5437:5432"
     environment:
       POSTGRES_DB: communication-service
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    networks:
+      - travel-network
+
+    # Microservizio Java Communication
+  communication-app:
+    build:
+      context: ./communication-service
+      dockerfile: Dockerfile
+    container_name: communication-app
+    ports:
+      - "8084:8084"
+    depends_on:
+      - db-communication
+      - rabbitmq
+      - keycloak
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-communication:5432/communication-service
+      - SPRING_RABBITMQ_HOST=rabbitmq
     networks:
       - travel-network
 

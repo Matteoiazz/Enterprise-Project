@@ -47,16 +47,15 @@ public class ChatController {
     public ChatRoom getOrCreateChatRoom(
             @RequestParam String hostId,
             @RequestParam(required = false) String title,
+            @RequestParam(required = false) String travelerName, // <-- Aggiunto per ricevere il nome cliente
             Principal principal) {
 
         String travelerId = extractUserId(principal);
 
-        // 1. Blocco sicurezza: impedisce di creare una chat con se stessi
         if (travelerId.equals(hostId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Impossibile creare una chat con te stesso");
         }
 
-        // 2. Controllo bidirezionale
         Optional<ChatRoom> existingRoom = chatRoomRepository.findByTravelerIdAndHostId(travelerId, hostId);
         if (existingRoom.isPresent()) {
             return existingRoom.get();
@@ -70,6 +69,7 @@ public class ChatController {
         newRoom.setTravelerId(travelerId);
         newRoom.setHostId(hostId);
         newRoom.setTitle(title);
+        newRoom.setTravelerName(travelerName); // <-- Salvato nel DB
         return chatRoomRepository.save(newRoom);
     }
 
@@ -89,7 +89,15 @@ public class ChatController {
             dto.setId(room.getId());
             dto.setTravelerId(room.getTravelerId());
             dto.setHostId(room.getHostId());
-            dto.setTitle(room.getTitle());
+
+            // LOGICA DI SCAMBIO TITOLO
+            if (userId.equals(room.getHostId())) {
+                // L'organizzatore vede il nome del cliente
+                dto.setTitle(room.getTravelerName() != null ? room.getTravelerName() : "Cliente");
+            } else {
+                // Il cliente vede il nome dell'organizzatore
+                dto.setTitle(room.getTitle());
+            }
 
             int unread = chatMessageRepository.countByRoomIdAndSenderIdNotAndIsReadFalse(room.getId(), userId);
             dto.setUnreadCount(unread);

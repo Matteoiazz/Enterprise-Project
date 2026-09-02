@@ -15,17 +15,16 @@ object ChatRepository {
     private val baseUrl: String
         get() = BuildConfig.BASE_URL
 
-    // Sostituisci solo questa funzione nel tuo ChatRepository
-    suspend fun getOrCreateChatRoom(hostId: String, title: String? = null, authToken: String?): ChatRoom? {
-        android.util.Log.d("CHAT_DEBUG", "Valore ricevuto in getOrCreateChatRoom - hostId: $hostId, title: $title")
+    suspend fun getOrCreateChatRoom(hostId: String, title: String? = null, travelerName: String? = null, authToken: String?): ChatRoom? {
+        android.util.Log.d("CHAT_DEBUG", "Valore ricevuto in getOrCreateChatRoom - hostId: $hostId, title: $title, travelerName: $travelerName")
         return withContext(Dispatchers.IO) {
             try {
                 val encodedTitle = title?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
-                val urlString = if (encodedTitle.isNotEmpty()) {
-                    "${BuildConfig.BASE_URL}/chat/room?hostId=$hostId&title=$encodedTitle"
-                } else {
-                    "${BuildConfig.BASE_URL}/chat/room?hostId=$hostId"
-                }
+                val encodedTravelerName = travelerName?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
+
+                var urlString = "${BuildConfig.BASE_URL}/chat/room?hostId=$hostId"
+                if (encodedTitle.isNotEmpty()) urlString += "&title=$encodedTitle"
+                if (encodedTravelerName.isNotEmpty()) urlString += "&travelerName=$encodedTravelerName"
 
                 val url = java.net.URL(urlString)
                 val connection = url.openConnection() as java.net.HttpURLConnection
