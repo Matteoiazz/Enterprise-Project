@@ -34,6 +34,8 @@ services:
       retries: 15
     networks:
       - travel-network
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
 
   # Database per l'Auth (User)
   db-auth:
@@ -133,6 +135,7 @@ services:
     build:
       context: ./booking-service
     container_name: booking-service
+    restart: unless-stopped
     depends_on:
       - db-booking
       - rabbitmq
@@ -143,7 +146,11 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-booking:5432/db_booking
       DB_PASSWORD: ${DB_PASSWORD:-password}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      # Con la colonna vuota (":?") una .env copiata da .env.example ma non
+      # compilata fa fallire subito "docker compose up" con un errore chiaro,
+      # invece di partire con la chiave vuota e far fallire in silenzio (403,
+      # solo loggato) la compensazione degli hold verso catalog-service.
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env, stessa chiave su booking-service, catalog-service e communication-service}
       LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
@@ -219,11 +226,11 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-catalog:5432/db_catalog
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP}:8180/realms/tripify
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?serve una chiave, vedi backend/.env.example}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     networks:
       - travel-network
 
@@ -238,7 +245,7 @@ services:
       - "8085:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-itinerary:5432/db_itinerary
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP}:8180/realms/tripify
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
       CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
       BOOKING_SERVICE_URL: http://booking-service:8083
     networks:
@@ -303,3 +310,4 @@ networks:
 
 volumes:
   keycloak-db-data:
+  booking-db-data:

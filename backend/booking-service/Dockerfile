@@ -8,10 +8,10 @@ WORKDIR /app
 # non invalida la cache Docker sul layer delle dipendenze gia' scaricate.
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
-RUN ./mvnw dependency:go-offline -B
+RUN --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline -B
 
 COPY src ./src
-RUN ./mvnw clean package -DskipTests -B
+RUN --mount=type=cache,target=/root/.m2 ./mvnw clean package -DskipTests -B
 
 # Immagine finale: solo JRE, niente toolchain di build ne' sorgenti - piu'
 # leggera e con meno superficie d'attacco della fase precedente.
