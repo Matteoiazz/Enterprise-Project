@@ -128,7 +128,7 @@ Il repository **non contiene nessuna credenziale reale**: `.env`, `local.propert
 
 1. **`backend/.env`** — con `LOCAL_IP` impostato all'IP della macchina su cui girerà la demo, `INTERNAL_SERVICE_KEY` a una stringa qualsiasi concordata, e le tre variabili Cloudinary valorizzate con le credenziali reali dell'account del gruppo. Il resto può restare ai default di `.env.example`.
 2. **`frontend/local.properties`** — con `BACKEND_IP`/`KEYCLOAK_IP` coerenti con lo stesso `LOCAL_IP` usato nel punto 1.
-3. **`backend/keycloak-import/realm-export-4.json`** — il realm `tripify` con la password SMTP Gmail e il client secret Google reali. Nel repo c'è solo `realm-export.example.json` con quei due campi a `CHANGEME`: per generarlo basta copiarlo in `realm-export-4.json` e sostituire i due valori.
+3. **`backend/keycloak-import/realm-export-4.json`** — il realm `tripify` con la password SMTP Gmail e il client secret Google reali. Nel repo c'è solo il template `backend/keycloak-import.example.json` con quei due campi a `CHANGEME`: per ottenere il file vero basta `cp backend/keycloak-import.example.json backend/keycloak-import/realm-export-4.json` e sostituire i due valori (`smtpServer.password` e il `clientSecret` del provider `google`).
 
 Con questi tre file al posto giusto, il docente deve solo eseguire `docker compose up --build -d` in `backend/` e aprire/buildare l'app in `frontend/`: nessun'altra configurazione manuale. Il realm importa già due utenti di prova (`demo@tripify.it` e `organizer@tripify.it`, password `Demo1234!`), quindi si può entrare subito senza registrarsi.
 

@@ -215,9 +215,10 @@ services:
       - travel-network
     volumes:
       - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
-      # Monto il singolo file reale, non la cartella: cosi' --import-realm non
-      # prova a importare anche realm-export.example.json (stesso realm "tripify").
-      - ./keycloak-import/realm-export-4.json:/opt/keycloak/data/import/tripify-realm.json
+      # keycloak-import/ contiene solo il realm reale (gitignored, coi segreti).
+      # Il template sta in backend/keycloak-import.example.json, fuori da qui,
+      # cosi' --import-realm non prova a importarlo come secondo realm "tripify".
+      - ./keycloak-import:/opt/keycloak/data/import
 
   # Catalog Service (Matteo)
   catalog-service:
