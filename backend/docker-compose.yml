@@ -26,6 +26,8 @@ services:
       POSTGRES_PASSWORD: password
     networks:
       - travel-network
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
 
   # Database per l'Auth (User)
   db-auth:
@@ -106,6 +108,7 @@ services:
     build:
       context: ./booking-service
     container_name: booking-service
+    restart: unless-stopped
     depends_on:
       - db-booking
       - rabbitmq
@@ -116,7 +119,11 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-booking:5432/db_booking
       DB_PASSWORD: ${DB_PASSWORD:-password}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      # Con la colonna vuota (":?") una .env copiata da .env.example ma non
+      # compilata fa fallire subito "docker compose up" con un errore chiaro,
+      # invece di partire con la chiave vuota e far fallire in silenzio (403,
+      # solo loggato) la compensazione degli hold verso catalog-service.
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env, stessa chiave su booking-service, catalog-service e communication-service}
       LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
@@ -267,3 +274,4 @@ networks:
 
 volumes:
   keycloak-db-data:
+  booking-db-data:
