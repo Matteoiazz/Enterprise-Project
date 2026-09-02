@@ -34,6 +34,8 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
 
+private val PHONE_REGEX = Regex("^\\+?[0-9\\s\\-]{8,20}$")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
@@ -74,13 +76,18 @@ fun EditProfileScreen(
 
     val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email).matches()
     val isPecValid = pec.isBlank() || Patterns.EMAIL_ADDRESS.matcher(pec).matches()
+    val isNameValid = name.isBlank() || name.trim().length in 2..50
+    val isSurnameValid = surname.isBlank() || surname.trim().length in 2..50
+    val isPhoneValid = phone.isBlank() || phone.matches(PHONE_REGEX)
+    val isAddressValid = address.length <= 100
     val hasMinLength = newPassword.length >= 8
     val hasUpper = newPassword.any { it.isUpperCase() }
     val hasDigit = newPassword.any { it.isDigit() }
     val hasSpecial = newPassword.any { !it.isLetterOrDigit() }
     val isPasswordValid = newPassword.isBlank() || (hasMinLength && hasUpper && hasDigit && hasSpecial)
     val passwordsMatch = newPassword.isBlank() || newPassword == confirmPassword
-    val isFormValid = isEmailValid && isPasswordValid && passwordsMatch
+    val isFormValid = isEmailValid && isNameValid && isSurnameValid &&
+        isPhoneValid && isAddressValid && isPasswordValid && passwordsMatch
 
     val cardOverlap = 32.dp
     val securityOffset = if (viewModel.companyName.isNotBlank()) 0.dp else -cardOverlap + 16.dp
@@ -128,12 +135,16 @@ fun EditProfileScreen(
                                 value = name,
                                 label = "Nome",
                                 icon = Icons.Default.Person,
+                                isError = !isNameValid,
+                                supportingText = if (!isNameValid) "Da 2 a 50 caratteri" else null,
                                 onValueChange = { name = it }
                             )
                             ProfileOutlinedTextField(
                                 value = surname,
                                 label = "Cognome",
                                 icon = Icons.Default.Person,
+                                isError = !isSurnameValid,
+                                supportingText = if (!isSurnameValid) "Da 2 a 50 caratteri" else null,
                                 onValueChange = { surname = it }
                             )
                             ProfileOutlinedTextField(
@@ -149,6 +160,8 @@ fun EditProfileScreen(
                                 value = phone,
                                 label = "Telefono",
                                 icon = Icons.Default.Phone,
+                                isError = !isPhoneValid,
+                                supportingText = if (!isPhoneValid) "Es. +39 333 1234567" else null,
                                 keyboardType = KeyboardType.Phone,
                                 onValueChange = { phone = it }
                             )
@@ -156,6 +169,8 @@ fun EditProfileScreen(
                                 value = address,
                                 label = "Indirizzo di Residenza",
                                 icon = Icons.Default.LocationOn,
+                                isError = !isAddressValid,
+                                supportingText = if (!isAddressValid) "Massimo 100 caratteri" else null,
                                 singleLine = false,
                                 onValueChange = { address = it }
                             )
