@@ -93,15 +93,21 @@ services:
       keycloak:
         condition: service_started
       catalog-service:
+        condition: service_healthy
+      booking-service:
         condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-communication:5432/communication-service
       SPRING_RABBITMQ_HOST: rabbitmq
       CATALOG_SERVICE_URL: http://catalog-service:8082
+      # serve al controllo "hai prenotato questo item?" prima di lasciare una
+      # recensione (ReviewService -> BookingClient). Senza, Feign va su
+      # localhost:8083 dentro il container e il controllo salta.
+      BOOKING_SERVICE_URL: http://booking-service:8083
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env}
     networks:
-        - travel-network
+      - travel-network
 
   # Database per il servizio Itinerary
   db-itinerary:

@@ -207,9 +207,10 @@ class CatalogViewModel(
             "https://picsum.photos/seed/${dto.id}A/600/800",
             "https://picsum.photos/seed/${dto.id}B/600/800"
         )
-        // ratingAvg è il valore preciso calcolato da communication-service sulle recensioni
-        // reali; rating (intero) resta come fallback per gli item senza ancora recensioni.
-        val rating = dto.ratingAvg ?: dto.rating?.toDouble()
+        // solo ratingAvg: media reale calcolata da communication-service sulle
+        // recensioni. niente stelline finché non c'è almeno una recensione,
+        // il rating "starter" del seed non va mostrato.
+        val rating = dto.ratingAvg
         val reviewCount = dto.reviewCount ?: 0
 
         return when (dto.itemType.uppercase()) {
