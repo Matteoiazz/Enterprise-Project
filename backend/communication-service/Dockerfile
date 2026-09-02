@@ -7,7 +7,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Fase di runtime leggera con JRE e utente non-root (richiesto dall'audit)
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 RUN useradd -ms /bin/bash appuser && chown -R appuser:appuser /app
 USER appuser
