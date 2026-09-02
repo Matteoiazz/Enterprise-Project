@@ -102,8 +102,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 if (response.isSuccessful && response.body() != null) {
                     profilePictureUrl = response.body()?.get("imageUrl")
                 } else {
-                    errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                        ?: "Errore durante il caricamento dell'immagine (${response.code()})."
+                    errorMessage = readableError(response, "Errore durante il caricamento dell'immagine (${response.code()}).")
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -114,6 +113,23 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 tempFile?.let { runCatching { it.delete() } }
                 isUploadingImage = false
             }
+        }
+    }
+
+    private fun readableError(response: retrofit2.Response<*>, fallback: String): String {
+        val raw = try { response.errorBody()?.string() } catch (e: Exception) { null }
+        if (raw.isNullOrBlank()) return fallback
+        return try {
+            val json = org.json.JSONObject(raw)
+            val messages = json.optJSONObject("messages")
+            when {
+                messages != null && messages.length() > 0 ->
+                    messages.keys().asSequence().map { messages.getString(it) }.joinToString("\n")
+                json.optString("error").isNotBlank() -> json.getString("error")
+                else -> raw
+            }
+        } catch (e: Exception) {
+            raw
         }
     }
 
@@ -167,8 +183,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     if (newAddress.isNotBlank()) address = newAddress
                     onSuccess()
                 } else {
-                    errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                        ?: "Errore durante il salvataggio: ${response.code()}"
+                    errorMessage = readableError(response, "Errore durante il salvataggio (${response.code()}).")
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -249,8 +264,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     pec = newPec
                     onSuccess()
                 } else {
-                    errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                        ?: "Errore durante il salvataggio: ${response.code()}"
+                    errorMessage = readableError(response, "Errore durante il salvataggio (${response.code()}).")
                 }
             } catch (e: CancellationException) {
                 throw e
