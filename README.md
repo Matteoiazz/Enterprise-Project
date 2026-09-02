@@ -59,11 +59,18 @@ Poi apri `.env` e valorizza le variabili:
 | `KEYCLOAK_ADMIN_USERNAME` / `KEYCLOAK_ADMIN_PASSWORD` | no (default `admin`/`admin`) | Credenziali admin di Keycloak (console + Admin Client usato da user-auth-service) | Va bene il default per uso locale/demo |
 | `LOCAL_IP` | **sì** | Host con cui backend **e** app Android raggiungono Keycloak per validare i JWT | L'IP LAN reale della macchina che fa girare `docker compose` (vedi nota sotto) |
 | `RABBITMQ_*` | no (default `guest`/`guest`) | Credenziali RabbitMQ | Va bene il default per uso locale/demo |
-| `INTERNAL_SERVICE_KEY` | **sì** (booking-service non parte senza) | Chiave condivisa tra booking-service e catalog-service per la compensazione degli hold | Una stringa qualsiasi concordata dal gruppo, es. `openssl rand -hex 32` |
+| `INTERNAL_SERVICE_KEY` | no (default `dev-internal-key` in `.env.example`) | Chiave condivisa tra booking-service, catalog-service e communication-service per la compensazione degli hold: deve essere **identica** sui tre | Il default va bene per demo; altrimenti una stringa a caso, es. `openssl rand -hex 32` |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | solo per l'upload immagini | Credenziali Cloudinary del gruppo (foto profilo e foto annunci, usate da user-auth-service e catalog-service) | Dashboard Cloudinary del gruppo (cloudinary.com/console) |
 | `GATEWAY_RATE_LIMIT_*` | no | Limite di richieste/minuto sul gateway | Va bene il default |
 
 > **Nota su `LOCAL_IP`**: non usare `localhost` né il nome del servizio Docker (`keycloak`). Il token emesso da Keycloak porta come issuer l'indirizzo con cui il *client* lo ha contattato; l'app Android sta fuori dalla rete Docker, quindi backend e app devono raggiungere Keycloak allo **stesso indirizzo**, altrimenti la validazione del JWT fallisce per issuer diverso. Usa l'IP LAN reale del PC (es. `192.168.1.50`) — lo stesso da mettere anche in `frontend/local.properties` come `KEYCLOAK_IP`.
+
+> **Se cambi rete / l'IP della macchina cambia**: `LOCAL_IP` va tenuto allineato in tre punti, poi va **ricompilata l'app** (i valori finiscono in `BuildConfig` a compile-time):
+> 1. `backend/.env` → `LOCAL_IP`
+> 2. `frontend/local.properties` → `KEYCLOAK_IP` (e `BACKEND_IP`, se non usi un tunnel come ngrok)
+> 3. `frontend/app/src/main/res/xml/network_security_config.xml` → aggiungi il nuovo IP alla whitelist `<domain-config>`
+>
+> L'IP LAN si ricava con `ipconfig getifaddr en0` (macOS) o `ipconfig` (Windows). Dopo la modifica: `docker compose down && docker compose up -d` e rebuild dell'app.
 
 ## 2. Avvio del backend
 
@@ -126,6 +133,6 @@ Con questi due file al posto giusto, il docente deve solo eseguire `docker compo
 
 ## Note
 
-- Ogni microservizio ha il proprio `Dockerfile` (build multi-stage JDK → JRE, utente non-root): `docker compose up` compila e avvia l'intero backend in un colpo solo, senza bisogno di Java/Maven installati sulla macchina.
+- Ogni microservizio ha il proprio `Dockerfile` multi-stage (toolchain Maven per compilare, immagine JRE leggera per l'esecuzione): `docker compose up` compila e avvia l'intero backend in un colpo solo, senza bisogno di Java/Maven installati sulla macchina.
 - Il pagamento è simulato: nessun collegamento a un vero gestore di pagamenti, qualunque numero di carta che superi il controllo di formato/Luhn viene approvato.
 - `INTERNAL_SERVICE_KEY` deve essere identica su booking-service, catalog-service e communication-service: senza, la compensazione degli hold tra booking e catalog non si autentica correttamente.

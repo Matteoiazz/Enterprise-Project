@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Database per il servizio Catalog
   db-catalog:
@@ -11,6 +9,11 @@ services:
       POSTGRES_DB: db_catalog
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_catalog"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
@@ -24,6 +27,11 @@ services:
       POSTGRES_DB: db_booking
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_booking"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
@@ -37,11 +45,15 @@ services:
       POSTGRES_DB: db_auth
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
-  # Database per il servizio Communication (Gianmaria) - Porta spostata a 5437 per evitare conflitti
-    # Database per il servizio Communication (Gianmaria)
+  # Database per il servizio Communication (Gianmaria) - porta 5437 per evitare conflitti
   db-communication:
     image: postgres:15
     container_name: db-communication
@@ -51,10 +63,15 @@ services:
       POSTGRES_DB: communication-service
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d communication-service"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
-    # Microservizio Java Communication
+  # Microservizio Java Communication (Gianmaria)
   communication-app:
     build:
       context: ./communication-service
@@ -83,6 +100,11 @@ services:
       POSTGRES_DB: db_itinerary
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_itinerary"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
@@ -96,6 +118,11 @@ services:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
     volumes:
@@ -135,12 +162,17 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - travel-network
 
   # Il tuo guardiano Keycloak
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.7.3
     container_name: keycloak
     # --import-realm: importa automaticamente i file .json trovati nella cartella
     # montata su /opt/keycloak/data/import al primo avvio di un database vuoto.
@@ -149,7 +181,8 @@ services:
     # il volume del DB.
     command: start-dev --import-realm
     depends_on:
-      - db-keycloak
+      db-keycloak:
+        condition: service_healthy
     ports:
       - "8180:8080"
     environment:
@@ -161,6 +194,7 @@ services:
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
+      KC_HEALTH_ENABLED: "true"
       # Collegamento al DB
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://db-keycloak:5432/keycloak
@@ -221,8 +255,10 @@ services:
     container_name: user-auth-service
     restart: unless-stopped
     depends_on:
-      - db-auth
-      - keycloak
+      db-auth:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
     ports:
       - "8081:8081"
     environment:
@@ -246,10 +282,10 @@ services:
       - user-auth-service
       - catalog-service
       - itinerary-service
+      - booking-service
+      - communication-app
     ports:
       - "8080:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
       USER_AUTH_SERVICE_URL: http://user-auth-service:8081
       BOOKING_SERVICE_URL: http://booking-service:8083
