@@ -106,6 +106,42 @@ class CatalogViewModelReviewTest {
     }
 
     @Test
+    fun submitReviewForwardsTheShowNameChoice() = runTest(mainDispatcher) {
+        coEvery { reviewApi.addReview(any()) } returns Response.success(review())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.submitReview(42L, 5, "tutto perfetto", showName = true, onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        coVerify { reviewApi.addReview(match { it.showName && it.catalogItemId == 42L }) }
+    }
+
+    @Test
+    fun submitReviewDefaultsShowNameToFalse() = runTest(mainDispatcher) {
+        coEvery { reviewApi.addReview(any()) } returns Response.success(review())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.submitReview(42L, 5, "tutto perfetto", onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        coVerify { reviewApi.addReview(match { !it.showName }) }
+    }
+
+    @Test
+    fun updateReviewForwardsTheShowNameChoice() = runTest(mainDispatcher) {
+        coEvery { reviewApi.updateReview(any(), any()) } returns Response.success(review())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.updateReview(1L, 42L, 4, "ok", showName = true, onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        coVerify { reviewApi.updateReview(1L, match { it.showName }) }
+    }
+
+    @Test
     fun replyToReviewInvokesOnSuccessWhenTheServerAccepts() = runTest(mainDispatcher) {
         coEvery { reviewApi.replyToReview(any(), any()) } returns Response.success(review())
         val vm = viewModel()

@@ -793,6 +793,7 @@ private fun DetailContent(
                     var myRating by remember { mutableIntStateOf(0) }
                     var myComment by remember { mutableStateOf("") }
                     var isSubmitting by remember { mutableStateOf(false) }
+                    var shareName by remember { mutableStateOf(false) }
 
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
@@ -830,6 +831,12 @@ private fun DetailContent(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
 
+                            ReviewNameToggle(
+                                checked = shareName,
+                                onCheckedChange = { shareName = it }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
                             Button(
                                 onClick = {
                                     if (myRating > 0 && myComment.isNotBlank()) {
@@ -838,6 +845,7 @@ private fun DetailContent(
                                             itemId = item.id.toLong(),
                                             rating = myRating,
                                             comment = myComment,
+                                            showName = shareName,
                                             onSuccess = {
                                                 isSubmitting = false
                                                 myRating = 0
@@ -867,6 +875,7 @@ private fun DetailContent(
                     var isEditingReview by remember(myReview.id) { mutableStateOf(false) }
                     var editRating by remember(myReview.id) { mutableIntStateOf(myReview.rating) }
                     var editComment by remember(myReview.id) { mutableStateOf(myReview.comment) }
+                    var editShareName by remember(myReview.id) { mutableStateOf(!myReview.travelerName.isNullOrBlank()) }
                     var isSavingEdit by remember { mutableStateOf(false) }
                     var showDeleteReviewConfirm by remember { mutableStateOf(false) }
 
@@ -922,11 +931,18 @@ private fun DetailContent(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
 
+                                ReviewNameToggle(
+                                    checked = editShareName,
+                                    onCheckedChange = { editShareName = it }
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.align(Alignment.End)) {
                                     TextButton(onClick = {
                                         isEditingReview = false
                                         editRating = myReview.rating
                                         editComment = myReview.comment
+                                        editShareName = !myReview.travelerName.isNullOrBlank()
                                     }) {
                                         Text("Annulla", style = CatalogType.Button, color = CatalogColors.InkMuted)
                                     }
@@ -942,6 +958,7 @@ private fun DetailContent(
                                                     itemId = item.id.toLong(),
                                                     rating = editRating,
                                                     comment = editComment,
+                                                    showName = editShareName,
                                                     onSuccess = {
                                                         isSavingEdit = false
                                                         isEditingReview = false
@@ -968,6 +985,14 @@ private fun DetailContent(
                                 RatingRow(rating = myReview.rating.toDouble())
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(myReview.comment, style = CatalogType.Body, color = CatalogColors.Ink)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (!myReview.travelerName.isNullOrBlank())
+                                        "Visibile agli altri con il tuo nome (${myReview.travelerName})"
+                                    else "Visibile agli altri come \"Utente verificato\"",
+                                    style = CatalogType.Caption,
+                                    color = CatalogColors.InkSubtle
+                                )
                                 if (myReview.helpfulCount > 0) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
@@ -1028,7 +1053,7 @@ private fun DetailContent(
 
                 val otherReviews = reviews.filter { it !== myReview }
 
-                if (otherReviews.isEmpty()) {
+                if (reviews.isEmpty()) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -1047,12 +1072,12 @@ private fun DetailContent(
                 } else {
                     var reviewStarFilter by remember(item.id) { mutableStateOf<Int?>(null) }
                     var reviewSort by remember(item.id) { mutableStateOf(ReviewSort.RECENT) }
-                    LaunchedEffect(otherReviews.size) {
-                        if (otherReviews.size < 3) reviewStarFilter = null
+                    LaunchedEffect(reviews.size) {
+                        if (reviews.size < 3) reviewStarFilter = null
                     }
 
-                    if (otherReviews.size >= 3) {
-                        val countsByStar = (5 downTo 1).map { star -> star to otherReviews.count { it.rating == star } }
+                    if (reviews.size >= 3) {
+                        val countsByStar = (5 downTo 1).map { star -> star to reviews.count { it.rating == star } }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1062,7 +1087,7 @@ private fun DetailContent(
                         ) {
                             ReviewFilterChip(
                                 label = "Tutte",
-                                count = otherReviews.size,
+                                count = reviews.size,
                                 selected = reviewStarFilter == null,
                                 onClick = { reviewStarFilter = null }
                             )
@@ -1080,7 +1105,7 @@ private fun DetailContent(
                         }
                     }
 
-                    if (otherReviews.size >= 2) {
+                    if (reviews.size >= 2) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1126,10 +1151,17 @@ private fun DetailContent(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Nessuna recensione a $reviewStarFilter stelle", style = CatalogType.Body, color = CatalogColors.InkMuted)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            TextButton(onClick = { reviewStarFilter = null }) {
-                                Text("Mostra tutte", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                            Text(
+                                text = if (reviewStarFilter != null) "Nessun'altra recensione a $reviewStarFilter stelle"
+                                else "Ancora nessun'altra recensione",
+                                style = CatalogType.Body,
+                                color = CatalogColors.InkMuted
+                            )
+                            if (reviewStarFilter != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TextButton(onClick = { reviewStarFilter = null }) {
+                                    Text("Mostra tutte", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                                }
                             }
                         }
                     } else {
@@ -1144,7 +1176,12 @@ private fun DetailContent(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Utente verificato", style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                                        Text(
+                                            text = if (!rev.travelerName.isNullOrBlank()) rev.travelerName!!
+                                            else "Utente verificato",
+                                            style = CatalogType.LabelStrong,
+                                            color = CatalogColors.Ink
+                                        )
                                         RatingRow(rating = rev.rating.toDouble())
                                     }
                                 }
@@ -1250,6 +1287,44 @@ private fun ReviewSortChip(
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     )
+}
+
+@Composable
+private fun ReviewNameToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CatalogShapes.Field)
+            .background(CatalogColors.Surface)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Mostra il mio nome", style = CatalogType.Label, color = CatalogColors.Ink)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (checked) "Gli altri vedranno il tuo nome e cognome"
+                else "Comparirai come \"Utente verificato\"",
+                style = CatalogType.Caption,
+                color = CatalogColors.InkSubtle
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = CatalogColors.Surface,
+                checkedTrackColor = CatalogColors.AccentDark,
+                uncheckedThumbColor = CatalogColors.Surface,
+                uncheckedTrackColor = CatalogColors.InkSubtle
+            )
+        )
+    }
 }
 
 @Composable

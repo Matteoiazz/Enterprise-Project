@@ -14,5 +14,7 @@ public record UpdateReviewRequest(
 
         @NotBlank(message = "Il commento non può essere vuoto")
         @Size(max = 1000, message = "Il commento non può superare i 1000 caratteri")
-        String comment
+        String comment,
+
+        Boolean showName
 ) {}

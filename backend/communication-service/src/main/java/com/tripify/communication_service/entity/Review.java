@@ -38,4 +38,7 @@ public class Review {
 
     @Column(name = "replied_at")
     private java.time.Instant repliedAt;
+
+    @Column(name = "traveler_name")
+    private String travelerName;
 }

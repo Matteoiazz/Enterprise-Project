@@ -2,6 +2,7 @@ package com.tripify.communication_service.service;
 
 import com.tripify.communication_service.client.BookingClient;
 import com.tripify.communication_service.client.CatalogClient;
+import com.tripify.communication_service.client.UserProfileClient;
 import com.tripify.communication_service.dto.ReviewResponse;
 import com.tripify.communication_service.entity.Review;
 import com.tripify.communication_service.entity.ReviewVote;
@@ -28,11 +29,16 @@ public class ReviewService {
     private final ReviewVoteRepository reviewVoteRepository;
     private final BookingClient bookingClient;
     private final CatalogClient catalogClient;
+    private final UserProfileClient userProfileClient;
 
     @Value("${internal.service-key}")
     private String internalServiceKey;
 
     public ReviewResponse createReview(Integer rating, String comment, String travelerId, Long catalogItemId) {
+        return createReview(rating, comment, travelerId, catalogItemId, false);
+    }
+
+    public ReviewResponse createReview(Integer rating, String comment, String travelerId, Long catalogItemId, boolean showName) {
         validate(rating, comment);
 
         boolean hasBooked = bookingClient.hasUserBookedItem(catalogItemId);
@@ -49,6 +55,7 @@ public class ReviewService {
                 .comment(comment)
                 .travelerId(travelerId)
                 .catalogItemId(catalogItemId)
+                .travelerName(showName ? resolveOwnDisplayName(travelerId) : null)
                 .build();
 
         Review saved;
@@ -62,6 +69,10 @@ public class ReviewService {
     }
 
     public ReviewResponse updateReview(Long id, Integer rating, String comment, String travelerId) {
+        return updateReview(id, rating, comment, travelerId, null);
+    }
+
+    public ReviewResponse updateReview(Long id, Integer rating, String comment, String travelerId, Boolean showName) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Recensione non trovata"));
 
@@ -72,6 +83,9 @@ public class ReviewService {
 
         review.setRating(rating);
         review.setComment(comment);
+        if (showName != null) {
+            review.setTravelerName(showName ? resolveOwnDisplayName(review.getTravelerId()) : null);
+        }
         Review saved = reviewRepository.save(review);
         recomputeItemRating(review.getCatalogItemId());
         return ReviewResponse.from(saved);
@@ -128,8 +142,22 @@ public class ReviewService {
                         review.getReply(),
                         review.getRepliedAt(),
                         countByReview.getOrDefault(review.getId(), 0L).intValue(),
-                        votedByCaller.contains(review.getId())))
+                        votedByCaller.contains(review.getId()),
+                        review.getTravelerName()))
                 .toList();
+    }
+
+    private String resolveOwnDisplayName(String sub) {
+        if (sub == null || sub.isBlank()) {
+            return null;
+        }
+        try {
+            Map<String, String> names = userProfileClient.resolveNames(List.of(sub));
+            return names != null ? names.get(sub) : null;
+        } catch (Exception e) {
+            log.warn("Nome del recensore non risolto per {}: {}", sub, e.getMessage());
+            return null;
+        }
     }
 
     public ReviewResponse toggleHelpful(Long reviewId, String voterId) {
@@ -164,7 +192,8 @@ public class ReviewService {
                 review.getReply(),
                 review.getRepliedAt(),
                 helpfulCount,
-                votedNow
+                votedNow,
+                review.getTravelerName()
         );
     }
 
