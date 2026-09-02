@@ -16,6 +16,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -44,8 +45,14 @@ interface BookingApi {
 
     // Trasforma il carrello (o solo gli articoli selezionati) dell'utente
     // autenticato in una prenotazione PENDING.
+    // idempotencyKey: vedi CartViewModel.checkoutThenPay - la stessa chiave
+    // riusata su un retry fa restituire al backend la Booking già creata
+    // invece di un "carrello vuoto" (il primo tentativo l'ha già svuotato).
     @POST("api/v1/bookings/checkout")
-    suspend fun checkout(@Body request: CheckoutRequestDTO = CheckoutRequestDTO()): Response<BookingResponseDTO>
+    suspend fun checkout(
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: CheckoutRequestDTO = CheckoutRequestDTO()
+    ): Response<BookingResponseDTO>
 
     // Storico dei viaggi, ora paginato lato server.
     @GET("api/v1/bookings/user")

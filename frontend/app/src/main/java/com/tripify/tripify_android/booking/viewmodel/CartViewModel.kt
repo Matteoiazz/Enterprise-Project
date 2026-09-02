@@ -173,6 +173,15 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
     // volta: un articolo senza più una riga corrispondente perde solo i suoi
     // ospiti (recuperabili dopo da "Le mie prenotazioni"), non li assegna a un
     // altro articolo.
+    // Stessa chiave riusata finché non arriva un pagamento riuscito (vedi
+    // resetPaymentState): se la risposta del checkout si perde per un
+    // problema di rete e l'utente ritenta, il backend riconosce lo stesso
+    // tentativo e restituisce la Booking già creata invece di un "carrello
+    // vuoto" (il primo tentativo l'ha già svuotato). Aiuta anche un pagamento
+    // rifiutato e ritentato: la Booking PENDING viene riusata invece di
+    // fallire con carrello vuoto.
+    private var checkoutIdempotencyKey: String? = null
+
     private suspend fun checkoutThenPay(
         guestsByCartItemId: Map<Long, List<PassengerRequestDTO>> = emptyMap(),
         buildRequest: (booking: BookingResponseDTO) -> PaymentRequestDTO
@@ -181,7 +190,10 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
         val orderedSelectedItems = (_uiState.value as? CartState.Success)?.cart?.items
             ?.filter { it.id in selectedIds }.orEmpty()
 
-        val checkoutResponse = api.checkout(CheckoutRequestDTO(cartItemIds = selectedIds.toList()))
+        val idempotencyKey = checkoutIdempotencyKey
+            ?: java.util.UUID.randomUUID().toString().also { checkoutIdempotencyKey = it }
+
+        val checkoutResponse = api.checkout(idempotencyKey, CheckoutRequestDTO(cartItemIds = selectedIds.toList()))
         if (!checkoutResponse.isSuccessful || checkoutResponse.body() == null) {
             _paymentState.value = PaymentState.Error(checkoutResponse.parseErrorMessage())
             return null
@@ -192,6 +204,7 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
         return if (paymentResponse.isSuccessful && paymentResponse.body()?.success == true) {
             _paymentState.value = PaymentState.Success(booking.id)
+            checkoutIdempotencyKey = null
 
             val remainingLines = booking.lines.toMutableList()
             orderedSelectedItems.forEach { cartItem ->
@@ -294,7 +307,11 @@ class CartViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    // Chiamato all'ingresso in CheckoutScreen: azzera anche la chiave di
+    // idempotenza, così una nuova visita alla schermata parte come un
+    // tentativo nuovo invece di riusare quella di un checkout abbandonato.
     fun resetPaymentState() {
         _paymentState.value = PaymentState.Idle
+        checkoutIdempotencyKey = null
     }
 }
