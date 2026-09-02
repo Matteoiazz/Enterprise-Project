@@ -35,6 +35,7 @@ backend/keycloak-data/
 
 # Variabili d'ambiente reali del backend (credenziali Cloudinary, chiavi
 # interne, ecc.): solo backend/.env.example va versionato, mai il .env vero.
+.env
 backend/.env
 
 # Log locale generato lanciando la build di booking-service a mano.
