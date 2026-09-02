@@ -15,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -62,9 +63,18 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.replyToReview(id, request.reply(), jwt.getSubject()));
     }
 
+    @PostMapping("/{id}/helpful")
+    public ResponseEntity<ReviewResponse> toggleHelpful(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return ResponseEntity.ok(reviewService.toggleHelpful(id, jwt.getSubject()));
+    }
+
     @GetMapping("/item/{catalogItemId}")
-    public ResponseEntity<List<ReviewResponse>> getReviewsForItem(@PathVariable Long catalogItemId) {
-        return ResponseEntity.ok(reviewService.getReviewsByItem(catalogItemId));
+    public ResponseEntity<List<ReviewResponse>> getReviewsForItem(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long catalogItemId) {
+
+        String callerId = jwt != null ? jwt.getSubject() : null;
+        return ResponseEntity.ok(reviewService.getReviewsByItem(catalogItemId, callerId));
     }
 
     @GetMapping("/traveler/{travelerId}")
@@ -75,32 +85,35 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getReviewsByTraveler(travelerId));
     }
 
+    private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("error", message == null ? status.getReasonPhrase() : message));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<String> handleInvalidBody(MethodArgumentNotValidException e) {
+    public ResponseEntity<Map<String, Object>> handleInvalidBody(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(fe -> fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
-        return ResponseEntity.badRequest().body(message.isBlank() ? "Dati non validi" : message);
+        return error(HttpStatus.BAD_REQUEST, message.isBlank() ? "Dati non validi" : message);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleBadRequest(IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
+    public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException e) {
+        return error(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<String> handleForbidden(IllegalStateException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+    public ResponseEntity<Map<String, Object>> handleForbidden(IllegalStateException e) {
+        return error(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
     @ExceptionHandler(java.util.NoSuchElementException.class)
-    public ResponseEntity<String> handleNotFound(java.util.NoSuchElementException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    public ResponseEntity<Map<String, Object>> handleNotFound(java.util.NoSuchElementException e) {
+        return error(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
     @ExceptionHandler(feign.FeignException.class)
-    public ResponseEntity<String> handleDownstreamUnavailable(feign.FeignException e) {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body("Servizio di prenotazioni non raggiungibile, riprova più tardi.");
+    public ResponseEntity<Map<String, Object>> handleDownstreamUnavailable(feign.FeignException e) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "Servizio temporaneamente non raggiungibile, riprova più tardi.");
     }
 }

@@ -11,9 +11,15 @@ public record ReviewResponse(
         String travelerId,
         Long catalogItemId,
         String reply,
-        Instant repliedAt
+        Instant repliedAt,
+        int helpfulCount,
+        boolean helpfulByMe
 ) {
     public static ReviewResponse from(Review review) {
+        return from(review, 0, false);
+    }
+
+    public static ReviewResponse from(Review review, int helpfulCount, boolean helpfulByMe) {
         return new ReviewResponse(
                 review.getId(),
                 review.getRating(),
@@ -21,7 +27,9 @@ public record ReviewResponse(
                 review.getTravelerId(),
                 review.getCatalogItemId(),
                 review.getReply(),
-                review.getRepliedAt()
+                review.getRepliedAt(),
+                helpfulCount,
+                helpfulByMe
         );
     }
 }

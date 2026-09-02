@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -750,7 +751,7 @@ private fun DetailContent(
                     val avg = reviews.map { it.rating }.average()
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 20.dp)
+                        modifier = Modifier.padding(bottom = 16.dp)
                     ) {
                         Text(
                             text = String.format(Locale.ITALY, "%.1f", avg),
@@ -768,9 +769,24 @@ private fun DetailContent(
                             )
                         }
                     }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val total = reviews.size
+                        (5 downTo 1).forEach { star ->
+                            val count = reviews.count { it.rating == star }
+                            RatingDistributionRow(
+                                star = star,
+                                count = count,
+                                fraction = if (total > 0) count.toFloat() / total else 0f
+                            )
+                        }
+                    }
                 }
 
-                val myReview = reviews.find { it.travelerId == currentUserId }
+                val myReview = currentUserId?.let { uid -> reviews.find { it.travelerId == uid } }
                 val isHost = currentUserId != null && item.hostId == currentUserId
 
                 if (hasBooked && myReview == null) {
@@ -952,6 +968,15 @@ private fun DetailContent(
                                 RatingRow(rating = myReview.rating.toDouble())
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(myReview.comment, style = CatalogType.Body, color = CatalogColors.Ink)
+                                if (myReview.helpfulCount > 0) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = if (myReview.helpfulCount == 1) "1 persona ha trovato utile la tua recensione"
+                                        else "${myReview.helpfulCount} persone hanno trovato utile la tua recensione",
+                                        style = CatalogType.Caption,
+                                        color = CatalogColors.InkMuted
+                                    )
+                                }
                                 ReviewReplySection(review = myReview, isHost = false, onReply = { _, done -> done(true) })
                             }
                         }
@@ -1001,7 +1026,7 @@ private fun DetailContent(
                     }
                 }
 
-                val otherReviews = reviews.filter { it.travelerId != currentUserId }
+                val otherReviews = reviews.filter { it !== myReview }
 
                 if (otherReviews.isEmpty()) {
                     Column(
@@ -1021,6 +1046,7 @@ private fun DetailContent(
                     }
                 } else {
                     var reviewStarFilter by remember(item.id) { mutableStateOf<Int?>(null) }
+                    var reviewSort by remember(item.id) { mutableStateOf(ReviewSort.RECENT) }
                     LaunchedEffect(otherReviews.size) {
                         if (otherReviews.size < 3) reviewStarFilter = null
                     }
@@ -1031,7 +1057,7 @@ private fun DetailContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState())
-                                .padding(bottom = 16.dp),
+                                .padding(bottom = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             ReviewFilterChip(
@@ -1054,7 +1080,46 @@ private fun DetailContent(
                         }
                     }
 
-                    val visibleReviews = reviewStarFilter?.let { star -> otherReviews.filter { it.rating == star } } ?: otherReviews
+                    if (otherReviews.size >= 2) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "ORDINA",
+                                style = CatalogType.Overline,
+                                color = CatalogColors.InkSubtle,
+                                modifier = Modifier.align(Alignment.CenterVertically)
+                            )
+                            ReviewSort.entries.forEach { opt ->
+                                ReviewSortChip(
+                                    label = opt.label,
+                                    selected = reviewSort == opt,
+                                    onClick = { reviewSort = opt }
+                                )
+                            }
+                        }
+                    }
+
+                    val filteredReviews = reviewStarFilter?.let { star -> otherReviews.filter { it.rating == star } } ?: otherReviews
+                    val visibleReviews = when (reviewSort) {
+                        ReviewSort.RECENT -> filteredReviews.sortedByDescending { it.id ?: 0L }
+                        ReviewSort.HELPFUL -> filteredReviews.sortedWith(
+                            compareByDescending<com.tripify.tripify_android.data.model.ReviewDto> { it.helpfulCount }
+                                .thenByDescending { it.id ?: 0L }
+                        )
+                        ReviewSort.RATING_DESC -> filteredReviews.sortedWith(
+                            compareByDescending<com.tripify.tripify_android.data.model.ReviewDto> { it.rating }
+                                .thenByDescending { it.id ?: 0L }
+                        )
+                        ReviewSort.RATING_ASC -> filteredReviews.sortedWith(
+                            compareBy<com.tripify.tripify_android.data.model.ReviewDto> { it.rating }
+                                .thenByDescending { it.id ?: 0L }
+                        )
+                    }
 
                     if (visibleReviews.isEmpty()) {
                         Column(
@@ -1106,6 +1171,27 @@ private fun DetailContent(
                                         }
                                     )
                                 }
+                                if (rev.id != null && !isHost) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HelpfulButton(
+                                        count = rev.helpfulCount,
+                                        marked = rev.helpfulByMe,
+                                        enabled = isLoggedIn,
+                                        onClick = {
+                                            viewModel.toggleReviewHelpful(rev.id) { msg ->
+                                                scope.launch { snackbarHostState.showSnackbar(msg) }
+                                            }
+                                        }
+                                    )
+                                } else if (rev.helpfulCount > 0) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = if (rev.helpfulCount == 1) "1 persona l'ha trovata utile"
+                                        else "${rev.helpfulCount} persone l'hanno trovata utile",
+                                        style = CatalogType.Caption,
+                                        color = CatalogColors.InkMuted
+                                    )
+                                }
                                 HorizontalDivider(color = CatalogColors.Hairline, modifier = Modifier.padding(top = 16.dp))
                             }
                         }
@@ -1138,6 +1224,106 @@ private fun RatingRow(rating: Double) {
         RatingStars(rating = rating, starSize = 14.dp)
         Spacer(modifier = Modifier.width(8.dp))
         Text(ratingLabel(rating), style = CatalogType.Caption, color = CatalogColors.InkMuted)
+    }
+}
+
+enum class ReviewSort(val label: String) {
+    RECENT("Più recenti"),
+    HELPFUL("Più utili"),
+    RATING_DESC("Voto più alto"),
+    RATING_ASC("Voto più basso")
+}
+
+@Composable
+private fun ReviewSortChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Text(
+        text = label,
+        style = CatalogType.Label,
+        color = if (selected) Color.White else CatalogColors.Ink,
+        modifier = Modifier
+            .clip(CatalogShapes.Pill)
+            .background(if (selected) CatalogColors.AccentDark else CatalogColors.SurfaceMuted)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    )
+}
+
+@Composable
+private fun RatingDistributionRow(star: Int, count: Int, fraction: Float) {
+    val animatedFraction by animateFloatAsState(
+        targetValue = fraction.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 500),
+        label = "ratingBar"
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "$star",
+            style = CatalogType.Caption,
+            color = CatalogColors.InkMuted,
+            modifier = Modifier.width(10.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(Icons.Filled.Star, contentDescription = null, tint = CatalogColors.Gold, modifier = Modifier.size(11.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(8.dp)
+                .clip(CatalogShapes.Pill)
+                .background(CatalogColors.SurfaceMuted)
+        ) {
+            if (animatedFraction > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(animatedFraction)
+                        .clip(CatalogShapes.Pill)
+                        .background(CatalogColors.Gold)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "$count",
+            style = CatalogType.Caption,
+            color = CatalogColors.InkMuted,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun HelpfulButton(
+    count: Int,
+    marked: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .clip(CatalogShapes.Pill)
+            .background(if (marked) CatalogColors.AccentSoft else CatalogColors.SurfaceMuted)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (marked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+            contentDescription = null,
+            tint = if (marked) CatalogColors.AccentDark else CatalogColors.InkMuted,
+            modifier = Modifier.size(14.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = if (count > 0) "Utile · $count" else "Utile",
+            style = CatalogType.Label,
+            color = if (marked) CatalogColors.AccentDark else CatalogColors.InkMuted
+        )
     }
 }
 

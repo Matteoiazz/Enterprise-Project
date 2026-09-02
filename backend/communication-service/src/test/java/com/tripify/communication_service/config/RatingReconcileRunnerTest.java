@@ -19,16 +19,21 @@ class RatingReconcileRunnerTest {
     @InjectMocks RatingReconcileRunner runner;
 
     @Test
-    void run_triggersReconcileOnStartup() {
-        runner.run();
+    void reconcileNow_triggersReconcile() {
+        runner.reconcileNow();
 
         verify(reviewService).reconcileAllRatings();
     }
 
     @Test
-    void run_swallowsExceptionsSoStartupIsNotBlocked() {
+    void reconcileNow_swallowsExceptionsSoStartupIsNotBlocked() {
         doThrow(new RuntimeException("db down")).when(reviewService).reconcileAllRatings();
 
+        assertThatCode(() -> runner.reconcileNow()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void run_returnsImmediatelyWithoutBlocking() {
         assertThatCode(() -> runner.run()).doesNotThrowAnyException();
     }
 }

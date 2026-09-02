@@ -63,6 +63,15 @@ class TokenManagerTest {
     }
 
     @Test
+    fun saveSessionWritesAllThreeTokensAtomically() = runTest {
+        tokenManager.saveSession("access-9", "id-9", "refresh-9")
+
+        assertEquals("access-9", tokenManager.tokenFlow.first())
+        assertEquals("id-9", tokenManager.getIdToken())
+        assertEquals("refresh-9", tokenManager.getRefreshToken())
+    }
+
+    @Test
     fun clearTokensRemovesEveryStoredToken() = runTest {
         tokenManager.saveToken("access-1")
         tokenManager.saveIdToken("id-1")

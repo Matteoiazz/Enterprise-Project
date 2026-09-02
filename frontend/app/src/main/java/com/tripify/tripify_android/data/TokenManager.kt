@@ -18,6 +18,7 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
 
@@ -33,12 +34,62 @@ class TokenManager(private val context: Context) {
         val NOTIFICATIONS_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("notifications_enabled")
         val CHAT_ALERTS_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("chat_alerts_enabled")
         private val refreshMutex = Mutex()
+
+        private const val CLIENT_ID = "tripify-android-client"
+        private val TOKEN_ENDPOINT: String
+            get() = "${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token"
+
+        private fun tokenHttpClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
     }
 
     sealed class RefreshResult {
         data class Success(val accessToken: String) : RefreshResult()
         object InvalidGrant : RefreshResult()
         object TransientError : RefreshResult()
+    }
+
+    sealed class CodeExchangeResult {
+        data class Success(val accessToken: String) : CodeExchangeResult()
+        data class Failure(val detail: String) : CodeExchangeResult()
+    }
+
+    suspend fun exchangeAuthorizationCode(
+        code: String,
+        codeVerifier: String?,
+        redirectUri: String
+    ): CodeExchangeResult = withContext(Dispatchers.IO) {
+        try {
+            val form = FormBody.Builder()
+                .add("grant_type", "authorization_code")
+                .add("client_id", CLIENT_ID)
+                .add("code", code)
+                .add("redirect_uri", redirectUri)
+            if (!codeVerifier.isNullOrEmpty()) form.add("code_verifier", codeVerifier)
+
+            val request = Request.Builder().url(TOKEN_ENDPOINT).post(form.build()).build()
+            val response = tokenHttpClient().newCall(request).execute()
+            val body = response.body?.string()
+
+            if (response.isSuccessful && body != null) {
+                val json = JSONObject(body)
+                val accessToken = json.getString("access_token")
+                val refreshToken = if (json.has("refresh_token")) json.getString("refresh_token") else ""
+                val idToken = if (json.has("id_token")) json.getString("id_token") else ""
+                if (accessToken.isBlank() || refreshToken.isBlank()) {
+                    return@withContext CodeExchangeResult.Failure("Il server non ha restituito una sessione completa")
+                }
+                saveSession(accessToken, idToken, refreshToken)
+                CodeExchangeResult.Success(accessToken)
+            } else {
+                val reason = body?.let { runCatching { JSONObject(it).optString("error_description").ifBlank { JSONObject(it).optString("error") } }.getOrNull() }
+                CodeExchangeResult.Failure(reason?.takeIf { it.isNotBlank() } ?: "HTTP ${response.code}")
+            }
+        } catch (e: Exception) {
+            CodeExchangeResult.Failure(e.message ?: "errore di rete verso Keycloak")
+        }
     }
 
     val useMetricSystemFlow: Flow<Boolean> = context.dataStore.data.map { it[METRIC_SYSTEM_KEY] ?: true }
@@ -61,6 +112,14 @@ class TokenManager(private val context: Context) {
 
     suspend fun saveRefreshToken(refreshToken: String) {
         context.dataStore.edit { it[REFRESH_TOKEN_KEY] = refreshToken }
+    }
+
+    suspend fun saveSession(accessToken: String, idToken: String, refreshToken: String) {
+        context.dataStore.edit {
+            it[JWT_TOKEN_KEY] = accessToken
+            it[ID_TOKEN_KEY] = idToken
+            it[REFRESH_TOKEN_KEY] = refreshToken
+        }
     }
 
     val tokenFlow: Flow<String?> = context.dataStore.data.map { it[JWT_TOKEN_KEY] }
@@ -94,19 +153,18 @@ class TokenManager(private val context: Context) {
 
         withContext(Dispatchers.IO) {
             try {
-                val client = OkHttpClient()
                 val requestBody = FormBody.Builder()
                     .add("grant_type", "refresh_token")
-                    .add("client_id", "tripify-android-client")
+                    .add("client_id", CLIENT_ID)
                     .add("refresh_token", refreshToken)
                     .build()
 
                 val request = Request.Builder()
-                    .url("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
+                    .url(TOKEN_ENDPOINT)
                     .post(requestBody)
                     .build()
 
-                val response = client.newCall(request).execute()
+                val response = tokenHttpClient().newCall(request).execute()
                 val body = response.body?.string()
 
                 if (response.isSuccessful && body != null) {

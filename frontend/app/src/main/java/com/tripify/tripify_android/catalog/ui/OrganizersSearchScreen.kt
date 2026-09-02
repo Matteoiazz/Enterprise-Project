@@ -34,6 +34,7 @@ fun OrganizersSearchScreen(
 ) {
     val organizers = viewModel.organizersList
     val isLoading = viewModel.isLoadingOrganizers
+    val loadError = viewModel.organizersError
 
     // Stato per la barra di ricerca
     var searchQuery by remember { mutableStateOf("") }
@@ -45,7 +46,7 @@ fun OrganizersSearchScreen(
     // Filtriamo gli organizzatori in tempo reale
     val filteredOrganizers = organizers.filter { org ->
         val fullName = "${org.name.orEmpty()} ${org.surname.orEmpty()}".lowercase()
-        val email = org.email.lowercase()
+        val email = org.email.orEmpty().lowercase()
         val query = searchQuery.lowercase()
         fullName.contains(query) || email.contains(query)
     }
@@ -86,6 +87,7 @@ fun OrganizersSearchScreen(
                 Text(
                     text = when {
                         isLoading -> "Caricamento organizzatori…"
+                        loadError != null -> loadError
                         organizers.isEmpty() -> "Nessun organizzatore disponibile"
                         searchQuery.isBlank() -> "${organizers.size} organizzatori su Tripify"
                         else -> "${filteredOrganizers.size} risultati"
@@ -168,14 +170,15 @@ fun OrganizersSearchScreen(
                     }
                 }
             } else {
-                items(filteredOrganizers, key = { it.email }) { org ->
+                items(filteredOrganizers, key = { it.email ?: it.hashCode().toString() }) { org ->
                     val displayName = "${org.name ?: ""} ${org.surname ?: ""}".trim().ifEmpty { "Organizzatore" }
+                    val organizerEmail = org.email
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 14.dp)
-                            .clickable { onNavigateToOrganizer(org.email) },
+                            .clickable { organizerEmail?.let { onNavigateToOrganizer(it) } },
                         shape = CatalogShapes.Card,
                         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -220,7 +223,7 @@ fun OrganizersSearchScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = org.email,
+                                    text = organizerEmail.orEmpty(),
                                     style = CatalogType.Caption,
                                     color = CatalogColors.InkMuted,
                                     maxLines = 1

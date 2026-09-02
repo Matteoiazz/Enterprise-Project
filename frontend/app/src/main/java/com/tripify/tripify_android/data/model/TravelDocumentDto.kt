@@ -1,7 +1,4 @@
-package com.tripify.tripify_android.data.model // Adatta il package al tuo progetto
-
-import java.time.LocalDate
-import java.util.UUID
+package com.tripify.tripify_android.data.model
 
 data class TravelDocumentDto(
     val id: String? = null,

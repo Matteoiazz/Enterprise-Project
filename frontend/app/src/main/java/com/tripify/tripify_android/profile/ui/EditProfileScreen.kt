@@ -56,6 +56,16 @@ fun EditProfileScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
+    var isSavingProfile by remember { mutableStateOf(false) }
+    var isSavingPec by remember { mutableStateOf(false) }
+
+    LaunchedEffect(viewModel.isLoading) {
+        if (!viewModel.isLoading) {
+            isSavingProfile = false
+            isSavingPec = false
+        }
+    }
+
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -174,8 +184,13 @@ fun EditProfileScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
 
                                 Button(
-                                    onClick = { viewModel.updatePec(pec) {} },
-                                    enabled = isPecValid && pec.isNotBlank() && pec != viewModel.pec,
+                                    onClick = {
+                                        isSavingPec = true
+                                        viewModel.updatePec(pec) {
+                                            Toast.makeText(context, "PEC aggiornata correttamente", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    enabled = isPecValid && pec.isNotBlank() && pec != viewModel.pec && !isSavingPec,
                                     modifier = Modifier.fillMaxWidth().height(48.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = CatalogColors.AccentDark,
@@ -185,7 +200,15 @@ fun EditProfileScreen(
                                     shape = CatalogShapes.Pill,
                                     elevation = ButtonDefaults.buttonElevation(0.dp)
                                 ) {
-                                    Text("SALVA PEC", style = CatalogType.Button)
+                                    if (isSavingPec) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            color = CatalogColors.InkSubtle,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text("SALVA PEC", style = CatalogType.Button)
+                                    }
                                 }
                             }
                         }
@@ -246,9 +269,10 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(cardOverlap))
                 Button(
                     onClick = {
+                        isSavingProfile = true
                         onSaveProfile(name, surname, phone, address, email, newPassword)
                     },
-                    enabled = isFormValid,
+                    enabled = isFormValid && !isSavingProfile,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = CatalogSpacing.Gutter)
@@ -261,14 +285,24 @@ fun EditProfileScreen(
                     shape = CatalogShapes.Pill,
                     elevation = ButtonDefaults.buttonElevation(0.dp)
                 ) {
-                    if (isFormValid) {
-                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = CatalogColors.Surface)
+                    if (isSavingProfile) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = CatalogColors.InkSubtle,
+                            strokeWidth = 2.dp
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
+                        Text(text = "SALVATAGGIO...", style = CatalogType.Button)
+                    } else {
+                        if (isFormValid) {
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = CatalogColors.Surface)
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+                        Text(
+                            text = "SALVA MODIFICHE",
+                            style = CatalogType.Button
+                        )
                     }
-                    Text(
-                        text = "SALVA MODIFICHE",
-                        style = CatalogType.Button
-                    )
                 }
             }
         }

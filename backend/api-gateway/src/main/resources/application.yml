@@ -39,4 +39,4 @@ spring:
         - id: communication-service
           uri: ${COMMUNICATION_SERVICE_URL:http://localhost:8084}
           predicates:
-            - Path=/chat/**, /ws-chat/**, /api/notifications/**,/api/v1/reviews/**
+            - Path=/chat/**, /ws-chat/**, /api/notifications/**, /api/v1/reviews/**

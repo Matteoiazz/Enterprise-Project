@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.model.PaymentMethodDto
 import com.tripify.tripify_android.profile.api.ProfileApiService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,13 +25,19 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private var loadJob: Job? = null
+
     fun loadPaymentMethods() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isLoading.value = true
+            _errorMessage.value = null
             try {
                 _paymentMethods.value = apiService.getPaymentMethods()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore nel caricamento carte."
+                _errorMessage.value = "Impossibile caricare i metodi di pagamento. Controlla la connessione e riprova."
             } finally {
                 _isLoading.value = false
             }
@@ -39,6 +47,8 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
     fun addPaymentMethod(
         provider: String, cardNumber: String, expiration: String, onSuccess: () -> Unit
     ) {
+        _errorMessage.value = null
+
         if (provider.isBlank() || cardNumber.isBlank() || expiration.isBlank()) {
             _errorMessage.value = "Tutti i campi sono obbligatori"
             return
@@ -94,13 +104,37 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
     }
 
     fun deletePaymentMethod(id: String) {
+        _errorMessage.value = null
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 apiService.deletePaymentMethod(id)
                 loadPaymentMethods()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante l'eliminazione."
+                _errorMessage.value = "Errore durante l'eliminazione. Riprova."
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun setDefault(id: String) {
+        _errorMessage.value = null
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = apiService.setDefaultPaymentMethod(id)
+                if (response.isSuccessful) {
+                    _paymentMethods.value = apiService.getPaymentMethods()
+                } else {
+                    _errorMessage.value = "Impossibile impostare la carta predefinita. Riprova."
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Impossibile impostare la carta predefinita. Riprova."
             } finally {
                 _isLoading.value = false
             }
