@@ -862,31 +862,41 @@
       "redirectUris": [
         "com.tripify.app://oauth"
       ],
-      "webOrigins": [
-        "*"
-      ],
+      "webOrigins": [],
       "notBefore": 0,
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "publicClient": true,
       "frontchannelLogout": true,
       "protocol": "openid-connect",
       "attributes": {
+        "id.token.as.detached.signature": "false",
         "logout.confirmation.enabled": "false",
-        "realm_client": "false",
-        "oidc.ciba.grant.enabled": "false",
-        "backchannel.logout.session.required": "true",
+        "client.introspection.response.allow.jwt.claim.enabled": "false",
         "oauth2.jwt.authorization.grant.enabled": "false",
         "standard.token.exchange.enabled": "false",
         "frontchannel.logout.session.required": "true",
         "post.logout.redirect.uris": "com.tripify.app://oauth",
-        "display.on.consent.screen": "false",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
+        "use.refresh.tokens": "true",
+        "realm_client": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "client.use.lightweight.access.token.enabled": "false",
+        "backchannel.logout.session.required": "true",
+        "client_credentials.use_refresh_token": "false",
+        "request.object.required": "not required",
+        "access.token.header.type.rfc9068": "false",
+        "acr.loa.map": "{}",
+        "require.pushed.authorization.requests": "false",
+        "tls.client.certificate.bound.access.tokens": "false",
+        "display.on.consent.screen": "false",
+        "pkce.code.challenge.method": "S256",
+        "token.response.type.bearer.lower-case": "false",
         "dpop.bound.access.tokens": "false"
       },
       "authenticationFlowBindingOverrides": {},
@@ -1650,12 +1660,12 @@
     "envelopeFrom": "",
     "ssl": "true",
     "timeout": "10000",
-    "password": "**********",
+    "password": "CHANGEME",
     "port": "465",
     "host": "smtp.gmail.com",
     "replyTo": "",
     "from": "tripify.noreply@gmail.com",
-    "fromDisplayName": "",
+    "fromDisplayName": "Tripify",
     "authType": "basic",
     "connectionTimeout": "10000",
     "user": "tripify.noreply@gmail.com"
@@ -1679,15 +1689,48 @@
       "providerId": "google",
       "enabled": true,
       "config": {
-        "clientSecret": "**********",
+        "clientSecret": "CHANGEME",
         "clientId": "29035195985-tgspb5klhued54dskhnjf6lqj8boh1rd.apps.googleusercontent.com",
         "issuer": "https://accounts.google.com",
         "jwtAuthorizationGrantMaxAllowedAssertionExpiration": "3600"
       },
-      "types": []
+      "types": [],
+      "trustEmail": true,
+      "storeToken": false
     }
   ],
-  "identityProviderMappers": [],
+  "identityProviderMappers": [
+    {
+      "name": "google-given-name",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "claim": "given_name",
+        "user.attribute": "firstName"
+      }
+    },
+    {
+      "name": "google-family-name",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "claim": "family_name",
+        "user.attribute": "lastName"
+      }
+    },
+    {
+      "name": "google-email",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "claim": "email",
+        "user.attribute": "email"
+      }
+    }
+  ],
   "components": {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy": [
       {
@@ -2719,8 +2762,8 @@
     "clientOfflineSessionMaxLifespan": "0",
     "oauth2DevicePollingInterval": "5",
     "clientSessionIdleTimeout": "0",
-    "actionTokenGeneratedByUserLifespan.verify-email": "600",
     "actionTokenGeneratedByUserLifespan.idp-verify-account-via-email": "",
+    "actionTokenGeneratedByUserLifespan.verify-email": "3600",
     "clientOfflineSessionIdleTimeout": "0",
     "actionTokenGeneratedByUserLifespan.execute-actions": "",
     "cibaInterval": "5",
@@ -2734,7 +2777,7 @@
     "scimApiEnabled": "false",
     "acr.loa.map": "{}",
     "shortVerificationUri": "",
-    "actionTokenGeneratedByUserLifespan.reset-credentials": "",
+    "actionTokenGeneratedByUserLifespan.reset-credentials": "3600",
     "darkMode": "true"
   },
   "keycloakVersion": "26.7.1",
@@ -2748,5 +2791,45 @@
   },
   "clientPolicies": {
     "policies": []
-  }
+  },
+  "users": [
+    {
+      "username": "demo@tripify.it",
+      "email": "demo@tripify.it",
+      "firstName": "Demo",
+      "lastName": "Viaggiatore",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo1234!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ROLE_TRAVELER"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "organizer@tripify.it",
+      "email": "organizer@tripify.it",
+      "firstName": "Demo",
+      "lastName": "Organizzatore",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo1234!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ROLE_ORGANIZER"
+      ],
+      "requiredActions": []
+    }
+  ]
 }

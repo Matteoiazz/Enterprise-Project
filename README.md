@@ -124,12 +124,13 @@ Poi apri il progetto in Android Studio (o esegui `./gradlew assembleDebug`) e av
 
 ## Consegnare le chiavi al docente
 
-Il repository **non contiene nessuna credenziale reale**: `.env` e `local.properties` sono nel `.gitignore` apposta, così un push non li fa mai finire su Git. Perché il docente possa far girare il progetto senza doversi creare un proprio account Cloudinary, il gruppo deve consegnargli **fuori da Git** (email, piattaforma del corso, chiavetta) due file già pronti:
+Il repository **non contiene nessuna credenziale reale**: `.env`, `local.properties` e il realm Keycloak con i segreti dentro sono nel `.gitignore` apposta, così un push non li fa mai finire su Git. Perché il docente possa far girare il progetto senza doversi creare account propri, il gruppo deve consegnargli **fuori da Git** (email, piattaforma del corso, chiavetta) tre file già pronti:
 
 1. **`backend/.env`** — con `LOCAL_IP` impostato all'IP della macchina su cui girerà la demo, `INTERNAL_SERVICE_KEY` a una stringa qualsiasi concordata, e le tre variabili Cloudinary valorizzate con le credenziali reali dell'account del gruppo. Il resto può restare ai default di `.env.example`.
 2. **`frontend/local.properties`** — con `BACKEND_IP`/`KEYCLOAK_IP` coerenti con lo stesso `LOCAL_IP` usato nel punto 1.
+3. **`backend/keycloak-import/realm-export-4.json`** — il realm `tripify` con la password SMTP Gmail e il client secret Google reali. Nel repo c'è solo `realm-export.example.json` con quei due campi a `CHANGEME`: per generarlo basta copiarlo in `realm-export-4.json` e sostituire i due valori.
 
-Con questi due file al posto giusto, il docente deve solo eseguire `docker compose up --build -d` in `backend/` e aprire/buildare l'app in `frontend/`: nessun'altra configurazione manuale.
+Con questi tre file al posto giusto, il docente deve solo eseguire `docker compose up --build -d` in `backend/` e aprire/buildare l'app in `frontend/`: nessun'altra configurazione manuale. Il realm importa già due utenti di prova (`demo@tripify.it` e `organizer@tripify.it`, password `Demo1234!`), quindi si può entrare subito senza registrarsi.
 
 ## Note
 

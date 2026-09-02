@@ -38,5 +38,10 @@ backend/keycloak-data/
 .env
 backend/.env
 
+# Realm Keycloak con i segreti reali dentro (password SMTP Gmail, client
+# secret Google): va consegnato fuori da Git come .env. Versionato solo il
+# template realm-export.example.json (segreti = CHANGEME).
+backend/keycloak-import/realm-export-4.json
+
 # Log locale generato lanciando la build di booking-service a mano.
 backend/booking-service/booking-log.txt

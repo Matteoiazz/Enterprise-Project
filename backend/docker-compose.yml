@@ -215,7 +215,9 @@ services:
       - travel-network
     volumes:
       - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
-      - ./keycloak-import:/opt/keycloak/data/import
+      # Monto il singolo file reale, non la cartella: cosi' --import-realm non
+      # prova a importare anche realm-export.example.json (stesso realm "tripify").
+      - ./keycloak-import/realm-export-4.json:/opt/keycloak/data/import/tripify-realm.json
 
   # Catalog Service (Matteo)
   catalog-service:
