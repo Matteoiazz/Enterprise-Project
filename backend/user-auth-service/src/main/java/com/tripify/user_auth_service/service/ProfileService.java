@@ -27,7 +27,9 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -306,7 +308,7 @@ public class ProfileService {
                 .map(doc -> TravelDocumentDto.builder()
                         .id(doc.getId())
                         .documentType(doc.getDocumentType())
-                        .documentNumber(doc.getDocumentNumber())
+                        .documentNumber(maskDocumentNumber(doc.getDocumentNumber()))
                         .expirationDate(doc.getExpirationDate())
                         .issuingCountry(doc.getIssuingCountry())
                         .build())
@@ -341,6 +343,7 @@ public class ProfileService {
 
         doc = documentRepository.save(doc);
         dto.setId(doc.getId());
+        dto.setDocumentNumber(maskDocumentNumber(doc.getDocumentNumber()));
         return dto;
     }
 
@@ -484,6 +487,11 @@ public class ProfileService {
 
     @org.springframework.transaction.annotation.Transactional
     public User updateUserProfile(String email, String keycloakUserId, com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
+        boolean changingPassword = request.getNewPassword() != null && !request.getNewPassword().isEmpty();
+        if (changingPassword) {
+            verifyCurrentPassword(email, request.getCurrentPassword());
+        }
+
         User user = getUser(email);
 
         boolean emailChanged = request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail());
@@ -493,23 +501,6 @@ public class ProfileService {
 
         Keycloak keycloak = getKeycloakAdminClient();
         UserResource userResource = keycloak.realm("tripify").users().get(keycloakUserId);
-
-        if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
-            org.keycloak.representations.idm.CredentialRepresentation passwordCred = new org.keycloak.representations.idm.CredentialRepresentation();
-            passwordCred.setTemporary(false);
-            passwordCred.setType(org.keycloak.representations.idm.CredentialRepresentation.PASSWORD);
-            passwordCred.setValue(request.getNewPassword());
-
-            try {
-                userResource.resetPassword(passwordCred);
-            } catch (jakarta.ws.rs.WebApplicationException passwordRejected) {
-                int status = passwordRejected.getResponse() != null ? passwordRejected.getResponse().getStatus() : 0;
-                if (status >= 400 && status < 500) {
-                    throw new IllegalArgumentException("La nuova password non rispetta i requisiti di sicurezza richiesti");
-                }
-                throw passwordRejected;
-            }
-        }
 
         if (request.getName() != null) user.setName(request.getName());
         if (request.getSurname() != null) user.setSurname(request.getSurname());
@@ -536,7 +527,76 @@ public class ProfileService {
             userResource.update(kcUser);
         }
 
+        if (changingPassword) {
+            org.keycloak.representations.idm.CredentialRepresentation passwordCred = new org.keycloak.representations.idm.CredentialRepresentation();
+            passwordCred.setTemporary(false);
+            passwordCred.setType(org.keycloak.representations.idm.CredentialRepresentation.PASSWORD);
+            passwordCred.setValue(request.getNewPassword());
+
+            try {
+                userResource.resetPassword(passwordCred);
+            } catch (jakarta.ws.rs.WebApplicationException passwordRejected) {
+                int status = passwordRejected.getResponse() != null ? passwordRejected.getResponse().getStatus() : 0;
+                if (status >= 400 && status < 500) {
+                    throw new IllegalArgumentException("La nuova password non rispetta i requisiti di sicurezza richiesti");
+                }
+                throw passwordRejected;
+            }
+        }
+
         return user;
+    }
+
+    private void verifyCurrentPassword(String currentEmail, String currentPassword) {
+        if (currentPassword == null || currentPassword.isBlank()) {
+            throw new IllegalArgumentException("Inserisci la password attuale per poterla cambiare");
+        }
+        if (!currentPasswordMatches(currentEmail, currentPassword)) {
+            throw new IllegalArgumentException("La password attuale non è corretta");
+        }
+    }
+
+    boolean currentPasswordMatches(String currentEmail, String currentPassword) {
+        String tokenEndpoint = keycloakAdminServerUrl + "/realms/tripify/protocol/openid-connect/token";
+        String form = "grant_type=password&client_id=tripify-android-client"
+                + "&username=" + java.net.URLEncoder.encode(currentEmail, java.nio.charset.StandardCharsets.UTF_8)
+                + "&password=" + java.net.URLEncoder.encode(currentPassword, java.nio.charset.StandardCharsets.UTF_8);
+
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(5))
+                    .build();
+            java.net.http.HttpRequest httpRequest = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(tokenEndpoint))
+                    .timeout(java.time.Duration.ofSeconds(5))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(form))
+                    .build();
+
+            java.net.http.HttpResponse<String> response =
+                    client.send(httpRequest, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                return true;
+            }
+
+            String body = response.body() != null ? response.body() : "";
+            if (response.statusCode() == 401 || body.contains("invalid_grant")) {
+                return false;
+            }
+
+            log.error("Verifica password non riuscita: HTTP {} dal token endpoint Keycloak ({}). "
+                            + "Probabilmente 'Direct Access Grants' e' disabilitato sul client tripify-android-client.",
+                    response.statusCode(), body);
+            throw new IllegalStateException("Verifica della password temporaneamente non disponibile");
+
+        } catch (java.io.IOException networkError) {
+            log.warn("Verifica password: errore di rete verso Keycloak: {}", networkError.getMessage());
+            throw new IllegalStateException("Impossibile verificare la password attuale, riprova piu' tardi");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Verifica della password interrotta, riprova");
+        }
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -559,6 +619,7 @@ public class ProfileService {
             throw new IllegalArgumentException("Il file deve essere un'immagine");
         }
         User user = getUser(email);
+        String previousUrl = user.getProfilePictureUrl();
         try {
             java.util.Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
                     com.cloudinary.utils.ObjectUtils.asMap("folder", "tripify_profiles"));
@@ -569,10 +630,44 @@ public class ProfileService {
             user.setProfilePictureUrl(imageUrl);
             userRepository.save(user);
 
+            deleteCloudinaryImageQuietly(previousUrl);
+
             return imageUrl;
         } catch (java.io.IOException e) {
             throw new RuntimeException("Errore durante l'upload dell'immagine", e);
         }
+    }
+
+    private void deleteCloudinaryImageQuietly(String url) {
+        String publicId = cloudinaryPublicId(url);
+        if (publicId == null) {
+            return;
+        }
+        try {
+            cloudinary.uploader().destroy(publicId, com.cloudinary.utils.ObjectUtils.emptyMap());
+        } catch (Exception e) {
+            log.warn("Vecchia immagine profilo non rimossa da Cloudinary ({}): {}", publicId, e.getMessage());
+        }
+    }
+
+    static String cloudinaryPublicId(String url) {
+        if (url == null || !url.contains("res.cloudinary.com") || !url.contains("/upload/")) {
+            return null;
+        }
+        String path = url.substring(url.indexOf("/upload/") + "/upload/".length());
+        int query = path.indexOf('?');
+        if (query >= 0) {
+            path = path.substring(0, query);
+        }
+        if (path.matches("v\\d+/.*")) {
+            path = path.substring(path.indexOf('/') + 1);
+        }
+        int lastSlash = path.lastIndexOf('/');
+        int lastDot = path.lastIndexOf('.');
+        if (lastDot > lastSlash) {
+            path = path.substring(0, lastDot);
+        }
+        return path.isBlank() ? null : path;
     }
 
     public static String normalizeImageUrl(String url) {
@@ -580,6 +675,17 @@ public class ProfileService {
             return "https://" + url.substring("http://".length());
         }
         return url;
+    }
+
+    private static String maskDocumentNumber(String number) {
+        if (number == null) {
+            return null;
+        }
+        String trimmed = number.trim();
+        if (trimmed.length() <= 4) {
+            return "•".repeat(trimmed.length());
+        }
+        return "•••• " + trimmed.substring(trimmed.length() - 4);
     }
 
 
@@ -601,12 +707,40 @@ public class ProfileService {
         return toPublicResponse(u, "Organizzatore", true);
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
         User u = findExistingUser(identifier)
                 .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
 
         return toPublicResponse(u, "Utente", false);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Map<String, String> resolveDisplayNames(Collection<String> subs) {
+        if (subs == null || subs.isEmpty()) {
+            return Map.of();
+        }
+        List<String> lookup = subs.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .distinct()
+                .limit(200)
+                .toList();
+        if (lookup.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> result = new java.util.HashMap<>();
+        for (User u : userRepository.findByUsernameIn(lookup)) {
+            if (u.getUsername() == null) {
+                continue;
+            }
+            String name = u.getName() != null ? u.getName().trim() : "";
+            String surname = u.getSurname() != null ? u.getSurname().trim() : "";
+            String display = (name + " " + surname).trim();
+            if (!display.isEmpty()) {
+                result.put(u.getUsername(), display);
+            }
+        }
+        return result;
     }
 
     private java.util.Optional<User> findExistingUser(String identifier) {
@@ -652,7 +786,8 @@ public class ProfileService {
                 null,
                 u.getCompanyName(),
                 null,
-                null
+                null,
+                u.getRole() != null ? u.getRole().name() : null
         );
     }
 

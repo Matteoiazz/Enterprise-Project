@@ -107,7 +107,8 @@ public class ProfileController {
                 displayNome, displayCognome, email,
                 com.tripify.user_auth_service.service.ProfileService.normalizeImageUrl(user.getProfilePictureUrl()),
                 user.getPhone(), user.getAddress(),
-                user.getCompanyName(), user.getVatNumber(), user.getPec()
+                user.getCompanyName(), user.getVatNumber(), user.getPec(),
+                user.getRole() != null ? user.getRole().name() : null
         ));
     }
 
@@ -173,7 +174,8 @@ public class ProfileController {
                         return new com.tripify.user_auth_service.dto.response.UserResponse(
                                 currentKeycloakId,
                                 org.name(), org.surname(), org.email(), org.profilePictureUrl(),
-                                org.phone(), org.address(), org.companyName(), org.vatNumber(), org.pec()
+                                org.phone(), org.address(), org.companyName(), org.vatNumber(), org.pec(),
+                                org.role()
                         );
                     }
                     return org;
@@ -190,6 +192,11 @@ public class ProfileController {
     @GetMapping("/users/{id}/summary")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getUserSummary(@PathVariable String id) {
         return ResponseEntity.ok(profileService.getUserSummary(id));
+    }
+
+    @PostMapping("/users/names")
+    public ResponseEntity<java.util.Map<String, String>> resolveUserNames(@RequestBody java.util.List<String> ids) {
+        return ResponseEntity.ok(profileService.resolveDisplayNames(ids));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

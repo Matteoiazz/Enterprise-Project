@@ -562,7 +562,7 @@ fun TripifyApp(
                 EditProfileScreen(
                     viewModel = profileViewModel,
                     onNavigateBack = { navController.popBackStack() },
-                    onSaveProfile = { newName, newSurname, newPhone, newAddress, newEmail, newPwd ->
+                    onSaveProfile = { newName, newSurname, newPhone, newAddress, newEmail, newPwd, currentPwd ->
                         val previousEmail = profileViewModel.email
                         profileViewModel.updateProfile(
                             newName = newName,
@@ -571,6 +571,7 @@ fun TripifyApp(
                             newAddress = newAddress,
                             newEmail = newEmail,
                             newPassword = newPwd,
+                            currentPassword = currentPwd,
                             onSuccess = {
                                 if (newEmail.isNotBlank() && newEmail != previousEmail) {
                                     profileViewModel.logout()

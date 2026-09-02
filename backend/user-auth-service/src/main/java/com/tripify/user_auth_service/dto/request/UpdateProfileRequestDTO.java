@@ -23,6 +23,8 @@ public class UpdateProfileRequestDTO {
     @Size(min = 8, message = "La password deve contenere almeno 8 caratteri")
     private String newPassword;
 
+    private String currentPassword;
+
     @Email(message = "L'email deve essere in un formato valido (es. mario@mail.com)")
     private String email;
 }

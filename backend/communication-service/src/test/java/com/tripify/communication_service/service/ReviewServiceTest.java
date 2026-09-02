@@ -2,6 +2,7 @@ package com.tripify.communication_service.service;
 
 import com.tripify.communication_service.client.BookingClient;
 import com.tripify.communication_service.client.CatalogClient;
+import com.tripify.communication_service.client.UserProfileClient;
 import com.tripify.communication_service.dto.ReviewResponse;
 import com.tripify.communication_service.entity.Review;
 import com.tripify.communication_service.entity.ReviewVote;
@@ -37,6 +38,7 @@ class ReviewServiceTest {
     @Mock ReviewVoteRepository reviewVoteRepository;
     @Mock BookingClient bookingClient;
     @Mock CatalogClient catalogClient;
+    @Mock UserProfileClient userProfileClient;
 
     @InjectMocks ReviewService service;
 
@@ -303,6 +305,108 @@ class ReviewServiceTest {
         assertThat(result.get(0).helpfulByMe()).isTrue();
         assertThat(result.get(1).helpfulCount()).isEqualTo(1);
         assertThat(result.get(1).helpfulByMe()).isFalse();
+    }
+
+    @Test
+    void getReviewsByItem_returnsStoredTravelerNameForReviewsThatOptedIn() {
+        Review named = Review.builder().id(1L).rating(5).comment("ok")
+                .travelerId("sub-a").catalogItemId(ITEM).travelerName("Mario Rossi").build();
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of(named));
+        when(reviewVoteRepository.findByReviewIdIn(List.of(1L))).thenReturn(List.of());
+
+        List<ReviewResponse> result = service.getReviewsByItem(ITEM, "sub-a");
+
+        assertThat(result.get(0).travelerName()).isEqualTo("Mario Rossi");
+    }
+
+    @Test
+    void getReviewsByItem_omitsTravelerNameForReviewsThatOptedOut() {
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of(review(1L, 5, "sub-a")));
+        when(reviewVoteRepository.findByReviewIdIn(List.of(1L))).thenReturn(List.of());
+
+        List<ReviewResponse> result = service.getReviewsByItem(ITEM, "sub-viewer");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).travelerName()).isNull();
+    }
+
+    @Test
+    void getReviewsByItem_neverContactsUserProfileServiceOnRead() {
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of(review(1L, 5, "sub-a")));
+        when(reviewVoteRepository.findByReviewIdIn(List.of(1L))).thenReturn(List.of());
+
+        service.getReviewsByItem(ITEM, null);
+        service.getReviewsByItem(ITEM, "sub-x");
+
+        verify(userProfileClient, never()).resolveNames(any());
+    }
+
+    @Test
+    void createReview_withShowName_storesResolvedDisplayName() {
+        when(bookingClient.hasUserBookedItem(ITEM)).thenReturn(true);
+        when(reviewRepository.existsByTravelerIdAndCatalogItemId(TRAVELER, ITEM)).thenReturn(false);
+        when(userProfileClient.resolveNames(List.of(TRAVELER))).thenReturn(java.util.Map.of(TRAVELER, "Mario Rossi"));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of());
+
+        ReviewResponse response = service.createReview(5, "ottimo", TRAVELER, ITEM, true);
+
+        assertThat(response.travelerName()).isEqualTo("Mario Rossi");
+        ArgumentCaptor<Review> captor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(captor.capture());
+        assertThat(captor.getValue().getTravelerName()).isEqualTo("Mario Rossi");
+    }
+
+    @Test
+    void createReview_withShowNameButProfileServiceDown_savesWithoutName() {
+        when(bookingClient.hasUserBookedItem(ITEM)).thenReturn(true);
+        when(reviewRepository.existsByTravelerIdAndCatalogItemId(TRAVELER, ITEM)).thenReturn(false);
+        when(userProfileClient.resolveNames(any())).thenThrow(new RuntimeException("user-auth ko"));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of());
+
+        ReviewResponse response = service.createReview(5, "ottimo", TRAVELER, ITEM, true);
+
+        assertThat(response.travelerName()).isNull();
+    }
+
+    @Test
+    void createReview_withoutShowName_doesNotContactUserProfileService() {
+        when(bookingClient.hasUserBookedItem(ITEM)).thenReturn(true);
+        when(reviewRepository.existsByTravelerIdAndCatalogItemId(TRAVELER, ITEM)).thenReturn(false);
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of());
+
+        service.createReview(5, "ottimo", TRAVELER, ITEM, false);
+
+        verify(userProfileClient, never()).resolveNames(any());
+    }
+
+    @Test
+    void updateReview_withShowNameFalse_clearsThePreviouslySharedName() {
+        Review existing = Review.builder().id(9L).rating(5).comment("ok")
+                .travelerId(TRAVELER).catalogItemId(ITEM).travelerName("Mario Rossi").build();
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(existing));
+        when(reviewRepository.save(existing)).thenReturn(existing);
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of(existing));
+
+        service.updateReview(9L, 4, "ok ok", TRAVELER, false);
+
+        assertThat(existing.getTravelerName()).isNull();
+        verify(userProfileClient, never()).resolveNames(any());
+    }
+
+    @Test
+    void updateReview_withShowNameTrue_refreshesTheName() {
+        Review existing = review(9L, 5, TRAVELER);
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(existing));
+        when(reviewRepository.save(existing)).thenReturn(existing);
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of(existing));
+        when(userProfileClient.resolveNames(List.of(TRAVELER))).thenReturn(java.util.Map.of(TRAVELER, "Mario Rossi"));
+
+        service.updateReview(9L, 4, "ok ok", TRAVELER, true);
+
+        assertThat(existing.getTravelerName()).isEqualTo("Mario Rossi");
     }
 
     @Test

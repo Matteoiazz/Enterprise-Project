@@ -19,5 +19,7 @@ public record CreateReviewRequest(
         String comment,
 
         @NotNull(message = "catalogItemId è obbligatorio")
-        Long catalogItemId
+        Long catalogItemId,
+
+        Boolean showName
 ) {}

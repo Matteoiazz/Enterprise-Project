@@ -10,5 +10,6 @@ data class UserResponse(
     val address: String?,
     val companyName: String?,
     val vatNumber: String?,
-    val pec: String?
+    val pec: String?,
+    val role: String? = null
 )

@@ -106,6 +106,42 @@ class CatalogViewModelReviewTest {
     }
 
     @Test
+    fun submitReviewForwardsTheShowNameChoice() = runTest(mainDispatcher) {
+        coEvery { reviewApi.addReview(any()) } returns Response.success(review())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.submitReview(42L, 5, "tutto perfetto", showName = true, onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        coVerify { reviewApi.addReview(match { it.showName && it.catalogItemId == 42L }) }
+    }
+
+    @Test
+    fun submitReviewDefaultsShowNameToFalse() = runTest(mainDispatcher) {
+        coEvery { reviewApi.addReview(any()) } returns Response.success(review())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.submitReview(42L, 5, "tutto perfetto", onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        coVerify { reviewApi.addReview(match { !it.showName }) }
+    }
+
+    @Test
+    fun updateReviewForwardsTheShowNameChoice() = runTest(mainDispatcher) {
+        coEvery { reviewApi.updateReview(any(), any()) } returns Response.success(review())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.updateReview(1L, 42L, 4, "ok", showName = true, onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        coVerify { reviewApi.updateReview(1L, match { it.showName }) }
+    }
+
+    @Test
     fun replyToReviewInvokesOnSuccessWhenTheServerAccepts() = runTest(mainDispatcher) {
         coEvery { reviewApi.replyToReview(any(), any()) } returns Response.success(review())
         val vm = viewModel()
@@ -157,5 +193,40 @@ class CatalogViewModelReviewTest {
 
         assertTrue(succeeded)
         coVerify { reviewApi.deleteReview(1L) }
+    }
+
+    @Test
+    fun toggleReviewHelpfulPatchesOnlyTheHelpfulFieldsOfTheTargetReview() = runTest(mainDispatcher) {
+        val a = ReviewDto(id = 1L, rating = 5, comment = "a", travelerId = null, catalogItemId = 42L, helpfulCount = 0, helpfulByMe = false)
+        val b = ReviewDto(id = 2L, rating = 4, comment = "b", travelerId = null, catalogItemId = 42L, helpfulCount = 7, helpfulByMe = false)
+        coEvery { reviewApi.getReviewsForItem(42L) } returns Response.success(listOf(a, b))
+        coEvery { reviewApi.toggleHelpful(1L) } returns Response.success(
+            a.copy(travelerId = "leak-should-be-ignored", helpfulCount = 1, helpfulByMe = true)
+        )
+        val vm = viewModel()
+        vm.loadReviewsAndBookingStatus(42L)
+        advanceUntilIdle()
+
+        vm.toggleReviewHelpful(1L, onError = { })
+        advanceUntilIdle()
+
+        val updated = vm.itemReviews.value
+        assertEquals(1, updated.first { it.id == 1L }.helpfulCount)
+        assertTrue(updated.first { it.id == 1L }.helpfulByMe)
+        assertNull(updated.first { it.id == 1L }.travelerId)
+        assertEquals(7, updated.first { it.id == 2L }.helpfulCount)
+    }
+
+    @Test
+    fun toggleReviewHelpfulSurfacesTheServerMessageOnFailure() = runTest(mainDispatcher) {
+        coEvery { reviewApi.toggleHelpful(any()) } returns Response.error(409, errorBody("{\"error\":\"Non puoi votare la tua recensione\"}"))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        var error: String? = null
+        vm.toggleReviewHelpful(9L, onError = { error = it })
+        advanceUntilIdle()
+
+        assertEquals("Non puoi votare la tua recensione", error)
     }
 }

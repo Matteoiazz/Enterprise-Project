@@ -613,13 +613,13 @@ class CatalogViewModel(
         }
     }
 
-    fun submitReview(itemId: Long, rating: Int, comment: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun submitReview(itemId: Long, rating: Int, comment: String, showName: Boolean = false, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
                 tokenManager?.let { tm ->
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
                     val res = rApi.addReview(
-                        com.tripify.tripify_android.data.model.CreateReviewRequest(rating, comment, itemId)
+                        com.tripify.tripify_android.data.model.CreateReviewRequest(rating, comment, itemId, showName)
                     )
                     if (res.isSuccessful) {
                         loadReviewsAndBookingStatus(itemId)
@@ -635,14 +635,14 @@ class CatalogViewModel(
         }
     }
 
-    fun updateReview(reviewId: Long, itemId: Long, rating: Int, comment: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun updateReview(reviewId: Long, itemId: Long, rating: Int, comment: String, showName: Boolean = false, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
                 tokenManager?.let { tm ->
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
                     val res = rApi.updateReview(
                         reviewId,
-                        com.tripify.tripify_android.data.model.UpdateReviewRequest(rating, comment)
+                        com.tripify.tripify_android.data.model.UpdateReviewRequest(rating, comment, showName)
                     )
                     if (res.isSuccessful) {
                         loadReviewsAndBookingStatus(itemId)
