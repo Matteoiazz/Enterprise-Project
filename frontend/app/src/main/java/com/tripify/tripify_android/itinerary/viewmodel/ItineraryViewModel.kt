@@ -303,7 +303,11 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val response = api.exportCalendar(id)
                 val body = response.body()
                 if (!response.isSuccessful || body == null) {
-                    onError("Impossibile scaricare il calendario")
+                    if (response.code() == 401) {
+                        onError("Accedi per esportare il calendario")
+                    } else {
+                        onError("Impossibile scaricare il calendario")
+                    }
                     return@launch
                 }
                 val safeName = listName.replace(Regex("[^a-zA-Z0-9 -]"), "").trim().ifBlank { "itinerario" }

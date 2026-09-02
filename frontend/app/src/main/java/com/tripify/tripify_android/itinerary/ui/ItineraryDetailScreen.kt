@@ -94,8 +94,12 @@ fun ItineraryDetailScreen(
                 actions = {
                     if (currentList != null) {
                         IconButton(onClick = {
-                            viewModel.exportCalendar(context, currentList.id, currentList.name) { error ->
-                                scope.launch { snackbarHostState.showSnackbar(error) }
+                            if (currentUserId != null) {
+                                viewModel.exportCalendar(context, currentList.id, currentList.name) { error ->
+                                    scope.launch { snackbarHostState.showSnackbar(error) }
+                                }
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("Accedi per esportare il calendario") }
                             }
                         }) {
                             Icon(Icons.Filled.Event, contentDescription = "Esporta calendario", tint = CatalogColors.Ink)
