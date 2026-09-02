@@ -158,6 +158,10 @@ fun ProfileScreen(
             } else if (!isLoggedIn) {
                 GuestProfileView(onNavigateToLogin)
             } else {
+              Column(modifier = Modifier.fillMaxSize()) {
+                if (viewModel.serverRoleOrganizer && !isOrganizer) {
+                    OrganizerActivationBanner(activating = viewModel.organizerRoleActivating)
+                }
                 LoggedProfileContent(
                     viewModel = viewModel,
                     context = context,
@@ -172,18 +176,56 @@ fun ProfileScreen(
                     onLogoutClick = {
                         coroutineScope.launch {
                             val idToken = viewModel.getIdToken()
-                            if (!idToken.isNullOrEmpty()) {
-                                val intent = viewModel.getEndSessionIntent(context, idToken)
-                                logoutLauncher.launch(intent)
-                            } else {
+                            try {
+                                logoutLauncher.launch(viewModel.getEndSessionIntent(context, idToken))
+                            } catch (e: Exception) {
+                                android.util.Log.w("ProfileScreen", "end-session Keycloak non avviata", e)
                                 viewModel.logout()
                                 onLogoutSuccess()
                             }
                         }
                     }
                 )
+              }
             }
         }
+    }
+}
+
+@Composable
+private fun OrganizerActivationBanner(activating: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CatalogSpacing.Gutter, vertical = 10.dp)
+            .clip(CatalogShapes.Field)
+            .background(CatalogColors.AccentSoft)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (activating) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = CatalogColors.AccentDark
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Storefront,
+                contentDescription = null,
+                tint = CatalogColors.AccentDark,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = if (activating)
+                "Attivazione del ruolo organizzatore in corso..."
+            else
+                "Sei registrato come organizzatore. Esci e rientra per pubblicare i tuoi annunci.",
+            style = CatalogType.Caption,
+            color = CatalogColors.AccentDark
+        )
     }
 }
 

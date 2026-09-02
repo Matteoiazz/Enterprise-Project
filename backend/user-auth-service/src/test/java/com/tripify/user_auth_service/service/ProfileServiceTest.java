@@ -41,9 +41,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -524,6 +526,9 @@ class ProfileServiceTest {
 
     @Test
     void updateUserProfile_whenKeycloakRejectsNewPassword_throwsIllegalArgumentNotServerError() {
+        ProfileService spied = spy(service);
+        doReturn(true).when(spied).currentPasswordMatches(EMAIL, "vecchiaOk1!");
+
         User u = freshUser(Role.ROLE_TRAVELER);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
 
@@ -536,14 +541,41 @@ class ProfileServiceTest {
         when(users.get("kc-id")).thenReturn(userResource);
         org.mockito.Mockito.doThrow(new jakarta.ws.rs.BadRequestException("Password policy not met"))
                 .when(userResource).resetPassword(any());
-        ReflectionTestUtils.setField(service, "keycloakAdminClient", kc);
+        ReflectionTestUtils.setField(spied, "keycloakAdminClient", kc);
 
         UpdateProfileRequestDTO req = new UpdateProfileRequestDTO();
         req.setNewPassword("weakpass");
+        req.setCurrentPassword("vecchiaOk1!");
+
+        assertThatThrownBy(() -> spied.updateUserProfile(EMAIL, "kc-id", req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("requisiti di sicurezza");
+    }
+
+    @Test
+    void updateUserProfile_whenChangingPasswordWithoutCurrentPassword_throwsIllegalArgument() {
+        UpdateProfileRequestDTO req = new UpdateProfileRequestDTO();
+        req.setNewPassword("NuovaValida1!");
 
         assertThatThrownBy(() -> service.updateUserProfile(EMAIL, "kc-id", req))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("requisiti di sicurezza");
+                .hasMessageContaining("password attuale");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void updateUserProfile_whenCurrentPasswordIsWrong_throwsIllegalArgumentAndTouchesNothing() {
+        ProfileService spied = spy(service);
+        doReturn(false).when(spied).currentPasswordMatches(EMAIL, "sbagliata");
+
+        UpdateProfileRequestDTO req = new UpdateProfileRequestDTO();
+        req.setNewPassword("NuovaValida1!");
+        req.setCurrentPassword("sbagliata");
+
+        assertThatThrownBy(() -> spied.updateUserProfile(EMAIL, "kc-id", req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("non è corretta");
+        verify(userRepository, never()).save(any());
     }
 
     @Test

@@ -15,6 +15,7 @@ import com.tripify.tripify_android.data.model.UpdatePecRequest
 import com.tripify.tripify_android.data.model.UpdateProfileRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationService
@@ -51,6 +52,9 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     var organizersList by mutableStateOf<List<com.tripify.tripify_android.data.UserResponse>>(emptyList())
     var isLoadingOrganizers by mutableStateOf(false)
 
+    var serverRoleOrganizer by mutableStateOf(false)
+    var organizerRoleActivating by mutableStateOf(false)
+
     fun loadUserProfile() {
         viewModelScope.launch {
             isLoading = true
@@ -68,6 +72,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     address = user.address ?: ""
                     companyName = user.companyName ?: ""
                     pec = user.pec ?: ""
+                    serverRoleOrganizer = user.role == "ROLE_ORGANIZER"
+                    maybeSyncOrganizerRole()
                 } else {
                     errorMessage = "Impossibile recuperare i dati. Errore: ${response.code()}"
                 }
@@ -157,6 +163,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         newAddress: String,
         newEmail: String,
         newPassword: String?,
+        currentPassword: String? = null,
 
         onSuccess: () -> Unit
     ) {
@@ -170,7 +177,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     phone = newPhone.ifBlank { null },
                     address = newAddress.ifBlank { null },
                     email = newEmail.ifBlank { null },
-                    newPassword = if (newPassword.isNullOrBlank()) null else newPassword
+                    newPassword = if (newPassword.isNullOrBlank()) null else newPassword,
+                    currentPassword = if (currentPassword.isNullOrBlank()) null else currentPassword
                 )
 
                 val response = profileApi.updateProfile(request)
@@ -200,7 +208,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         return tokenManager.getIdToken()
     }
 
-    fun getEndSessionIntent(context: Context, idToken: String): Intent {
+    fun getEndSessionIntent(context: Context, idToken: String?): Intent {
         val serviceConfig = AuthorizationServiceConfiguration(
             Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/auth"),
             Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
@@ -215,13 +223,15 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             endSessionEndpoint
         )
 
-        val endSessionRequest = EndSessionRequest.Builder(endSessionConfig)
-            .setIdTokenHint(idToken)
+        val builder = EndSessionRequest.Builder(endSessionConfig)
             .setPostLogoutRedirectUri(Uri.parse("com.tripify.app://oauth"))
-            .build()
+            .setAdditionalParameters(mapOf("client_id" to "tripify-android-client"))
+        if (!idToken.isNullOrEmpty()) {
+            builder.setIdTokenHint(idToken)
+        }
 
         val service = authService ?: AuthorizationService(context.applicationContext).also { authService = it }
-        return service.getEndSessionRequestIntent(endSessionRequest)
+        return service.getEndSessionRequestIntent(builder.build())
     }
 
     fun logout() {
@@ -273,6 +283,26 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 errorMessage = "Errore di rete durante il salvataggio. Riprova."
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    private fun maybeSyncOrganizerRole() {
+        if (!serverRoleOrganizer || organizerRoleActivating) return
+        viewModelScope.launch {
+            val token = tokenManager.tokenFlow.first() ?: return@launch
+            val tokenHasRole = com.tripify.tripify_android.itinerary.util.extractRolesFromToken(token)
+                .contains("ROLE_ORGANIZER")
+            if (tokenHasRole) return@launch
+            organizerRoleActivating = true
+            try {
+                tokenManager.refreshAccessToken(token)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("ProfileViewModel", "refresh ruolo organizzatore fallito", e)
+            } finally {
+                organizerRoleActivating = false
             }
         }
     }
