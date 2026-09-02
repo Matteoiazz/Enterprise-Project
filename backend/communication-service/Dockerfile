@@ -1,16 +1,16 @@
-# Fase 1: Build (usa Maven per scaricare le dipendenze e compilare)
+# Fase di build con Maven e cache delle dipendenze
 FROM maven:3.9-eclipse-temurin-17 AS builder
 WORKDIR /build
-# Copia il file delle dipendenze e il codice sorgente
 COPY pom.xml .
+RUN mvn dependency:go-offline
 COPY src ./src
-# Compila il pacchetto ignorando i test
 RUN mvn clean package -DskipTests
 
-# Fase 2: Runtime (immagine dedicata solo all'esecuzione)
-FROM eclipse-temurin:17-jdk-jammy
+# Fase di runtime leggera con JRE e utente non-root (richiesto dall'audit)
+FROM eclipse-temurin:17-jre
 WORKDIR /app
-# Preleva esclusivamente il .jar generato dalla Fase 1
-COPY --from=builder /build/target/*.jar app.jar
+RUN useradd -ms /bin/bash appuser && chown -R appuser:appuser /app
+USER appuser
+COPY --chown=appuser:appuser --from=builder /build/target/*.jar app.jar
 EXPOSE 8084
 ENTRYPOINT ["java", "-jar", "app.jar"]
