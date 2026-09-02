@@ -137,10 +137,14 @@ services:
     container_name: booking-service
     restart: unless-stopped
     depends_on:
-      - db-booking
-      - rabbitmq
-      - catalog-service
-      - user-auth-service
+      db-booking:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      user-auth-service:
+        condition: service_started
     ports:
       - "8083:8083"
     environment:
