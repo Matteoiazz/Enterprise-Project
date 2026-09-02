@@ -157,8 +157,10 @@ services:
     ports:
       - "8180:8080"
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # issuer fisso = IP LAN: stesso "iss" per app e container
+      KC_HOSTNAME: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
@@ -173,6 +175,56 @@ services:
     volumes:
       - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
       - ./keycloak-import:/opt/keycloak/data/import
+
+  # ----------------------------------------------------------------------
+  # user-auth-service e api-gateway (la mia parte). booking-service e
+  # communication-app sono gia' dockerizzati qui sopra, quindi il gateway
+  # li raggiunge col nome del servizio; catalog e itinerary girano ancora
+  # a mano sulla macchina host (host.docker.internal). Variabili in
+  # backend/.env (copiare da backend/.env.example).
+  # ----------------------------------------------------------------------
+  user-auth-service:
+    build: ./user-auth-service
+    container_name: user-auth-service
+    restart: unless-stopped
+    depends_on:
+      - db-auth
+      - keycloak
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-auth:5432/db_auth
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
+      KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    networks:
+      - travel-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: unless-stopped
+    depends_on:
+      - user-auth-service
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      USER_AUTH_SERVICE_URL: http://user-auth-service:8081
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      COMMUNICATION_SERVICE_URL: http://communication-app:8084
+      CATALOG_SERVICE_URL: http://host.docker.internal:8082
+      ITINERARY_SERVICE_URL: http://host.docker.internal:8085
+      GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
+      GATEWAY_RATE_LIMIT_MAX: ${GATEWAY_RATE_LIMIT_MAX:-3000}
+    networks:
+      - travel-network
 
 networks:
   travel-network:
