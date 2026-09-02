@@ -109,26 +109,22 @@ services:
     depends_on:
       - db-booking
       - rabbitmq
+      - catalog-service
+      - user-auth-service
     ports:
       - "8083:8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-booking:5432/db_booking
       DB_PASSWORD: ${DB_PASSWORD:-password}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-      LOCAL_IP: ${LOCAL_IP}
+      LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
-      # catalog-service e user-auth-service non sono (ancora) in questo
-      # compose: finche' non ci sono, si raggiungono sulla macchina host che
-      # li fa girare a mano. Quando anche loro avranno una voce qui, questi
-      # due vanno ripuntati al nome del servizio (es. http://catalog-service:8082/...).
-      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://host.docker.internal:8082/api/v1/catalog}
-      USER_AUTH_SERVICE_URL: ${USER_AUTH_SERVICE_URL:-http://host.docker.internal:8081}
-    extra_hosts:
-      # Su Docker Desktop (Windows/Mac) c'e' gia' di default; su Linux serve
-      # esplicitamente per far risolvere host.docker.internal dal container.
-      - "host.docker.internal:host-gateway"
+      # Ora che catalog-service e user-auth-service hanno una loro voce qui
+      # sotto, si raggiungono per nome servizio come fa anche itinerary-service.
+      CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
+      USER_AUTH_SERVICE_URL: http://user-auth-service:8081
     networks:
       - travel-network
 
