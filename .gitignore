@@ -43,5 +43,9 @@ backend/.env
 # template realm-export.example.json (segreti = CHANGEME).
 backend/keycloak-import/realm-export-4.json
 
+# Tuning locale delle risorse (mem_limit, -Xmx) per la VM di Docker Desktop.
+# Non committato: ognuno lo tara sulla propria macchina.
+backend/docker-compose.override.yml
+
 # Log locale generato lanciando la build di booking-service a mano.
 backend/booking-service/booking-log.txt

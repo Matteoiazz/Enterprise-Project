@@ -173,6 +173,11 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    environment:
+      # Cookie Erlang fisso: senza, in alcuni casi il container legge un
+      # .erlang.cookie vuoto (es. layer di una run precedente crashata) e
+      # Erlang muore subito con "Too short cookie string".
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-tripify-rmq-cookie}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -243,7 +248,8 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/api/v1/catalog/items/search"]
+      # curl (non wget): la base non-alpine non ha wget
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8082/api/v1/catalog/items/search"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -269,7 +275,8 @@ services:
       CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
       BOOKING_SERVICE_URL: http://booking-service:8083
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/api/v1/itinerary/public"]
+      # curl (non wget): la base non-alpine non ha wget
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8085/api/v1/itinerary/public"]
       interval: 10s
       timeout: 5s
       retries: 10
