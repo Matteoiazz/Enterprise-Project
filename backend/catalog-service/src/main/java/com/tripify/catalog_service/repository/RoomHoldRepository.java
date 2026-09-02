@@ -1,5 +1,6 @@
 package com.tripify.catalog_service.repository;
 
+import com.tripify.catalog_service.entity.HoldStatus;
 import com.tripify.catalog_service.entity.RoomHold;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -36,4 +37,9 @@ public interface RoomHoldRepository extends JpaRepository<RoomHold, Long> {
             @Param("checkOut") LocalDate checkOut,
             @Param("now") LocalDateTime now
     );
+
+    // A differenza dei voli, un hotel resta prenotabile per sempre (nuove date future):
+    // qui si ripuliscono solo gli hold ormai storici, mai l'hotel/la RoomType stessa.
+    // Gli hold CONFIRMED restano intatti (storico di un soggiorno reale).
+    int deleteByCheckOutBeforeAndStatusNot(LocalDate checkOut, HoldStatus status);
 }

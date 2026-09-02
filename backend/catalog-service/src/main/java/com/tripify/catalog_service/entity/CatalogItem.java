@@ -8,7 +8,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.hibernate.annotations.SQLDelete;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -21,8 +20,6 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-
-@SQLDelete(sql = "UPDATE catalog_items SET is_active = false WHERE id = ?")
 public abstract class CatalogItem {
 
     @Id

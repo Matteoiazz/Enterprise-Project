@@ -11,10 +11,14 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,16 +29,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
-import com.tripify.tripify_android.catalog.ui.theme.Inter
+import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -85,6 +91,14 @@ data class BottomNavItem(
     val iconSelected: ImageVector,
     val iconUnselected: ImageVector
 )
+
+/**
+ * Altezza reale (misurata) della barra flottante, cosi' le schermate delle singole tab
+ * possono lasciare altrettanto spazio in fondo al contenuto scrollabile: la barra ora
+ * galleggia sopra il contenuto invece di riservargli spazio (vedi Box in TripifyApp),
+ * quindi senza questo l'ultima card di una lista resterebbe a meta' nascosta sotto di lei.
+ */
+val LocalBottomNavBarHeight = compositionLocalOf { 0.dp }
 
 @Composable
 fun TripifyApp(
@@ -143,12 +157,16 @@ fun TripifyApp(
         }
     }
 
+    val density = LocalDensity.current
+    var navBarHeight by remember { mutableStateOf(0.dp) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(CatalogColors.Background)
             .nestedScroll(navBarNestedScrollConnection)
     ) {
+        CompositionLocalProvider(LocalBottomNavBarHeight provides navBarHeight) {
         NavHost(
             navController = navController,
             startDestination = Route.Home.path,
@@ -571,6 +589,7 @@ fun TripifyApp(
                 )
             }
         }
+        }
 
         if (showBottomBar) {
             Surface(
@@ -584,6 +603,9 @@ fun TripifyApp(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 14.dp, top = 4.dp)
                     .navigationBarsPadding()
+                    .onGloballyPositioned { coordinates ->
+                        navBarHeight = with(density) { coordinates.size.height.toDp() }
+                    }
                     .graphicsLayer {
                         val scale = 1f - navBarCollapse.value * 0.12f
                         scaleX = scale
@@ -636,9 +658,7 @@ fun TripifyApp(
                                 Text(
                                     item.title,
                                     color = Color.White,
-                                    fontFamily = Inter,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    style = CatalogType.Meta.copy(fontWeight = FontWeight.SemiBold),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )

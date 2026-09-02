@@ -18,8 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.tripify.tripify_android.LocalBottomNavBarHeight
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
@@ -75,7 +77,15 @@ fun OrganizersSearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(CatalogSpacing.Section)
+            // La barra di navigazione flottante galleggia sopra il contenuto (non
+            // riserva più spazio suo): senza questo margine extra in fondo, l'ultima
+            // card resterebbe per metà nascosta sotto di lei.
+            contentPadding = PaddingValues(
+                start = CatalogSpacing.Section,
+                end = CatalogSpacing.Section,
+                top = CatalogSpacing.Section,
+                bottom = CatalogSpacing.Section + LocalBottomNavBarHeight.current
+            )
         ) {
             item {
                 Text(
@@ -219,14 +229,16 @@ fun OrganizersSearchScreen(
                                     text = displayName,
                                     style = CatalogType.CardTitle,
                                     color = CatalogColors.Ink,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = organizerEmail.orEmpty(),
                                     style = CatalogType.Caption,
                                     color = CatalogColors.InkMuted,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(

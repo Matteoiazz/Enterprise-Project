@@ -105,7 +105,9 @@ public class ItineraryController {
     public ResponseEntity<List<FavoriteListResponseDTO>> getMyLists(@AuthenticationPrincipal Jwt jwt) {
         List<FavoriteList> lists = service.getUserLists(jwt.getSubject());
         service.applyTotalPrice(lists);
-        return ResponseEntity.ok(lists.stream().map(FavoriteListResponseDTO::forOwner).toList());
+        // getUserLists include anche le liste dove si e' solo collaboratori: forOwner
+        // esporrebbe il collabToken del proprietario anche a loro, va dispacciata per ruolo.
+        return ResponseEntity.ok(lists.stream().map(l -> FavoriteListResponseDTO.forRequester(l, jwt.getSubject())).toList());
     }
 
     /** "Salvati": liste proprie + condivise + itinerari altrui a cui si è messo like. */
@@ -139,16 +141,15 @@ public class ItineraryController {
     /** Esporta la lista come file .ics per l'app Calendario del telefono. */
     @GetMapping("/{id}/calendar.ics")
     public ResponseEntity<String> exportCalendar(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
-        String ics = service.exportToIcs(id, jwt.getSubject());
-        String safeName = service.getAccessibleById(id, jwt.getSubject()).getName()
-                .replaceAll("[^a-zA-Z0-9 -]", "").trim();
+        ItineraryService.IcsExport export = service.exportToIcs(id, jwt.getSubject());
+        String safeName = export.listName().replaceAll("[^a-zA-Z0-9 -]", "").trim();
         String filename = (safeName.isBlank() ? "itinerario" : safeName) + ".ics";
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("text/calendar;charset=UTF-8"))
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(filename).build().toString())
-                .body(ics);
+                .body(export.content());
     }
 
     @PatchMapping("/{id}/visibility")

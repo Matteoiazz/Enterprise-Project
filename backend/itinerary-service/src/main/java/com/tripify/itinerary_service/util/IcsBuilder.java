@@ -2,11 +2,11 @@ package com.tripify.itinerary_service.util;
 
 import com.tripify.itinerary_service.dto.CalendarEventDTO;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Genera un file .ics (RFC 5545) da una lista di eventi, per l'esportazione
@@ -35,7 +35,7 @@ public final class IcsBuilder {
         String stamp = LocalDateTime.now(ZoneOffset.UTC).format(UTC_STAMP);
         for (CalendarEventDTO event : events) {
             line(sb, "BEGIN:VEVENT");
-            line(sb, "UID:" + UUID.randomUUID() + "@tripify.app");
+            line(sb, "UID:" + event.uid() + "@tripify.app");
             line(sb, "DTSTAMP:" + stamp);
             if (event.allDay()) {
                 line(sb, "DTSTART;VALUE=DATE:" + event.start().format(DATE_ONLY));
@@ -55,13 +55,47 @@ public final class IcsBuilder {
         return sb.toString();
     }
 
+    private static final int MAX_LINE_OCTETS = 75;
+
     private static void line(StringBuilder sb, String content) {
-        sb.append(content).append("\r\n");
+        sb.append(fold(content)).append("\r\n");
+    }
+
+    /**
+     * Line folding (RFC 5545 §3.1): nessuna riga di contenuto puo' superare i 75 ottetti
+     * (non caratteri: un accento in UTF-8 pesa piu' di un ottetto). Le righe piu' lunghe
+     * vengono spezzate con CRLF seguito da un singolo spazio, che chi legge deve ignorare
+     * in fase di ricomposizione.
+     */
+    private static String fold(String content) {
+        if (content.getBytes(StandardCharsets.UTF_8).length <= MAX_LINE_OCTETS) {
+            return content;
+        }
+        StringBuilder folded = new StringBuilder();
+        int lineOctets = 0;
+        int budget = MAX_LINE_OCTETS;
+        int i = 0;
+        while (i < content.length()) {
+            int codePoint = content.codePointAt(i);
+            int charCount = Character.charCount(codePoint);
+            int codePointOctets = new String(Character.toChars(codePoint)).getBytes(StandardCharsets.UTF_8).length;
+            if (lineOctets + codePointOctets > budget) {
+                folded.append("\r\n ");
+                lineOctets = 0;
+                budget = MAX_LINE_OCTETS - 1; // la riga di continuazione inizia gia' con uno spazio
+            }
+            folded.appendCodePoint(codePoint);
+            lineOctets += codePointOctets;
+            i += charCount;
+        }
+        return folded.toString();
     }
 
     /** Escaping testo per campi iCalendar (RFC 5545 §3.3.11): backslash, virgola, punto e virgola, a capo. */
     private static String escape(String text) {
         return text
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
                 .replace("\\", "\\\\")
                 .replace(",", "\\,")
                 .replace(";", "\\;")

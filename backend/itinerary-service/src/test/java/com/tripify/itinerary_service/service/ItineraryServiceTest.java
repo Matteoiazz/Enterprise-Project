@@ -4,8 +4,10 @@ import com.tripify.itinerary_service.client.BookingClient;
 import com.tripify.itinerary_service.client.CatalogClient;
 import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
 import com.tripify.itinerary_service.dto.CatalogItemSummaryDTO;
+import com.tripify.itinerary_service.dto.FavoriteListResponseDTO;
 import com.tripify.itinerary_service.entity.FavoriteList;
 import com.tripify.itinerary_service.entity.Visibility;
+import com.tripify.itinerary_service.exception.ListNotFoundException;
 import com.tripify.itinerary_service.exception.NotListOwnerException;
 import com.tripify.itinerary_service.repository.FavoriteListRepository;
 import org.junit.jupiter.api.Test;
@@ -187,6 +189,38 @@ class ItineraryServiceTest {
     }
 
     @Test
+    void ilCollaboratoreNonVedeIlTokenDiInvitoNellaListaDelProprietario() {
+        FavoriteList list = newList();
+        String token = itineraryService.enableCollabInvite(list.getId(), OWNER).getCollabToken();
+        itineraryService.joinAsCollaborator(token, OTHER_USER);
+
+        FavoriteList reloaded = itineraryService.getById(list.getId());
+        FavoriteListResponseDTO ownerView = FavoriteListResponseDTO.forRequester(reloaded, OWNER);
+        FavoriteListResponseDTO collaboratorView = FavoriteListResponseDTO.forRequester(reloaded, OTHER_USER);
+
+        assertThat(ownerView.collabToken()).isEqualTo(token);
+        assertThat(collaboratorView.collabToken()).isNull();
+    }
+
+    @Test
+    void nonSiPuoCondividereUnaListaConSeStessi() {
+        FavoriteList list = newList();
+
+        assertThatThrownBy(() -> itineraryService.shareList(list.getId(), OWNER, OWNER))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void ilLikeAUnaListaPrivataDaLoStessoErroreDiUnaListaInesistente() {
+        FavoriteList list = newList(); // PRIVATE di default
+
+        assertThatThrownBy(() -> itineraryService.toggleLike(list.getId(), OTHER_USER))
+                .isInstanceOf(ListNotFoundException.class);
+        assertThatThrownBy(() -> itineraryService.toggleLike(999999L, OTHER_USER))
+                .isInstanceOf(ListNotFoundException.class);
+    }
+
+    @Test
     void unTokenDiInvitoInventatoNonFunziona() {
         assertThatThrownBy(() -> itineraryService.joinAsCollaborator("token-inesistente", OTHER_USER))
                 .isInstanceOf(RuntimeException.class);
@@ -223,7 +257,7 @@ class ItineraryServiceTest {
         itineraryService.addItemToList(list.getId(), itemRequest(1L), OWNER);
         itineraryService.addItemToList(list.getId(), hotelRequest(2L, arr.toLocalDate(), arr.toLocalDate().plusDays(3)), OWNER);
 
-        String ics = itineraryService.exportToIcs(list.getId(), OWNER);
+        String ics = itineraryService.exportToIcs(list.getId(), OWNER).content();
 
         assertThat(ics).startsWith("BEGIN:VCALENDAR");
         assertThat(ics).endsWith("END:VCALENDAR\r\n");
@@ -234,6 +268,27 @@ class ItineraryServiceTest {
         assertThat(ics).contains("SUMMARY:Soggiorno: Hotel a New York");
         assertThat(ics).contains("DTSTART;VALUE=DATE:20260910");
         assertThat(ics).contains("DTEND;VALUE=DATE:20260913");
+    }
+
+    @Test
+    void esportareLoStessoItinerarioDueVolteProduceGliStessiUid() {
+        FavoriteList list = newList();
+        LocalDateTime dep = LocalDateTime.of(2026, 9, 10, 8, 0);
+        LocalDateTime arr = LocalDateTime.of(2026, 9, 10, 18, 0);
+        when(catalogClient.getItem(1L)).thenReturn(flight(1L, "Roma", "New York", dep, arr));
+        when(catalogClient.getItem(2L)).thenReturn(hotel(2L, "New York"));
+        itineraryService.addItemToList(list.getId(), itemRequest(1L), OWNER);
+        itineraryService.addItemToList(list.getId(), hotelRequest(2L, arr.toLocalDate(), arr.toLocalDate().plusDays(3)), OWNER);
+
+        String firstExport = itineraryService.exportToIcs(list.getId(), OWNER).content();
+        String secondExport = itineraryService.exportToIcs(list.getId(), OWNER).content();
+
+        // Prima del fix: UID:UUID.randomUUID() ad ogni chiamata -> reimportando lo
+        // stesso itinerario invariato, il calendario creava eventi duplicati invece
+        // di aggiornare quelli già importati.
+        assertThat(firstExport).isEqualTo(secondExport);
+        assertThat(firstExport).contains("UID:itinerario-" + list.getId() + "-0@tripify.app");
+        assertThat(firstExport).contains("UID:itinerario-" + list.getId() + "-1@tripify.app");
     }
 
     @Test

@@ -35,7 +35,7 @@ public class FlightCleanupService {
     public void removeExpiredFlights() {
         LocalDateTime now = LocalDateTime.now();
 
-        // Solo gli hold non confermati (HELD/RELEASED/EXPIRED) vengono ripuliti: sono
+        // Solo gli hold non confermati (HELD/RELEASED) vengono ripuliti: sono
         // prenotazioni mai andate a buon fine, prerequisito per poter cancellare le
         // fare_classes senza violare la FK di seat_holds. Gli hold CONFIRMED restano.
         seatHoldRepository.deleteByFareClass_Flight_DepartureTimeBeforeAndStatusNot(now, HoldStatus.CONFIRMED);

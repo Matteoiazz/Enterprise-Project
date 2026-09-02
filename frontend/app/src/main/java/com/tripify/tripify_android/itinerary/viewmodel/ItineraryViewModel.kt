@@ -11,6 +11,7 @@ import com.tripify.tripify_android.itinerary.data.CreateListRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import com.tripify.tripify_android.itinerary.data.UpdateVisibilityRequest
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -83,8 +84,15 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    // loadDetail/loadDetailByPublicToken sono richiamate come "refresh" da tantissimi
+    // punti (like, rinomina, visibilità, link, rimozione componente...): senza annullare
+    // la richiesta precedente, due refresh sovrapposte che arrivano in ordine invertito
+    // potrebbero far tornare _detailState a uno stato precedente invece che al più recente.
+    private var detailJob: Job? = null
+
     fun loadDetail(id: Long) {
-        viewModelScope.launch {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
             _detailState.value = ItineraryDetailState.Loading
             try {
                 val response = api.getById(id)
@@ -101,7 +109,8 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
     /** Apertura via link condiviso (capabilities): nessuna autenticazione richiesta. */
     fun loadDetailByPublicToken(token: String) {
-        viewModelScope.launch {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
             _detailState.value = ItineraryDetailState.Loading
             try {
                 val response = api.getByPublicToken(token)
@@ -144,7 +153,13 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
     }
 
     /** Toggle like e ricarica il dettaglio per aggiornare il contatore mostrato. */
+    private var likeInFlight = false
+
     fun toggleLike(id: Long) {
+        // Un doppio tap veloce prima che il primo tap sia tornato dal server
+        // invertirebbe il like due volte invece di una (like->unlike->like).
+        if (likeInFlight) return
+        likeInFlight = true
         viewModelScope.launch {
             try {
                 val response = api.toggleLike(id)
@@ -153,6 +168,8 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 }
             } catch (e: Exception) {
                 // like non riuscito: la UI resta invariata, l'utente può riprovare
+            } finally {
+                likeInFlight = false
             }
         }
     }
@@ -286,7 +303,11 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val response = api.exportCalendar(id)
                 val body = response.body()
                 if (!response.isSuccessful || body == null) {
-                    onError("Impossibile scaricare il calendario")
+                    if (response.code() == 401) {
+                        onError("Accedi per esportare il calendario")
+                    } else {
+                        onError("Impossibile scaricare il calendario")
+                    }
                     return@launch
                 }
                 val safeName = listName.replace(Regex("[^a-zA-Z0-9 -]"), "").trim().ifBlank { "itinerario" }

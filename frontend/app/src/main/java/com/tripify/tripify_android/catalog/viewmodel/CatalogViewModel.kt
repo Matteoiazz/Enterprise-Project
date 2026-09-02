@@ -571,8 +571,14 @@ class CatalogViewModel(
         }
     }
 
+    private var reviewsAndBookingJob: Job? = null
+
     fun loadReviewsAndBookingStatus(itemId: Long) {
-        viewModelScope.launch {
+        // Annulla la richiesta precedente: senza, aprendo rapidamente due item diversi
+        // la risposta più lenta del primo potrebbe arrivare dopo e sovrascrivere
+        // recensioni/stato-prenotato mostrati per il secondo.
+        reviewsAndBookingJob?.cancel()
+        reviewsAndBookingJob = viewModelScope.launch {
             tokenManager?.let { tm ->
                 try {
                     val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
