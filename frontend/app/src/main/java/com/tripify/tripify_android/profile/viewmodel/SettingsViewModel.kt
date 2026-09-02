@@ -3,11 +3,13 @@ package com.tripify.tripify_android.profile.viewmodel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.TokenManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.tripify.tripify_android.profile.api.ProfileApiService
@@ -34,8 +36,8 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
 
     fun toggleCurrency() {
         viewModelScope.launch {
-            val newCurrency = if (selectedCurrency.value == "EUR") "USD" else "EUR"
-            tokenManager.setCurrency(newCurrency)
+            val current = tokenManager.currencyFlow.first()
+            tokenManager.setCurrency(if (current == "EUR") "USD" else "EUR")
         }
     }
 
@@ -53,21 +55,15 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
             try {
                 val response = profileApi.deleteMyAccount()
 
-                if (response.isSuccessful) {
+                if (response.isSuccessful || response.code() == 404) {
                     tokenManager.clearTokens()
                     onSuccess()
                 } else {
-                    // Prima qui c'era solo un println: se la cancellazione falliva
-                    // lato server, l'utente restava fermo sulla schermata senza
-                    // nessun feedback visibile, come se avesse premuto un bottone
-                    // rotto. Stesso pattern di errorMessage già usato nelle altre
-                    // ViewModel (es. ProfileViewModel), mostrato poi con un Toast
-                    // in SettingsScreen.
-                    errorMessage = "Errore durante l'eliminazione dell'account: ${response.code()}"
+                    errorMessage = "Impossibile eliminare l'account in questo momento (${response.code()}). Riprova."
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
-                errorMessage = "Errore di rete: ${e.localizedMessage}"
+                Log.e("SettingsViewModel", "deleteAccount fallita", e)
+                errorMessage = "Errore di rete durante l'eliminazione. Riprova."
             }
         }
     }

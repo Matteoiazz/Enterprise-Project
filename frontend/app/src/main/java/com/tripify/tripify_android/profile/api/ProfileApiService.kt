@@ -8,7 +8,6 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
-import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -34,10 +33,10 @@ interface ProfileApiService {
     @DELETE("/api/v1/profile/documents/{id}")
     suspend fun deleteTravelDocument(@Path("id") id: String)
 
-    @GET("api/v1/profile/payments")
+    @GET("/api/v1/profile/payments")
     suspend fun getPaymentMethods(): List<PaymentMethodDto>
 
-    @POST("api/v1/profile/payments")
+    @POST("/api/v1/profile/payments")
     suspend fun addPaymentMethod(@Body dto: PaymentMethodDto): PaymentMethodDto
 
     @DELETE("/api/v1/profile/me")
@@ -52,17 +51,18 @@ interface ProfileApiService {
     @DELETE("/api/v1/profile/payments/{id}")
     suspend fun deletePaymentMethod(@Path("id") id: String)
 
+    @PUT("/api/v1/profile/payments/{id}/default")
+    suspend fun setDefaultPaymentMethod(@Path("id") id: String): Response<Unit>
+
     @Multipart
     @POST("/api/v1/profile/me/picture")
     suspend fun uploadProfilePicture(
         @Part file: MultipartBody.Part
     ): Response<Map<String, String>>
 
-    @Headers("ngrok-skip-browser-warning: true")
     @GET("/api/v1/profile/organizers")
     suspend fun getOrganizers(): List<com.tripify.tripify_android.data.UserResponse>
 
-    @Headers("ngrok-skip-browser-warning: true")
     @GET("/api/v1/profile/organizers/{id}")
     suspend fun getOrganizerById(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
 

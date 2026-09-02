@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,14 +25,14 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
 
-    var hasAttemptedLogin by remember { mutableStateOf(false) }
+    var hasAttemptedLogin by rememberSaveable { mutableStateOf(false) }
 
     val loginLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         Log.d(TAG, "Risultato ricevuto dal browser: resultCode=${result.resultCode}")
         if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.handleAuthorizationResponse(context, result.data)
+            viewModel.handleAuthorizationResponse(result.data)
         } else {
             Log.w(TAG, "Login annullato o fallito: il browser non ha restituito RESULT_OK (resultCode=${result.resultCode})")
             Toast.makeText(context, "Login non completato: riprova", Toast.LENGTH_LONG).show()

@@ -6,6 +6,7 @@ import com.tripify.user_auth_service.dto.request.TravelDocumentDto;
 import com.tripify.user_auth_service.service.ProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/profile")
 @RequiredArgsConstructor
+@Slf4j
 public class ProfileController {
 
     private final ProfileService profileService;
@@ -83,6 +85,12 @@ public class ProfileController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/payments/{id}/default")
+    public ResponseEntity<Void> setDefaultPayment(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        profileService.setDefaultPaymentMethod(jwt.getClaimAsString("email"), id);
+        return ResponseEntity.ok().build();
+    }
+
     // --- PROFILO UTENTE ---
     @GetMapping("/me")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
@@ -109,7 +117,12 @@ public class ProfileController {
         String keycloakUserId = jwt.getSubject();
 
         profileService.deleteUserAccount(email);
-        profileService.finalizeKeycloakDeletion(keycloakUserId, email);
+        try {
+            profileService.finalizeKeycloakDeletion(keycloakUserId, email);
+        } catch (IllegalStateException keycloakCleanupIncomplete) {
+            log.error("Dati locali eliminati per {} ma la pulizia dell'identita' Keycloak non e' completa: {}",
+                    email, keycloakCleanupIncomplete.getMessage());
+        }
 
         return ResponseEntity.noContent().build();
     }

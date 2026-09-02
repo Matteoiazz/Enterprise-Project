@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.profile.api.ProfileApiService
 import com.tripify.tripify_android.profile.model.CompanionDto
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,17 +31,19 @@ class CompanionsViewModel(
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    private var loadJob: Job? = null
 
     fun loadCompanions() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isLoading.value = true
+            _errorMessage.value = null
             try {
-                val list = apiService.getCompanions()
-                _companions.value = list
+                _companions.value = apiService.getCompanions()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore nel caricamento: ${e.message}"
+                _errorMessage.value = "Impossibile caricare i compagni di viaggio. Controlla la connessione e riprova."
                 Log.e("CompanionsVM", "Load Error", e)
             } finally {
                 _isLoading.value = false
@@ -49,6 +52,8 @@ class CompanionsViewModel(
     }
 
     fun addCompanion(firstName: String, lastName: String, dateOfBirth: String) {
+        _errorMessage.value = null
+
         if (firstName.isBlank() || lastName.isBlank() || dateOfBirth.isBlank()) {
             _errorMessage.value = "Tutti i campi sono obbligatori."
             return
@@ -91,7 +96,7 @@ class CompanionsViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante il salvataggio: ${e.message}"
+                _errorMessage.value = "Errore di rete durante il salvataggio. Riprova."
                 Log.e("CompanionsVM", "Add Error", e)
             } finally {
                 _isLoading.value = false
@@ -100,6 +105,7 @@ class CompanionsViewModel(
     }
 
     fun deleteCompanion(id: String) {
+        _errorMessage.value = null
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -108,7 +114,7 @@ class CompanionsViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante l'eliminazione: ${e.message}"
+                _errorMessage.value = "Errore durante l'eliminazione. Riprova."
                 Log.e("CompanionsVM", "Delete Error", e)
             } finally {
                 _isLoading.value = false

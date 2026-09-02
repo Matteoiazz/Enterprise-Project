@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.util.extractRolesFromToken
 import com.tripify.tripify_android.profile.viewmodel.ProfileViewModel
@@ -61,8 +62,12 @@ fun ProfileScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val tokenManager = remember { TokenManager(context) }
+    val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
     val currentToken by tokenManager.tokenFlow.collectAsState(initial = null)
     val isOrganizer = currentToken?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true
+
+    var docAlertCount by remember { mutableStateOf(0) }
+    var docHasExpired by remember { mutableStateOf(false) }
     // isLoggedIn dipende solo dal token: prima richiedeva anche name.isNotEmpty(), quindi
     // se loadUserProfile() falliva per un problema temporaneo (rete instabile, server
     // lento) un utente comunque autenticato si ritrovava catapultato sulla schermata
@@ -81,6 +86,23 @@ fun ProfileScreen(
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             viewModel.loadUserProfile()
+        }
+    }
+
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            try {
+                val statuses = profileApi.getTravelDocuments()
+                    .mapNotNull { docExpiryInfo(it.expirationDate)?.first }
+                docHasExpired = statuses.any { it == DocExpiry.EXPIRED }
+                docAlertCount = statuses.count { it != DocExpiry.OK }
+            } catch (e: Exception) {
+                docHasExpired = false
+                docAlertCount = 0
+            }
+        } else {
+            docHasExpired = false
+            docAlertCount = 0
         }
     }
 
@@ -137,6 +159,8 @@ fun ProfileScreen(
                 LoggedProfileContent(
                     viewModel = viewModel,
                     context = context,
+                    docAlertCount = docAlertCount,
+                    docHasExpired = docHasExpired,
                     onNavigateToCompanions = onNavigateToCompanions,
                     onNavigateToTravelDocuments = onNavigateToTravelDocuments,
                     onNavigateToPaymentMethods = onNavigateToPaymentMethods,
@@ -217,6 +241,8 @@ fun GuestProfileView(onNavigateToLogin: () -> Unit) {
 fun LoggedProfileContent(
     viewModel: ProfileViewModel,
     context: android.content.Context,
+    docAlertCount: Int = 0,
+    docHasExpired: Boolean = false,
     onNavigateToCompanions: () -> Unit,
     onNavigateToTravelDocuments: () -> Unit,
     onNavigateToPaymentMethods: () -> Unit,
@@ -353,6 +379,8 @@ fun LoggedProfileContent(
                         icon = Icons.Outlined.FolderOpen,
                         text = "Documenti di Viaggio",
                         hasDivider = true,
+                        badgeCount = docAlertCount,
+                        badgeCritical = docHasExpired,
                         onClick = onNavigateToTravelDocuments
                     )
                     ProfileMenuRow(
@@ -454,7 +482,14 @@ fun LoggedProfileContent(
 }
 
 @Composable
-fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick: () -> Unit = {}) {
+fun ProfileMenuRow(
+    icon: ImageVector,
+    text: String,
+    hasDivider: Boolean,
+    badgeCount: Int = 0,
+    badgeCritical: Boolean = false,
+    onClick: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .clickable(
@@ -488,6 +523,22 @@ fun ProfileMenuRow(icon: ImageVector, text: String, hasDivider: Boolean, onClick
                 color = CatalogColors.Ink,
                 modifier = Modifier.weight(1f)
             )
+            if (badgeCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .clip(CatalogShapes.Badge)
+                        .background(if (badgeCritical) CatalogColors.Alert else CatalogColors.Gold)
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = badgeCount.toString(),
+                        style = CatalogType.Caption,
+                        color = CatalogColors.Surface
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+            }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "Vai",

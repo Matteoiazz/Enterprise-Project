@@ -262,6 +262,79 @@ class ProfileServiceTest {
     }
 
     @Test
+    void addPaymentMethod_firstCardBecomesDefault() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+        when(paymentMethodRepository.findByUser(u)).thenReturn(List.of());
+        when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentMethodDto result = service.addPaymentMethod(EMAIL, PaymentMethodDto.builder()
+                .cardNumber("4111111111111111").expirationMonthYear("12/30").cardProvider("VISA").build());
+
+        assertThat(result.isDefaultCard()).isTrue();
+    }
+
+    @Test
+    void addPaymentMethod_secondCardIsNotDefault() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+        when(paymentMethodRepository.findByUser(u)).thenReturn(List.of(
+                PaymentMethod.builder().id(UUID.randomUUID()).isDefault(true).user(u).build()));
+        when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentMethodDto result = service.addPaymentMethod(EMAIL, PaymentMethodDto.builder()
+                .cardNumber("5555444433332222").expirationMonthYear("11/29").cardProvider("MASTERCARD").build());
+
+        assertThat(result.isDefaultCard()).isFalse();
+    }
+
+    @Test
+    void setDefaultPaymentMethod_movesTheFlagAndClearsTheOthers() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        UUID currentDefaultId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        PaymentMethod current = PaymentMethod.builder().id(currentDefaultId).isDefault(true).user(u).build();
+        PaymentMethod target = PaymentMethod.builder().id(targetId).isDefault(false).user(u).build();
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+        when(paymentMethodRepository.findById(targetId)).thenReturn(Optional.of(target));
+        when(paymentMethodRepository.findByUser(u)).thenReturn(List.of(current, target));
+
+        service.setDefaultPaymentMethod(EMAIL, targetId);
+
+        assertThat(target.isDefault()).isTrue();
+        assertThat(current.isDefault()).isFalse();
+    }
+
+    @Test
+    void setDefaultPaymentMethod_whenNotOwner_throwsUnauthorized() {
+        User owner = freshUser(Role.ROLE_TRAVELER);
+        User other = freshUser(Role.ROLE_TRAVELER);
+        UUID id = UUID.randomUUID();
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(owner));
+        when(paymentMethodRepository.findById(id)).thenReturn(Optional.of(
+                PaymentMethod.builder().id(id).user(other).build()));
+
+        assertThatThrownBy(() -> service.setDefaultPaymentMethod(EMAIL, id))
+                .isInstanceOf(UnauthorizedActionException.class);
+    }
+
+    @Test
+    void deletePaymentMethod_whenDefaultDeleted_promotesAnotherCard() {
+        User u = freshUser(Role.ROLE_TRAVELER);
+        UUID defaultId = UUID.randomUUID();
+        PaymentMethod toDelete = PaymentMethod.builder().id(defaultId).isDefault(true).user(u).build();
+        PaymentMethod other = PaymentMethod.builder().id(UUID.randomUUID()).isDefault(false).user(u).build();
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(u));
+        when(paymentMethodRepository.findById(defaultId)).thenReturn(Optional.of(toDelete));
+        when(paymentMethodRepository.findByUser(u)).thenReturn(List.of(toDelete, other));
+
+        service.deletePaymentMethod(EMAIL, defaultId);
+
+        verify(paymentMethodRepository).delete(toDelete);
+        assertThat(other.isDefault()).isTrue();
+    }
+
+    @Test
     void updatePec_whenNotOrganizer_throwsUnauthorized() {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(freshUser(Role.ROLE_TRAVELER)));
 

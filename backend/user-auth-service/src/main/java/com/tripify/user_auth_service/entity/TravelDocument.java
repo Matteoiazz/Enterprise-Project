@@ -5,12 +5,13 @@ import lombok.*;
 import java.time.LocalDate;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "travel_documents")
+@Table(name = "travel_documents", indexes = @Index(name = "idx_travel_documents_user", columnList = "user_id"))
 public class TravelDocument {
 
     @Id

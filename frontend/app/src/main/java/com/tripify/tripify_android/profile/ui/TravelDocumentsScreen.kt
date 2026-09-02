@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -16,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,11 +31,13 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +64,7 @@ fun TravelDocumentsScreen(
     }
 
     LaunchedEffect(Unit) {
+        viewModel.clearError()
         viewModel.loadDocuments()
     }
 
@@ -78,7 +83,7 @@ fun TravelDocumentsScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
@@ -98,22 +103,45 @@ fun TravelDocumentsScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        val expiredCount = documents.count { docExpiryInfo(it.expirationDate)?.first == DocExpiry.EXPIRED }
+        val expiringCount = documents.count {
+            val status = docExpiryInfo(it.expirationDate)?.first
+            status == DocExpiry.SOON || status == DocExpiry.UPCOMING
+        }
+
+        PullToRefreshList(
+            onRefresh = {
+                viewModel.loadDocuments()
+                viewModel.isLoading.first { !it }
+            },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
             if (isLoading && documents.isEmpty()) {
                 CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
-            } else if (documents.isEmpty()) {
-                EmptyDocumentsState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 24.dp, start = CatalogSpacing.Gutter, end = CatalogSpacing.Gutter, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(documents, key = { it.id ?: it.hashCode() }) { doc ->
-                        DocumentCardPremium(
-                            doc = doc,
-                            onDeleteClick = { documentToDelete = doc }
-                        )
+                    if (documents.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                                EmptyDocumentsState()
+                            }
+                        }
+                    } else {
+                        if (expiredCount > 0 || expiringCount > 0) {
+                            item(key = "expiry_banner") {
+                                DocumentExpiryBanner(expired = expiredCount, expiring = expiringCount)
+                            }
+                        }
+                        items(documents, key = { it.id ?: it.hashCode() }) { doc ->
+                            DocumentCardPremium(
+                                doc = doc,
+                                onDeleteClick = { documentToDelete = doc }
+                            )
+                        }
                     }
                 }
             }
@@ -197,6 +225,72 @@ fun EmptyDocumentsState(modifier: Modifier = Modifier) {
     }
 }
 
+enum class DocExpiry { EXPIRED, SOON, UPCOMING, OK }
+
+fun docExpiryInfo(dateStr: String): Pair<DocExpiry, Long>? {
+    val date = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: return null
+    val days = ChronoUnit.DAYS.between(LocalDate.now(), date)
+    val status = when {
+        days < 0 -> DocExpiry.EXPIRED
+        days <= 30 -> DocExpiry.SOON
+        days <= 60 -> DocExpiry.UPCOMING
+        else -> DocExpiry.OK
+    }
+    return status to days
+}
+
+private fun expiryLabel(status: DocExpiry, days: Long): String = when (status) {
+    DocExpiry.EXPIRED -> "Documento scaduto"
+    DocExpiry.SOON -> when (days) {
+        0L -> "Scade oggi"
+        1L -> "Scade domani"
+        else -> "Scade tra $days giorni"
+    }
+    DocExpiry.UPCOMING -> "In scadenza tra $days giorni"
+    DocExpiry.OK -> ""
+}
+
+@Composable
+fun DocumentExpiryBanner(expired: Int, expiring: Int) {
+    val isCritical = expired > 0
+    val title = if (isCritical) "Documenti scaduti" else "Documenti in scadenza"
+    val detail = buildString {
+        if (expired > 0) append(if (expired == 1) "1 documento scaduto" else "$expired documenti scaduti")
+        if (expired > 0 && expiring > 0) append(" · ")
+        if (expiring > 0) append(if (expiring == 1) "1 in scadenza" else "$expiring in scadenza")
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = CatalogShapes.Card,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCritical) CatalogColors.AlertSoft else CatalogColors.GoldSoft
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isCritical) Icons.Filled.ErrorOutline else Icons.Filled.WarningAmber,
+                contentDescription = null,
+                tint = if (isCritical) CatalogColors.Alert else CatalogColors.Gold,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column {
+                Text(text = title, style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "$detail. Ricordati di rinnovarli prima del viaggio.",
+                    style = CatalogType.Caption,
+                    color = CatalogColors.InkMuted
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
     Card(
@@ -209,7 +303,13 @@ fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val sideColor = if (doc.documentType.contains("Passaporto", true)) CatalogColors.AccentDark else CatalogColors.Accent
+            val expiry = docExpiryInfo(doc.expirationDate)
+            val sideColor = when {
+                expiry?.first == DocExpiry.EXPIRED -> CatalogColors.Alert
+                expiry?.first == DocExpiry.SOON -> CatalogColors.Gold
+                doc.documentType.contains("Passaporto", true) -> CatalogColors.AccentDark
+                else -> CatalogColors.Accent
+            }
             Box(modifier = Modifier.width(8.dp).fillMaxHeight().background(sideColor))
 
             Column(modifier = Modifier.weight(1f).padding(20.dp)) {
@@ -233,6 +333,32 @@ fun DocumentCardPremium(doc: TravelDocumentDto, onDeleteClick: () -> Unit) {
                     Icon(Icons.Filled.Flag, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(text = doc.issuingCountry, style = CatalogType.BodyStrong, color = CatalogColors.InkMuted)
+                }
+
+                if (expiry != null && expiry.first != DocExpiry.OK) {
+                    val (status, days) = expiry
+                    val critical = status == DocExpiry.EXPIRED
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(CatalogShapes.Badge)
+                            .background(if (critical) CatalogColors.AlertSoft else CatalogColors.GoldSoft)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (critical) Icons.Filled.ErrorOutline else Icons.Filled.WarningAmber,
+                            contentDescription = null,
+                            tint = if (critical) CatalogColors.Alert else CatalogColors.Gold,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = expiryLabel(status, days),
+                            style = CatalogType.Overline,
+                            color = if (critical) CatalogColors.Alert else CatalogColors.Gold
+                        )
+                    }
                 }
             }
 
