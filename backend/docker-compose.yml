@@ -117,11 +117,54 @@ services:
       KC_DB_URL: jdbc:postgresql://db-keycloak:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: password
+      # Fissa l'hostname nel token (claim "iss") a un valore stabile: l'app
+      # Android e i servizi dentro Docker devono vedere lo stesso issuer,
+      # altrimenti la validazione del JWT fallisce anche se Keycloak e'
+      # raggiungibile da entrambi.
+      KC_HOSTNAME: ${LOCAL_IP}
     networks:
       - travel-network
     volumes:
       - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
       - ./keycloak-import:/opt/keycloak/data/import
+
+  # Catalog Service (Matteo)
+  catalog-service:
+    build: ./catalog-service
+    container_name: catalog-service
+    depends_on:
+      - db-catalog
+      - rabbitmq
+      - keycloak
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-catalog:5432/db_catalog
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP}:8180/realms/tripify
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+    networks:
+      - travel-network
+
+  # Itinerary Service (Matteo)
+  itinerary-service:
+    build: ./itinerary-service
+    container_name: itinerary-service
+    depends_on:
+      - db-itinerary
+      - catalog-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-itinerary:5432/db_itinerary
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP}:8180/realms/tripify
+      CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
+      BOOKING_SERVICE_URL: http://booking-service:8083
+    networks:
+      - travel-network
 
 networks:
   travel-network:

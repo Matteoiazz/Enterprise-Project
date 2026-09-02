@@ -8,6 +8,10 @@ out/
 Thumbs.db
 *.zip
 
+# Valori reali delle variabili d'ambiente per docker-compose (IP locale, chiavi
+# Cloudinary, internal service key): solo backend/.env.example va committato.
+backend/.env
+
 # Dati grezzi Postgres del Keycloak locale (pg_wal, pg_multixact, ecc.) - non
 # ha senso versionare un database, e la cartella sembra un residuo di una
 # vecchia configurazione a bind mount (il docker-compose.yml attuale usa un
