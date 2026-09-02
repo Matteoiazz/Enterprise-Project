@@ -545,4 +545,49 @@ class ProfileServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("requisiti di sicurezza");
     }
+
+    @Test
+    void resolveDisplayNames_mapsSubsToTrimmedFullNamesAndSkipsEmptyOnes() {
+        User a = User.builder().username("sub-a").name("Mario").surname("Rossi").build();
+        User b = User.builder().username("sub-b").name("  Anna ").surname(null).build();
+        User c = User.builder().username("sub-c").name(null).surname(null).build();
+        when(userRepository.findByUsernameIn(java.util.List.of("sub-a", "sub-b", "sub-c")))
+                .thenReturn(java.util.List.of(a, b, c));
+
+        Map<String, String> names = service.resolveDisplayNames(java.util.List.of("sub-a", "sub-b", "sub-c"));
+
+        assertThat(names).containsEntry("sub-a", "Mario Rossi");
+        assertThat(names).containsEntry("sub-b", "Anna");
+        assertThat(names).doesNotContainKey("sub-c");
+    }
+
+    @Test
+    void resolveDisplayNames_returnsEmptyForNoInput() {
+        assertThat(service.resolveDisplayNames(java.util.List.of())).isEmpty();
+        assertThat(service.resolveDisplayNames(null)).isEmpty();
+        verify(userRepository, never()).findByUsernameIn(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void resolveDisplayNames_dropsBlankDuplicatesAndCapsTheLookup() {
+        java.util.List<String> noisy = new java.util.ArrayList<>();
+        noisy.add("sub-a");
+        noisy.add("sub-a");
+        noisy.add("   ");
+        noisy.add(null);
+        for (int i = 0; i < 300; i++) {
+            noisy.add("sub-" + i);
+        }
+        when(userRepository.findByUsernameIn(any())).thenReturn(java.util.List.of());
+
+        service.resolveDisplayNames(noisy);
+
+        ArgumentCaptor<java.util.Collection<String>> captor = ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(userRepository).findByUsernameIn(captor.capture());
+        java.util.Collection<String> lookup = captor.getValue();
+        assertThat(lookup).hasSize(200);
+        assertThat(lookup).doesNotContainNull();
+        assertThat(lookup).allMatch(s -> !s.isBlank());
+    }
 }

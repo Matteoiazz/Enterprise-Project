@@ -32,7 +32,8 @@ public class ReviewController {
 
         String travelerId = jwt.getSubject();
         ReviewResponse savedReview = reviewService.createReview(
-                request.rating(), request.comment(), travelerId, request.catalogItemId());
+                request.rating(), request.comment(), travelerId, request.catalogItemId(),
+                Boolean.TRUE.equals(request.showName()));
         return ResponseEntity.ok(savedReview);
     }
 
@@ -43,7 +44,8 @@ public class ReviewController {
             @Valid @RequestBody UpdateReviewRequest request) {
 
         String travelerId = jwt.getSubject();
-        ReviewResponse updatedReview = reviewService.updateReview(id, request.rating(), request.comment(), travelerId);
+        ReviewResponse updatedReview = reviewService.updateReview(id, request.rating(), request.comment(), travelerId,
+                Boolean.TRUE.equals(request.showName()));
         return ResponseEntity.ok(updatedReview);
     }
 

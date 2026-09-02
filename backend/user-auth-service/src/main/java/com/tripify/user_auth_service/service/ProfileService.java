@@ -27,7 +27,9 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -601,12 +603,40 @@ public class ProfileService {
         return toPublicResponse(u, "Organizzatore", true);
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.tripify.user_auth_service.dto.response.UserResponse getUserSummary(String identifier) {
         User u = findExistingUser(identifier)
                 .orElseThrow(() -> new ResourceNotFoundException("Utente non trovato"));
 
         return toPublicResponse(u, "Utente", false);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Map<String, String> resolveDisplayNames(Collection<String> subs) {
+        if (subs == null || subs.isEmpty()) {
+            return Map.of();
+        }
+        List<String> lookup = subs.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .distinct()
+                .limit(200)
+                .toList();
+        if (lookup.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> result = new java.util.HashMap<>();
+        for (User u : userRepository.findByUsernameIn(lookup)) {
+            if (u.getUsername() == null) {
+                continue;
+            }
+            String name = u.getName() != null ? u.getName().trim() : "";
+            String surname = u.getSurname() != null ? u.getSurname().trim() : "";
+            String display = (name + " " + surname).trim();
+            if (!display.isEmpty()) {
+                result.put(u.getUsername(), display);
+            }
+        }
+        return result;
     }
 
     private java.util.Optional<User> findExistingUser(String identifier) {

@@ -96,6 +96,8 @@ fun ProfileScreen(
                     .mapNotNull { docExpiryInfo(it.expirationDate)?.first }
                 docHasExpired = statuses.any { it == DocExpiry.EXPIRED }
                 docAlertCount = statuses.count { it != DocExpiry.OK }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 docHasExpired = false
                 docAlertCount = 0

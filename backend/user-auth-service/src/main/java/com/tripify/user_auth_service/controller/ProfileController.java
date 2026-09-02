@@ -192,6 +192,11 @@ public class ProfileController {
         return ResponseEntity.ok(profileService.getUserSummary(id));
     }
 
+    @PostMapping("/users/names")
+    public ResponseEntity<java.util.Map<String, String>> resolveUserNames(@RequestBody java.util.List<String> ids) {
+        return ResponseEntity.ok(profileService.resolveDisplayNames(ids));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleBadRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());

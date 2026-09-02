@@ -13,7 +13,8 @@ public record ReviewResponse(
         String reply,
         Instant repliedAt,
         int helpfulCount,
-        boolean helpfulByMe
+        boolean helpfulByMe,
+        String travelerName
 ) {
     public static ReviewResponse from(Review review) {
         return from(review, 0, false);
@@ -29,7 +30,8 @@ public record ReviewResponse(
                 review.getReply(),
                 review.getRepliedAt(),
                 helpfulCount,
-                helpfulByMe
+                helpfulByMe,
+                review.getTravelerName()
         );
     }
 }

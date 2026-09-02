@@ -9,5 +9,6 @@ data class ReviewDto(
     val reply: String? = null,
     val repliedAt: String? = null,
     val helpfulCount: Int = 0,
-    val helpfulByMe: Boolean = false
+    val helpfulByMe: Boolean = false,
+    val travelerName: String? = null
 )

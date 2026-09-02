@@ -45,29 +45,38 @@ class ReviewControllerTest {
     }
 
     private ReviewResponse sample() {
-        return new ReviewResponse(1L, 5, "ottimo", "sub-1", 42L, null, null, 0, false);
+        return new ReviewResponse(1L, 5, "ottimo", "sub-1", 42L, null, null, 0, false, null);
     }
 
     @Test
     void addReview_usesJwtSubjectAsTravelerId() {
-        when(reviewService.createReview(5, "ottimo", "sub-1", 42L)).thenReturn(sample());
+        when(reviewService.createReview(5, "ottimo", "sub-1", 42L, true)).thenReturn(sample());
 
         ResponseEntity<ReviewResponse> response = controller.addReview(jwtWithSub("sub-1"),
-                new CreateReviewRequest(5, "ottimo", 42L));
+                new CreateReviewRequest(5, "ottimo", 42L, true));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().rating()).isEqualTo(5);
     }
 
     @Test
+    void addReview_defaultsShowNameToFalseWhenOmitted() {
+        when(reviewService.createReview(5, "ottimo", "sub-1", 42L, false)).thenReturn(sample());
+
+        controller.addReview(jwtWithSub("sub-1"), new CreateReviewRequest(5, "ottimo", 42L, null));
+
+        verify(reviewService).createReview(5, "ottimo", "sub-1", 42L, false);
+    }
+
+    @Test
     void updateReview_delegatesWithPathIdAndSubject() {
-        when(reviewService.updateReview(1L, 3, "meh", "sub-1")).thenReturn(sample());
+        when(reviewService.updateReview(1L, 3, "meh", "sub-1", false)).thenReturn(sample());
 
         ResponseEntity<ReviewResponse> response = controller.updateReview(jwtWithSub("sub-1"), 1L,
-                new UpdateReviewRequest(3, "meh"));
+                new UpdateReviewRequest(3, "meh", false));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verify(reviewService).updateReview(1L, 3, "meh", "sub-1");
+        verify(reviewService).updateReview(1L, 3, "meh", "sub-1", false);
     }
 
     @Test
@@ -80,7 +89,7 @@ class ReviewControllerTest {
 
     @Test
     void replyToReview_delegatesReplyAndSubject() {
-        ReviewResponse withReply = new ReviewResponse(1L, 5, "ottimo", "sub-1", 42L, "grazie", Instant.now(), 0, false);
+        ReviewResponse withReply = new ReviewResponse(1L, 5, "ottimo", "sub-1", 42L, "grazie", Instant.now(), 0, false, null);
         when(reviewService.replyToReview(1L, "grazie", "host-1")).thenReturn(withReply);
 
         ResponseEntity<ReviewResponse> response = controller.replyToReview(jwtWithSub("host-1"), 1L,
@@ -91,7 +100,7 @@ class ReviewControllerTest {
 
     @Test
     void toggleHelpful_delegatesToServiceWithSubject() {
-        ReviewResponse voted = new ReviewResponse(1L, 5, "ottimo", null, 42L, null, null, 4, true);
+        ReviewResponse voted = new ReviewResponse(1L, 5, "ottimo", null, 42L, null, null, 4, true, null);
         when(reviewService.toggleHelpful(1L, "voter-1")).thenReturn(voted);
 
         ResponseEntity<ReviewResponse> response = controller.toggleHelpful(jwtWithSub("voter-1"), 1L);
