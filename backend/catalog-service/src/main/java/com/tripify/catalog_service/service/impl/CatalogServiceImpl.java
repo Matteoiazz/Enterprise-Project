@@ -59,9 +59,22 @@ public class CatalogServiceImpl implements CatalogService {
         );
 
         if (checkIn != null && checkOut != null) {
-
             int requestedRooms = rooms == null ? 1 : rooms;
-            List<CatalogItemDTO> available = catalogItemRepository.findAll(spec, pageable.getSort()).stream()
+
+            // La disponibilità precisa dipende da date/hold e non è esprimibile in
+            // un'unica query qui: resta un controllo in memoria (hasAvailableRoomType).
+            // Il filtro sulla capienza però SI può spingere nella query — scarta subito
+            // gli hotel strutturalmente troppo piccoli, riducendo di molto sia le righe
+            // caricate sia le chiamate a hasAvailableRoomType (una per hotel candidato).
+            Specification<CatalogItem> availabilitySpec = spec.and(CatalogItemSpecification.hasRoomTypeWithCapacity(requestedRooms));
+
+            // Limite di sicurezza sul residuo: senza, un catalogo grande caricherebbe
+            // comunque in memoria ogni riga rimasta dopo il filtro sopra, prima ancora
+            // di sapere quante superano il controllo di disponibilità vero e proprio.
+            int candidateLimit = Math.max(500, pageable.getPageSize() * 10);
+            Pageable candidateWindow = org.springframework.data.domain.PageRequest.of(0, candidateLimit, pageable.getSort());
+
+            List<CatalogItemDTO> available = catalogItemRepository.findAll(availabilitySpec, candidateWindow).getContent().stream()
                     .filter(item -> !(item instanceof Hotel hotel) || hasAvailableRoomType(hotel, checkIn, checkOut, requestedRooms))
                     .map(catalogMapper::toDto)
                     .toList();
@@ -104,7 +117,14 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     public void deactivateItem(Long id) {
-        catalogItemRepository.delete(getRawItemById(id));
+        // Soft delete esplicito: repository.delete(...) con ereditarietà JOINED esegue
+        // comunque una vera DELETE sulle tabelle figlie (flight_details/hotel_details/
+        // fare_classes/room_types), orfanando la riga padre o violando una foreign key
+        // se esiste un hold — l'annuncio non deve mai sparire dal DB, solo diventare
+        // invisibile a ricerca/vetrina (vedi findByHostIdAndIsActiveTrue e Specification).
+        CatalogItem item = getRawItemById(id);
+        item.setActive(false);
+        catalogItemRepository.save(item);
     }
 
     @Override
@@ -134,7 +154,7 @@ public class CatalogServiceImpl implements CatalogService {
     @org.springframework.transaction.annotation.Transactional
     public CatalogItem updateRating(Long itemId, Double average, Integer count) {
         CatalogItem item = getRawItemById(itemId);
-        if (average == null || count == null || count <= 0) {
+        if (average == null || count == null || count <= 0 || average.isNaN() || average.isInfinite()) {
             item.setRatingAvg(null);
             item.setReviewCount(0);
             item.setRating(null);

@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tripify.tripify_android.LocalBottomNavBarHeight
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.catalog.ui.components.*
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
@@ -194,7 +195,10 @@ fun HomeScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            // La barra di navigazione flottante galleggia sopra il contenuto (non
+            // riserva più spazio suo): senza questo margine extra, l'ultima card
+            // resterebbe per metà nascosta sotto di lei.
+            contentPadding = PaddingValues(bottom = 24.dp + LocalBottomNavBarHeight.current)
         ) {
             item(key = "hero") {
                 HeroHeader(

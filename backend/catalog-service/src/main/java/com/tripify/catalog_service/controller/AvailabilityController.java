@@ -5,6 +5,7 @@ import com.tripify.catalog_service.dto.HoldResultDTO;
 import com.tripify.catalog_service.dto.RoomHoldRequestDTO;
 import com.tripify.catalog_service.dto.SeatHoldRequestDTO;
 import com.tripify.catalog_service.service.AvailabilityService;
+import com.tripify.catalog_service.util.InternalKeyValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -77,7 +78,7 @@ public class AvailabilityController {
     @PostMapping("/holds/{holdId}/compensate")
     public ResponseEntity<Void> compensate(@PathVariable String holdId,
                                             @RequestHeader("X-Internal-Key") String internalKey) {
-        if (!internalServiceKey.equals(internalKey)) {
+        if (!InternalKeyValidator.matches(internalServiceKey, internalKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         availabilityService.compensate(holdId);

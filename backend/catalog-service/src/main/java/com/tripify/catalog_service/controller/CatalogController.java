@@ -17,6 +17,7 @@ import com.tripify.catalog_service.dto.request.FareClassRequestDTO;
 import com.tripify.catalog_service.dto.RatingUpdateDTO;
 import com.tripify.catalog_service.dto.request.RoomTypeRequestDTO;
 import com.tripify.catalog_service.service.CatalogImageService;
+import com.tripify.catalog_service.util.InternalKeyValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -233,7 +234,7 @@ public class CatalogController {
     public ResponseEntity<Void> updateRating(@PathVariable Long id,
                                               @RequestBody RatingUpdateDTO request,
                                               @RequestHeader("X-Internal-Key") String internalKey) {
-        if (!internalServiceKey.equals(internalKey)) {
+        if (!InternalKeyValidator.matches(internalServiceKey, internalKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         catalogService.updateRating(id, request.average(), request.count());

@@ -31,7 +31,7 @@ public interface SeatHoldRepository extends JpaRepository<SeatHold, Long> {
         """)
     Integer sumActiveSeats(@Param("fareClassId") Long fareClassId, @Param("now") LocalDateTime now);
 
-    // Rimuove solo gli hold non confermati (HELD/RELEASED/EXPIRED) sui voli già
+    // Rimuove solo gli hold non confermati (HELD/RELEASED) sui voli già
     // partiti: prerequisito per poter cancellare le loro fare_classes senza violare
     // il vincolo di chiave esterna (vedi FlightCleanupService). Gli hold CONFIRMED
     // restano intatti: sono lo storico di una prenotazione reale.

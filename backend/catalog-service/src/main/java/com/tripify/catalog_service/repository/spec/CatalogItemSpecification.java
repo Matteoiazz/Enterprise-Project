@@ -174,4 +174,27 @@ public class CatalogItemSpecification {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    /**
+     * Da comporre con .and() sulla specification base, solo per la ricerca con date
+     * (vedi CatalogServiceImpl.search): scarta a livello di query gli hotel che non
+     * hanno NEMMENO UNA RoomType con capienza sufficiente, prima del controllo preciso
+     * di disponibilità (che dipende da date/hold e resta quindi in memoria). Condizione
+     * necessaria ma non sufficiente: riduce drasticamente le righe caricate senza mai
+     * escludere un hotel che risulterebbe davvero disponibile.
+     */
+    public static Specification<CatalogItem> hasRoomTypeWithCapacity(int rooms) {
+        return (root, query, cb) -> {
+            Root<Hotel> hotelRoot = cb.treat(root, Hotel.class);
+            Predicate isHotel = cb.equal(root.type(), Hotel.class);
+
+            Subquery<Long> subquery = query.subquery(Long.class);
+            Root<Hotel> subRoot = subquery.correlate(hotelRoot);
+            Join<Hotel, RoomType> roomJoin = subRoot.join("roomTypes");
+            subquery.select(cb.literal(1L))
+                    .where(cb.greaterThanOrEqualTo(roomJoin.get("totalRooms"), rooms));
+
+            return cb.or(cb.not(isHotel), cb.exists(subquery));
+        };
+    }
 }

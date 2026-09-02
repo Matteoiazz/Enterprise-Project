@@ -4,7 +4,9 @@ import com.tripify.catalog_service.entity.Activity;
 import com.tripify.catalog_service.entity.CatalogItem;
 import com.tripify.catalog_service.entity.Flight;
 import com.tripify.catalog_service.entity.Hotel;
+import com.tripify.catalog_service.entity.RoomType;
 import com.tripify.catalog_service.repository.CatalogItemRepository;
+import com.tripify.catalog_service.repository.RoomTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,8 @@ class CatalogItemSpecificationTest {
 
     @Autowired
     private CatalogItemRepository repository;
+    @Autowired
+    private RoomTypeRepository roomTypeRepository;
 
     private final UUID hostId = UUID.randomUUID();
 
@@ -263,5 +267,43 @@ class CatalogItemSpecificationTest {
         // flightConScalo ha 20 posti, sotto soglia: deve sparire. flightDiretto(50) resta.
         assertThat(risultati).hasSize(5);
         assertThat(risultati).noneMatch(item -> item instanceof Flight f && f.getTotalSeats() < 30);
+    }
+
+    @Test
+    void hasRoomTypeWithCapacity_includeSoloGliHotelConAlmenoUnaRoomTypeAbbastanzaGrande() {
+        Hotel hotelGrande = new Hotel();
+        hotelGrande.setHostId(hostId);
+        hotelGrande.setTitle("Hotel con suite");
+        hotelGrande.setPrice(new BigDecimal("200"));
+        hotelGrande.setCurrency("EUR");
+        hotelGrande.setCategory("Hotel");
+        hotelGrande.setCity("Roma");
+        hotelGrande.setLocationLat(41.9);
+        hotelGrande.setLocationLng(12.5);
+        hotelGrande.setAddress("Via Roma 10");
+        hotelGrande = (Hotel) repository.save(hotelGrande);
+        roomTypeRepository.save(RoomType.builder().hotel(hotelGrande).name("Suite").price(new BigDecimal("200")).totalRooms(5).build());
+
+        Hotel hotelPiccolo = new Hotel();
+        hotelPiccolo.setHostId(hostId);
+        hotelPiccolo.setTitle("Hotel con singola");
+        hotelPiccolo.setPrice(new BigDecimal("80"));
+        hotelPiccolo.setCurrency("EUR");
+        hotelPiccolo.setCategory("Hotel");
+        hotelPiccolo.setCity("Roma");
+        hotelPiccolo.setLocationLat(41.9);
+        hotelPiccolo.setLocationLng(12.5);
+        hotelPiccolo.setAddress("Via Roma 11");
+        hotelPiccolo = (Hotel) repository.save(hotelPiccolo);
+        roomTypeRepository.save(RoomType.builder().hotel(hotelPiccolo).name("Singola").price(new BigDecimal("80")).totalRooms(1).build());
+
+        var spec = CatalogItemSpecification.withDynamicFilters("Tutti", null, null, null, null, null, null, null, null, null, null)
+                .and(CatalogItemSpecification.hasRoomTypeWithCapacity(3));
+        List<CatalogItem> risultati = repository.findAll(spec);
+
+        assertThat(risultati).extracting(CatalogItem::getTitle).contains("Hotel con suite");
+        assertThat(risultati).extracting(CatalogItem::getTitle).doesNotContain("Hotel con singola");
+        // Il filtro riguarda solo gli hotel: voli/attività del fixture condiviso non vengono toccati.
+        assertThat(risultati).anyMatch(item -> !(item instanceof Hotel));
     }
 }

@@ -1572,8 +1572,6 @@ private fun FareClassOption(fareClass: FareClassUi, isSelected: Boolean, availab
                     color = if (soldOut) CatalogColors.Alert else CatalogColors.AccentDark
                 )
             }
-            Text(CatalogPriceFormatter.format(fareClass.price, currency), style = CatalogType.BodyStrong, color = CatalogColors.Ink)
-            Spacer(modifier = Modifier.width(10.dp))
             RadioButton(selected = isSelected, onClick = { if (!soldOut) onClick() }, enabled = !soldOut, colors = RadioButtonDefaults.colors(selectedColor = CatalogColors.AccentDark))
         }
     }

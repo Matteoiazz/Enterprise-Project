@@ -54,10 +54,15 @@ fun MyItinerariesScreen(
     var likedCatalogItems by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isLoggedIn by remember { mutableStateOf(true) }
+    // Distinto da "nessuna lista": senza, un errore di rete al primo caricamento
+    // (lists resta vuota) mostrava lo stesso schermo di "non hai ancora nulla",
+    // con solo una snackbar transitoria a segnalare che qualcosa e' andato storto.
+    var loadError by remember { mutableStateOf(false) }
 
     fun reload() {
         scope.launch {
             isLoading = true
+            loadError = false
             try {
                 val response = if (showSavedContent) api.getSavedLists() else api.getMyLists()
                 if (response.isSuccessful) lists = response.body() ?: emptyList()
@@ -70,6 +75,7 @@ fun MyItinerariesScreen(
                     }
                 }
             } catch (e: Exception) {
+                loadError = true
                 snackbarHostState.showSnackbar("Impossibile caricare i tuoi salvati")
             }
             isLoading = false
@@ -115,6 +121,20 @@ fun MyItinerariesScreen(
                     Text("Devi effettuare l'accesso per vedere e gestire i tuoi itinerari.", style = CatalogType.Body, color = CatalogColors.InkMuted)
                 }
                 isLoading -> CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
+                loadError -> Column(
+                    modifier = Modifier.align(Alignment.Center).padding(40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Filled.CloudOff, contentDescription = null, tint = CatalogColors.InkSubtle, modifier = Modifier.size(36.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Impossibile caricare", style = CatalogType.Section, color = CatalogColors.Ink)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Controlla la connessione e riprova.", style = CatalogType.Body, color = CatalogColors.InkMuted)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(onClick = { reload() }) {
+                        Text("Riprova", style = CatalogType.LabelStrong, color = CatalogColors.AccentDark)
+                    }
+                }
                 isEmpty -> Column(
                     modifier = Modifier.align(Alignment.Center).padding(40.dp),
                     horizontalAlignment = Alignment.CenterHorizontally

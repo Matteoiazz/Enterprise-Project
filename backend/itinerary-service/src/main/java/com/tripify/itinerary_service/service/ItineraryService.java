@@ -152,18 +152,28 @@ public class ItineraryService {
      * prezzo, quindi un item senza le date necessarie viene semplicemente saltato
      * invece di far fallire l'intera esportazione.
      */
-    public String exportToIcs(Long listId, String requesterId) {
+    public record IcsExport(String content, String listName) {}
+
+    public IcsExport exportToIcs(Long listId, String requesterId) {
         FavoriteList list = getAccessibleById(listId, requesterId);
         List<ResolvedItem> resolved = resolveItems(list.getItems());
 
         List<CalendarEventDTO> events = new ArrayList<>();
-        for (ResolvedItem r : resolved) {
+        for (int i = 0; i < resolved.size(); i++) {
+            ResolvedItem r = resolved.get(i);
             CatalogItemSummaryDTO catalog = r.catalog();
             FavoriteListItem source = r.source();
+            // Basato sulla posizione della tappa nella lista (stabile: FavoriteList.items
+            // ha un @OrderColumn dedicato), non su un id proprio: FavoriteListItem è
+            // @Embeddable, non ha una riga/id suo. Riesportando lo stesso itinerario
+            // invariato l'uid resta identico, quindi il calendario aggiorna l'evento
+            // già importato invece di duplicarlo.
+            String uid = "itinerario-" + listId + "-" + i;
 
             if ("Flight".equals(catalog.itemType())) {
                 if (catalog.departureTime() == null || catalog.arrivalTime() == null) continue;
                 events.add(new CalendarEventDTO(
+                        uid,
                         "Volo " + catalog.departureCity() + " → " + catalog.arrivalCity(),
                         catalog.departureCity(),
                         catalog.departureTime(),
@@ -173,6 +183,7 @@ public class ItineraryService {
             } else if ("Hotel".equals(catalog.itemType())) {
                 if (source.getCheckIn() == null || source.getCheckOut() == null) continue;
                 events.add(new CalendarEventDTO(
+                        uid,
                         "Soggiorno: " + catalog.title(),
                         catalog.city(),
                         source.getCheckIn().atStartOfDay(),
@@ -183,6 +194,7 @@ public class ItineraryService {
                 if (source.getActivityDate() == null) continue;
                 LocalDate date = source.getActivityDate();
                 events.add(new CalendarEventDTO(
+                        uid,
                         catalog.title(),
                         catalog.city(),
                         date.atStartOfDay(),
@@ -192,7 +204,7 @@ public class ItineraryService {
             }
         }
 
-        return IcsBuilder.build(list.getName(), events);
+        return new IcsExport(IcsBuilder.build(list.getName(), events), list.getName());
     }
 
     private record ResolvedItem(FavoriteListItem source, CatalogItemSummaryDTO catalog) {}
@@ -366,6 +378,9 @@ public class ItineraryService {
 
     public void shareList(Long listId, String userIdToShareWith, String requesterId) {
         FavoriteList list = getOwnedList(listId, requesterId);
+        if (userIdToShareWith.equals(requesterId)) {
+            throw new IllegalArgumentException("Non puoi condividere una lista con te stesso");
+        }
         if (!list.getSharedUserIds().contains(userIdToShareWith)) {
             list.getSharedUserIds().add(userIdToShareWith);
         }
@@ -611,18 +626,19 @@ public class ItineraryService {
     public boolean toggleLike(Long listId, String userId) {
         FavoriteList list = getById(listId);
         if (list.getVisibility() != Visibility.PUBLIC) {
-            throw new IllegalArgumentException("Si può mettere like solo a liste pubbliche");
+            // Stessa eccezione (404) del caso "non esiste": altrimenti un 400 qui
+            // rivelerebbe a chiunque abbia un JWT che una lista privata/condivisa
+            // altrui esiste davvero, solo provando a metterci like.
+            throw new ListNotFoundException(listId);
         }
         var existing = likeRepository.findByListIdAndUserId(listId, userId);
         if (existing.isPresent()) {
             likeRepository.delete(existing.get());
-            list.setLikesCount(Math.max(0, list.getLikesCount() - 1));
-            repository.save(list);
+            repository.decrementLikesCount(listId);
             return false;
         }
         likeRepository.save(FavoriteListLike.builder().listId(listId).userId(userId).build());
-        list.setLikesCount(list.getLikesCount() + 1);
-        repository.save(list);
+        repository.incrementLikesCount(listId);
         return true;
     }
 
@@ -633,10 +649,10 @@ public class ItineraryService {
      * di lettura della lista (pubblica, propria o condivisa), altrimenti chiunque con
      * un JWT valido potrebbe gonfiare il contatore di un itinerario altrui a piacere.
      */
+    @Transactional
     public void registerBookingAttempt(Long listId, String requesterId) {
-        FavoriteList list = getAccessibleById(listId, requesterId);
-        list.setBookingsCount(list.getBookingsCount() + 1);
-        repository.save(list);
+        getAccessibleById(listId, requesterId);
+        repository.incrementBookingsCount(listId);
     }
 
     /**

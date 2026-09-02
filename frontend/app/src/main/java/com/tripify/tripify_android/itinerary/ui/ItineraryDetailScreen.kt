@@ -333,7 +333,7 @@ fun ItineraryDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    "Totale: ${CatalogPriceFormatter.symbolFor(currency)}%.2f".format(CatalogPriceFormatter.convert(list.totalPrice.toDouble(), currency)),
+                                    "Totale: ${CatalogPriceFormatter.symbolFor(currency)}%.2f".format(java.util.Locale.ITALY, CatalogPriceFormatter.convert(list.totalPrice.toDouble(), currency)),
                                     style = CatalogType.BodyStrong, color = CatalogColors.Ink
                                 )
                             }
@@ -484,10 +484,12 @@ fun ItineraryDetailScreen(
                             }
                         } else {
                             val days = groupItineraryByDay(list.items, resolvedComponents)
+                            var dayNumber = 0
                             Column {
-                                days.forEachIndexed { dayIndex, (dateKey, entries) ->
+                                days.forEach { (dateKey, entries) ->
                                     if (dateKey != null) {
-                                        DayHeader(dayNumber = dayIndex + 1, dateLabel = formatDayLabel(dateKey))
+                                        dayNumber++
+                                        DayHeader(dayNumber = dayNumber, dateLabel = formatDayLabel(dateKey))
                                     }
                                     entries.forEachIndexed { posInDay, entry ->
                                         val (icon, accent) = when (entry.resolved) {
@@ -649,11 +651,16 @@ private data class TimelineEntry(val index: Int, val item: FavoriteListItemDto, 
 
 /** Chiave del giorno a cui appartiene una tappa: data del volo/check-in/attivita'. Null se non risolvibile. */
 private fun dayKeyFor(item: FavoriteListItemDto, resolved: CatalogItem?): String? = when (resolved) {
-    is CatalogItem.Flight -> resolved.departureTime.take(10)
+    // departureTime e' gia' troncato a "yyyy-MM-dd" da CatalogViewModel, con fallback
+    // "Data da def." se assente: un secondo take(10) su quel fallback (12 caratteri)
+    // produrrebbe "Data da de", non una data. isValidDateKey scarta questo caso.
+    is CatalogItem.Flight -> resolved.departureTime.take(10).takeIf(::isValidDateKey)
     is CatalogItem.Hotel -> item.checkIn
     is CatalogItem.Excursion -> item.activityDate
     null -> null
 }
+
+private fun isValidDateKey(key: String): Boolean = key.length == 10 && key[4] == '-' && key[7] == '-'
 
 /** Raggruppa le tappe (gia' in ordine cronologico) in giorni consecutivi con la stessa data. */
 private fun groupItineraryByDay(items: List<FavoriteListItemDto>, resolved: List<CatalogItem?>): List<Pair<String?, List<TimelineEntry>>> {
@@ -819,7 +826,7 @@ private fun ItineraryComponentCard(
                 }
                 if (item.price != null) {
                     Text(
-                        "${CatalogPriceFormatter.symbolFor(currency)}%.2f".format(CatalogPriceFormatter.convert(item.price.toDouble(), currency)),
+                        "${CatalogPriceFormatter.symbolFor(currency)}%.2f".format(java.util.Locale.ITALY, CatalogPriceFormatter.convert(item.price.toDouble(), currency)),
                         style = CatalogType.BodyStrong, color = CatalogColors.AccentDark,
                         maxLines = 1, modifier = Modifier.padding(end = 6.dp)
                     )

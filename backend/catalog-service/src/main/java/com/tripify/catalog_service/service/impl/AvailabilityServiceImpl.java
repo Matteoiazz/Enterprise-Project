@@ -174,6 +174,9 @@ public class AvailabilityServiceImpl implements AvailabilityService {
     @Override
     @Transactional(readOnly = true)
     public int computeRoomAvailability(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        if (checkIn == null || checkOut == null || !checkIn.isBefore(checkOut)) {
+            throw new IllegalArgumentException("checkIn deve essere una data precedente a checkOut");
+        }
         RoomType roomType = roomTypeRepository.findById(roomTypeId)
                 .orElseThrow(() -> new CatalogItemNotFoundException(roomTypeId));
         return computeRoomAvailability(roomType, checkIn, checkOut, LocalDateTime.now());
