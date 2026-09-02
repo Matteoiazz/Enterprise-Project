@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.model.TravelDocumentDto
 import com.tripify.tripify_android.profile.api.ProfileApiService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,17 +28,19 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    init {
-        loadDocuments()
-    }
+    private var loadJob: Job? = null
 
     fun loadDocuments() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isLoading.value = true
+            _errorMessage.value = null
             try {
                 _documents.value = apiService.getTravelDocuments()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore nel caricamento documenti: ${e.localizedMessage}"
+                _errorMessage.value = "Impossibile caricare i documenti. Controlla la connessione e riprova."
                 Log.e("TravelDocsVM", "Error loading docs", e)
             } finally {
                 _isLoading.value = false
@@ -47,6 +51,8 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
     fun addDocument(
         type: String, number: String, expiration: String, country: String, onSuccess: () -> Unit
     ) {
+        _errorMessage.value = null
+
         if (type.isBlank() || number.isBlank() || expiration.isBlank() || country.isBlank()) {
             _errorMessage.value = "Tutti i campi sono obbligatori"
             return
@@ -83,7 +89,7 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
                 _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
                 Log.e("TravelDocsVM", "Error adding doc", e)
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante il salvataggio: ${e.localizedMessage}"
+                _errorMessage.value = "Errore di rete durante il salvataggio. Riprova."
                 Log.e("TravelDocsVM", "Error adding doc", e)
             } finally {
                 _isLoading.value = false
@@ -92,13 +98,16 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
     }
 
     fun deleteDocument(id: String) {
+        _errorMessage.value = null
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 apiService.deleteTravelDocument(id)
                 loadDocuments()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _errorMessage.value = "Errore durante l'eliminazione."
+                _errorMessage.value = "Errore durante l'eliminazione. Riprova."
             } finally {
                 _isLoading.value = false
             }

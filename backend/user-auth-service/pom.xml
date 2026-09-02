@@ -8,7 +8,7 @@
         <version>4.0.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.travelapp</groupId>
+    <groupId>com.tripify</groupId>
     <artifactId>user-auth-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
@@ -79,24 +79,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>0.11.5</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>0.11.5</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>0.11.5</version>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>

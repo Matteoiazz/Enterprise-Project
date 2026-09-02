@@ -9,8 +9,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.outlined.FlightTakeoff
@@ -30,6 +30,7 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -54,6 +55,7 @@ fun CompanionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
+        viewModel.clearError()
         viewModel.loadCompanions()
     }
 
@@ -79,7 +81,7 @@ fun CompanionsScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
@@ -99,23 +101,36 @@ fun CompanionsScreen(
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+        PullToRefreshList(
+            onRefresh = {
+                viewModel.loadCompanions()
+                viewModel.isLoading.first { !it }
+            },
+            modifier = Modifier.padding(innerPadding).fillMaxSize()
+        ) {
             if (isLoading && companions.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = CatalogColors.AccentDark)
-            } else if (companions.isEmpty()) {
-                EmptyCompanionsState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 24.dp, start = CatalogSpacing.Gutter, end = CatalogSpacing.Gutter, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(companions) { companion ->
-                        CompanionTicketCard(
-                            firstName = companion.firstName,
-                            lastName = companion.lastName,
-                            dob = companion.dateOfBirth,
-                            onDeleteClick = { companionToDelete = companion }
-                        )
+                    if (companions.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                                EmptyCompanionsState()
+                            }
+                        }
+                    } else {
+                        items(companions) { companion ->
+                            CompanionTicketCard(
+                                firstName = companion.firstName,
+                                lastName = companion.lastName,
+                                dob = companion.dateOfBirth,
+                                onDeleteClick = { companionToDelete = companion }
+                            )
+                        }
                     }
                 }
             }

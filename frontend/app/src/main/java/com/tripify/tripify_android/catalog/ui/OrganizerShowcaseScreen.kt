@@ -9,8 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
@@ -38,6 +37,7 @@ import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.UserResponse
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,11 +63,12 @@ fun OrganizerShowcaseScreen(
             val profile = profileApi.getOrganizerById(hostId)
             organizerProfile = profile
 
-            if (profile.id.isNotBlank()) {
-                organizerItems = catalogViewModel.getItemsByOrganizer(profile.id)
+            val organizerSub = profile.id
+            if (!organizerSub.isNullOrBlank()) {
+                organizerItems = catalogViewModel.getItemsByOrganizer(organizerSub)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("OrganizerShowcase", "Caricamento vetrina organizzatore fallito", e)
         } finally {
             isLoading = false
         }
@@ -141,7 +142,7 @@ fun OrganizerShowcaseScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(text = displayName, style = CatalogType.Hero, color = CatalogColors.Ink, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = org.email, style = CatalogType.Body, color = CatalogColors.InkMuted)
+                        Text(text = org.email.orEmpty(), style = CatalogType.Body, color = CatalogColors.InkMuted)
 
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(
@@ -154,15 +155,23 @@ fun OrganizerShowcaseScreen(
                             Icon(Icons.Filled.Verified, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(13.dp))
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = if (organizerItems.isEmpty()) "PARTNER VERIFICATO"
-                                else "PARTNER VERIFICATO · ${organizerItems.size} ANNUNCI",
+                                text = "PARTNER VERIFICATO",
                                 style = CatalogType.Overline,
                                 color = CatalogColors.AccentDark
                             )
                         }
 
+                        if (organizerItems.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(20.dp))
+                            OrganizerStatsRow(
+                                averageRating = organizerAverageRating(organizerItems),
+                                totalReviews = organizerItems.sumOf { catalogItemReviewCount(it) },
+                                listings = organizerItems.size
+                            )
+                        }
+
                         // SEZIONE INFORMAZIONI AZIENDALI
-                        if (!org.companyName.isNullOrBlank() || !org.vatNumber.isNullOrBlank() || !org.pec.isNullOrBlank()) {
+                        if (!org.companyName.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(24.dp))
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -175,15 +184,7 @@ fun OrganizerShowcaseScreen(
                                 ) {
                                     Text("INFORMAZIONI AZIENDALI", style = CatalogType.Overline, color = CatalogColors.InkMuted)
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    if (!org.companyName.isNullOrBlank()) {
-                                        BusinessInfoRow(Icons.Default.Business, "Azienda", org.companyName)
-                                    }
-                                    if (!org.vatNumber.isNullOrBlank()) {
-                                        BusinessInfoRow(Icons.Default.ReceiptLong, "P.IVA", org.vatNumber)
-                                    }
-                                    if (!org.pec.isNullOrBlank()) {
-                                        BusinessInfoRow(Icons.Default.Email, "PEC", org.pec)
-                                    }
+                                    BusinessInfoRow(Icons.Default.Business, "Azienda", org.companyName)
                                 }
                             }
                         }
@@ -198,8 +199,13 @@ fun OrganizerShowcaseScreen(
                                         snackbarHostState.showSnackbar("Devi accedere per contattare l'organizzatore")
                                         return@launch
                                     }
+                                    val organizerSub = org.id
+                                    if (organizerSub.isNullOrBlank()) {
+                                        snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
+                                        return@launch
+                                    }
                                     val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
-                                        hostId = org.id, title = "Organizzatore $displayName", authToken = token
+                                        hostId = organizerSub, title = "Organizzatore $displayName", authToken = token
                                     )
                                     if (chatRoom != null) {
                                         onChatWithOrganizer(chatRoom.id)
@@ -254,7 +260,7 @@ fun OrganizerShowcaseScreen(
                         }
                     }
                 } else {
-                    items(organizerItems) { item ->
+                    items(organizerItems, key = { it.id }) { item ->
                         Box(modifier = Modifier.padding(horizontal = CatalogSpacing.Gutter, vertical = 8.dp)) {
                             val openDetail = {
                                 catalogViewModel.onItemViewed(item)
@@ -277,6 +283,93 @@ fun OrganizerShowcaseScreen(
             }
         }
     }
+}
+
+private fun catalogItemRating(item: CatalogItem): Double = when (item) {
+    is CatalogItem.Hotel -> item.rating
+    is CatalogItem.Flight -> item.rating ?: 0.0
+    is CatalogItem.Excursion -> item.rating ?: 0.0
+}
+
+private fun catalogItemReviewCount(item: CatalogItem): Int = when (item) {
+    is CatalogItem.Hotel -> item.reviewCount
+    is CatalogItem.Flight -> item.reviewCount
+    is CatalogItem.Excursion -> item.reviewCount
+}
+
+private fun organizerAverageRating(items: List<CatalogItem>): Double {
+    val rated = items.filter { catalogItemRating(it) > 0.0 }
+    if (rated.isEmpty()) return 0.0
+    val weightSum = rated.sumOf { catalogItemReviewCount(it) }
+    return if (weightSum > 0) {
+        rated.sumOf { catalogItemRating(it) * catalogItemReviewCount(it) } / weightSum
+    } else {
+        rated.sumOf { catalogItemRating(it) } / rated.size
+    }
+}
+
+@Composable
+private fun OrganizerStatsRow(averageRating: Double, totalReviews: Int, listings: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CatalogShapes.Card)
+            .background(CatalogColors.SurfaceMuted)
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OrganizerStatCell(
+            modifier = Modifier.weight(1f),
+            value = if (averageRating > 0.0) String.format(Locale.ITALY, "%.1f", averageRating) else "—",
+            label = "Valutazione",
+            leadingStar = averageRating > 0.0
+        )
+        StatCellDivider()
+        OrganizerStatCell(
+            modifier = Modifier.weight(1f),
+            value = totalReviews.toString(),
+            label = if (totalReviews == 1) "Recensione" else "Recensioni"
+        )
+        StatCellDivider()
+        OrganizerStatCell(
+            modifier = Modifier.weight(1f),
+            value = listings.toString(),
+            label = if (listings == 1) "Annuncio" else "Annunci"
+        )
+    }
+}
+
+@Composable
+private fun OrganizerStatCell(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    leadingStar: Boolean = false
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (leadingStar) {
+                Icon(Icons.Filled.Star, contentDescription = null, tint = CatalogColors.Gold, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Text(text = value, style = CatalogType.Section, color = CatalogColors.Ink)
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(text = label.uppercase(), style = CatalogType.Overline, color = CatalogColors.InkMuted)
+    }
+}
+
+@Composable
+private fun StatCellDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(32.dp)
+            .background(CatalogColors.Hairline)
+    )
 }
 
 @Composable

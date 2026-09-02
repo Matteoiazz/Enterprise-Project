@@ -92,6 +92,20 @@ class CatalogViewModelReviewTest {
     }
 
     @Test
+    fun submitReviewUnwrapsJsonErrorBody() = runTest(mainDispatcher) {
+        coEvery { reviewApi.addReview(any()) } returns
+            Response.error(409, errorBody("{\"error\":\"Hai gia recensito questa esperienza\"}"))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        var error: String? = null
+        vm.submitReview(42L, 5, "x", onSuccess = { }, onError = { error = it })
+        advanceUntilIdle()
+
+        assertEquals("Hai gia recensito questa esperienza", error)
+    }
+
+    @Test
     fun replyToReviewInvokesOnSuccessWhenTheServerAccepts() = runTest(mainDispatcher) {
         coEvery { reviewApi.replyToReview(any(), any()) } returns Response.success(review())
         val vm = viewModel()

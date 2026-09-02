@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -15,6 +17,10 @@ public class RatingReconcileRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        CompletableFuture.runAsync(this::reconcileNow);
+    }
+
+    void reconcileNow() {
         try {
             reviewService.reconcileAllRatings();
         } catch (Exception e) {

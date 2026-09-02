@@ -9,13 +9,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CreditCardOff
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -30,6 +33,7 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogSpacing
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 
@@ -57,6 +61,7 @@ fun PaymentMethodsScreen(
     }
 
     LaunchedEffect(Unit) {
+        viewModel.clearError()
         viewModel.loadPaymentMethods()
     }
 
@@ -75,7 +80,7 @@ fun PaymentMethodsScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
@@ -95,22 +100,36 @@ fun PaymentMethodsScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        PullToRefreshList(
+            onRefresh = {
+                viewModel.loadPaymentMethods()
+                viewModel.isLoading.first { !it }
+            },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
             if (isLoading && methods.isEmpty()) {
                 CircularProgressIndicator(color = CatalogColors.AccentDark, modifier = Modifier.align(Alignment.Center))
-            } else if (methods.isEmpty()) {
-                EmptyPaymentState(modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 24.dp, start = CatalogSpacing.Gutter, end = CatalogSpacing.Gutter, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(methods) { card ->
-                        CreditCardPremium(
-                            card = card,
-                            onDeleteClick = { cardToDelete = card }
-                        )
+                    if (methods.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                                EmptyPaymentState()
+                            }
+                        }
+                    } else {
+                        items(methods, key = { it.id ?: it.hashCode() }) { card ->
+                            CreditCardPremium(
+                                card = card,
+                                showDefaultControl = methods.size > 1,
+                                onDeleteClick = { cardToDelete = card },
+                                onSetDefaultClick = { card.id?.let { viewModel.setDefault(it) } }
+                            )
+                        }
                     }
                 }
             }
@@ -198,7 +217,9 @@ fun EmptyPaymentState(modifier: Modifier = Modifier) {
 @Composable
 fun CreditCardPremium(
     card: PaymentMethodDto,
-    onDeleteClick: () -> Unit
+    showDefaultControl: Boolean,
+    onDeleteClick: () -> Unit,
+    onSetDefaultClick: () -> Unit
 ) {
     val brush = Brush.linearGradient(
         colors = listOf(CatalogColors.AccentDark, CatalogColors.Ink),
@@ -213,6 +234,30 @@ fun CreditCardPremium(
     ) {
         Box(modifier = Modifier.fillMaxSize().background(brush).padding(24.dp)) {
 
+            if (card.defaultCard) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .clip(CatalogShapes.Badge)
+                        .background(CatalogColors.Gold.copy(alpha = 0.22f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = CatalogColors.Gold,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "PREDEFINITA",
+                        style = CatalogType.Overline,
+                        color = CatalogColors.Surface
+                    )
+                }
+            }
+
             Row(
                 modifier = Modifier.align(Alignment.TopEnd),
                 verticalAlignment = Alignment.CenterVertically,
@@ -223,6 +268,23 @@ fun CreditCardPremium(
                     style = CatalogType.CardTitle.copy(fontStyle = FontStyle.Italic, letterSpacing = 2.sp),
                     color = CatalogColors.Surface
                 )
+
+                if (showDefaultControl && !card.defaultCard) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(CatalogColors.Surface.copy(alpha = 0.15f), CircleShape)
+                            .clickable { onSetDefaultClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.StarOutline,
+                            contentDescription = "Imposta come predefinita",
+                            tint = CatalogColors.Surface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
                 Box(
                     modifier = Modifier

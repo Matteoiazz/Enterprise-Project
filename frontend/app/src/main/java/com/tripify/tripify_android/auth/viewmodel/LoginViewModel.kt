@@ -47,6 +47,11 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
         .setConnectionBuilder(LocalConnectionBuilder)
         .build()
 
+    private var authService: AuthorizationService? = null
+
+    private fun authService(context: Context): AuthorizationService =
+        authService ?: AuthorizationService(context.applicationContext, appAuthConfig).also { authService = it }
+
     fun getAuthorizationIntent(context: Context): Intent {
         val serviceConfig = AuthorizationServiceConfiguration(
             Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/auth"),
@@ -60,50 +65,54 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
             redirectUri
         ).setScopes("openid", "profile", "email").setPrompt("select_account").build()
 
-        val authService = AuthorizationService(context, appAuthConfig)
-        return authService.getAuthorizationRequestIntent(authRequest)
+        return authService(context).getAuthorizationRequestIntent(authRequest)
     }
 
-    fun handleAuthorizationResponse(context: Context, intent: Intent?) {
+    fun handleAuthorizationResponse(intent: Intent?) {
         if (intent == null) {
             Log.w("TripifyAuth", "handleAuthorizationResponse: intent nullo")
             errorMessage = "Login annullato"
             return
         }
 
-        val response = AuthorizationResponse.fromIntent(intent)
         val exception = AuthorizationException.fromIntent(intent)
-
         if (exception != null) {
-            Log.e("TripifyAuth", "Errore di autorizzazione: code=${exception.code} type=${exception.type} msg=${exception.errorDescription}", exception)
-            errorMessage = "Errore durante il login: ${exception.errorDescription ?: exception.message}"
+            Log.e("TripifyAuth", "Errore di autorizzazione: code=${exception.code} type=${exception.type} err=${exception.error} msg=${exception.errorDescription}", exception)
+            errorMessage = "Errore durante il login: ${exception.errorDescription ?: exception.error ?: exception.message}"
             return
         }
 
-        if (response != null) {
-            Log.d("TripifyAuth", "Risposta di autorizzazione ricevuta, avvio scambio del code per il token")
-            isLoading = true
-            val authService = AuthorizationService(context, appAuthConfig)
-            authService.performTokenRequest(
-                response.createTokenExchangeRequest()
-            ) { tokenResponse, tokenException ->
-                if (tokenException != null) {
-                    Log.e("TripifyAuth", "Errore nello scambio del token: code=${tokenException.code} type=${tokenException.type} msg=${tokenException.errorDescription}", tokenException)
-                    errorMessage = "Errore nel recupero del token: ${tokenException.errorDescription ?: tokenException.message}"
+        val response = AuthorizationResponse.fromIntent(intent)
+        val code = response?.authorizationCode
+        if (response == null || code.isNullOrBlank()) {
+            Log.w("TripifyAuth", "handleAuthorizationResponse: nessun authorization code nell'intent")
+            errorMessage = "Login non completato: riprova"
+            return
+        }
+
+        isLoading = true
+        val verifier = response.request.codeVerifier
+        val usedRedirectUri = response.request.redirectUri.toString()
+
+        viewModelScope.launch {
+            when (val result = tokenManager.exchangeAuthorizationCode(code, verifier, usedRedirectUri)) {
+                is TokenManager.CodeExchangeResult.Success -> {
+                    Log.d("TripifyAuth", "Token ottenuti e sessione salvata")
+                    isLoginSuccessful = true
                     isLoading = false
-                } else if (tokenResponse != null) {
-                    Log.d("TripifyAuth", "Token ricevuto correttamente, salvataggio in corso")
-                    viewModelScope.launch {
-                        tokenManager.saveToken(tokenResponse.accessToken ?: "")
-                        tokenManager.saveIdToken(tokenResponse.idToken ?: "")
-                        tokenManager.saveRefreshToken(tokenResponse.refreshToken ?: "")
-                        isLoginSuccessful = true
-                        isLoading = false
-                    }
+                }
+                is TokenManager.CodeExchangeResult.Failure -> {
+                    Log.e("TripifyAuth", "Scambio code -> token fallito verso ${BuildConfig.KEYCLOAK_BASE_URL}: ${result.detail}")
+                    errorMessage = "Login non riuscito (${result.detail}). Verifica che Keycloak sia raggiungibile e riprova."
+                    isLoading = false
                 }
             }
-        } else {
-            Log.w("TripifyAuth", "handleAuthorizationResponse: ne' response ne' exception presenti nell'intent")
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        authService?.dispose()
+        authService = null
     }
 }

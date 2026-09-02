@@ -597,6 +597,16 @@ class CatalogViewModel(
         }
     }
 
+    private fun reviewServerError(res: retrofit2.Response<*>): String? {
+        val raw = try { res.errorBody()?.string() } catch (e: Exception) { null }
+        if (raw.isNullOrBlank()) return null
+        return try {
+            org.json.JSONObject(raw).optString("error").takeIf { it.isNotBlank() } ?: raw
+        } catch (e: Exception) {
+            raw
+        }
+    }
+
     fun submitReview(itemId: Long, rating: Int, comment: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -609,15 +619,8 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        val serverMessage = try {
-                            res.errorBody()?.string()
-                        } catch (e: Exception) {
-                            null
-                        }
-                        onError(
-                            if (!serverMessage.isNullOrBlank()) serverMessage
-                            else "Impossibile inviare la recensione. Assicurati di aver prenotato."
-                        )
+                        onError(reviewServerError(res)
+                            ?: "Impossibile inviare la recensione. Assicurati di aver prenotato.")
                     }
                 } ?: onError("Devi accedere per recensire.")
             } catch (e: Exception) {
@@ -639,8 +642,7 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        val serverMessage = try { res.errorBody()?.string() } catch (e: Exception) { null }
-                        onError(if (!serverMessage.isNullOrBlank()) serverMessage else "Impossibile modificare la recensione.")
+                        onError(reviewServerError(res) ?: "Impossibile modificare la recensione.")
                     }
                 } ?: onError("Devi accedere per modificare la recensione.")
             } catch (e: Exception) {
@@ -659,8 +661,7 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        val serverMessage = try { res.errorBody()?.string() } catch (e: Exception) { null }
-                        onError(if (!serverMessage.isNullOrBlank()) serverMessage else "Impossibile eliminare la recensione.")
+                        onError(reviewServerError(res) ?: "Impossibile eliminare la recensione.")
                     }
                 } ?: onError("Devi accedere per eliminare la recensione.")
             } catch (e: Exception) {
@@ -682,10 +683,35 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        val serverMessage = try { res.errorBody()?.string() } catch (e: Exception) { null }
-                        onError(if (!serverMessage.isNullOrBlank()) serverMessage else "Impossibile inviare la risposta.")
+                        onError(reviewServerError(res) ?: "Impossibile inviare la risposta.")
                     }
                 } ?: onError("Devi accedere per rispondere.")
+            } catch (e: Exception) {
+                onError("Errore di rete. Controlla la connessione.")
+            }
+        }
+    }
+
+    fun toggleReviewHelpful(reviewId: Long, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                tokenManager?.let { tm ->
+                    val rApi = com.tripify.tripify_android.data.RetrofitClient.createReviewApi(tm)
+                    val res = rApi.toggleHelpful(reviewId)
+                    if (res.isSuccessful) {
+                        res.body()?.let { updated ->
+                            _itemReviews.value = _itemReviews.value.map {
+                                if (it.id == updated.id) {
+                                    it.copy(helpfulCount = updated.helpfulCount, helpfulByMe = updated.helpfulByMe)
+                                } else {
+                                    it
+                                }
+                            }
+                        }
+                    } else {
+                        onError(reviewServerError(res) ?: "Impossibile registrare il voto.")
+                    }
+                } ?: onError("Devi accedere per votare le recensioni.")
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }

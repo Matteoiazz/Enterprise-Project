@@ -16,6 +16,13 @@ object RetrofitClient {
     private fun httpClient(tokenManager: TokenManager): OkHttpClient {
         return okHttpClient ?: synchronized(this) {
             okHttpClient ?: OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    chain.proceed(
+                        chain.request().newBuilder()
+                            .header("ngrok-skip-browser-warning", "true")
+                            .build()
+                    )
+                }
                 .addInterceptor(AuthInterceptor(tokenManager))
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 
 @Entity
-@Table(name = "payment_methods")
+@Table(name = "payment_methods", indexes = @Index(name = "idx_payment_methods_user", columnList = "user_id"))
 @Getter
 @Setter
 @AllArgsConstructor
@@ -26,6 +26,9 @@ public class PaymentMethod {
 
     @Column(nullable = false)
     private String expirationMonthYear; // Es. "12/28"
+
+    @Column(name = "is_default", nullable = false, columnDefinition = "boolean not null default false")
+    private boolean isDefault;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

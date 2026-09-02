@@ -4,7 +4,9 @@ import com.tripify.communication_service.client.BookingClient;
 import com.tripify.communication_service.client.CatalogClient;
 import com.tripify.communication_service.dto.ReviewResponse;
 import com.tripify.communication_service.entity.Review;
+import com.tripify.communication_service.entity.ReviewVote;
 import com.tripify.communication_service.repository.ReviewRepository;
+import com.tripify.communication_service.repository.ReviewVoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.when;
 class ReviewServiceTest {
 
     @Mock ReviewRepository reviewRepository;
+    @Mock ReviewVoteRepository reviewVoteRepository;
     @Mock BookingClient bookingClient;
     @Mock CatalogClient catalogClient;
 
@@ -240,13 +243,39 @@ class ReviewServiceTest {
     }
 
     @Test
-    void getReviewsByItem_mapsEntitiesToResponses() {
-        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of(review(1L, 5, "a"), review(2L, 3, "b")));
+    void getReviewsByItem_exposesAuthorOnlyForTheCallersOwnReview() {
+        when(reviewRepository.findByCatalogItemId(ITEM))
+                .thenReturn(List.of(review(1L, 5, "me"), review(2L, 3, "someone-else")));
 
-        List<ReviewResponse> result = service.getReviewsByItem(ITEM);
+        List<ReviewResponse> result = service.getReviewsByItem(ITEM, "me");
 
         assertThat(result).extracting(ReviewResponse::rating).containsExactly(5, 3);
-        assertThat(result).extracting(ReviewResponse::travelerId).containsExactly("a", "b");
+        assertThat(result).extracting(ReviewResponse::travelerId).containsExactly("me", null);
+    }
+
+    @Test
+    void getReviewsByItem_hidesEveryAuthorForAnonymousCaller() {
+        when(reviewRepository.findByCatalogItemId(ITEM))
+                .thenReturn(List.of(review(1L, 5, "a"), review(2L, 3, "b")));
+
+        List<ReviewResponse> result = service.getReviewsByItem(ITEM, null);
+
+        assertThat(result).extracting(ReviewResponse::travelerId).containsOnlyNulls();
+    }
+
+    @Test
+    void recomputeRating_roundsAverageToOneDecimal() {
+        Review existing = review(9L, 5, TRAVELER);
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(existing));
+        when(reviewRepository.save(existing)).thenReturn(existing);
+        when(reviewRepository.findByCatalogItemId(ITEM))
+                .thenReturn(List.of(review(1L, 5, "a"), review(2L, 4, "b"), review(3L, 4, "c")));
+
+        service.updateReview(9L, 5, "ok", TRAVELER);
+
+        ArgumentCaptor<CatalogClient.RatingUpdate> captor = ArgumentCaptor.forClass(CatalogClient.RatingUpdate.class);
+        verify(catalogClient).updateRating(eq(ITEM), eq("test-key"), captor.capture());
+        assertThat(captor.getValue().average()).isEqualTo(4.3);
     }
 
     @Test
@@ -257,5 +286,78 @@ class ReviewServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).travelerId()).isEqualTo(TRAVELER);
+    }
+
+    @Test
+    void getReviewsByItem_carriesHelpfulCountAndWhetherTheCallerVoted() {
+        when(reviewRepository.findByCatalogItemId(ITEM))
+                .thenReturn(List.of(review(1L, 5, "a"), review(2L, 3, "b")));
+        when(reviewVoteRepository.findByReviewIdIn(List.of(1L, 2L))).thenReturn(List.of(
+                ReviewVote.builder().reviewId(1L).voterId("me").build(),
+                ReviewVote.builder().reviewId(1L).voterId("x").build(),
+                ReviewVote.builder().reviewId(2L).voterId("y").build()));
+
+        List<ReviewResponse> result = service.getReviewsByItem(ITEM, "me");
+
+        assertThat(result.get(0).helpfulCount()).isEqualTo(2);
+        assertThat(result.get(0).helpfulByMe()).isTrue();
+        assertThat(result.get(1).helpfulCount()).isEqualTo(1);
+        assertThat(result.get(1).helpfulByMe()).isFalse();
+    }
+
+    @Test
+    void toggleHelpful_firstCall_addsVoteAndReturnsUpdatedCount() {
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(review(9L, 5, "someone-else")));
+        when(reviewVoteRepository.existsByReviewIdAndVoterId(9L, "me")).thenReturn(false);
+        when(reviewVoteRepository.countByReviewId(9L)).thenReturn(3L);
+
+        ReviewResponse response = service.toggleHelpful(9L, "me");
+
+        verify(reviewVoteRepository).save(any(ReviewVote.class));
+        assertThat(response.helpfulByMe()).isTrue();
+        assertThat(response.helpfulCount()).isEqualTo(3);
+    }
+
+    @Test
+    void toggleHelpful_secondCall_removesVote() {
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(review(9L, 5, "someone-else")));
+        when(reviewVoteRepository.existsByReviewIdAndVoterId(9L, "me")).thenReturn(true);
+        when(reviewVoteRepository.countByReviewId(9L)).thenReturn(2L);
+
+        ReviewResponse response = service.toggleHelpful(9L, "me");
+
+        verify(reviewVoteRepository).deleteByReviewIdAndVoterId(9L, "me");
+        assertThat(response.helpfulByMe()).isFalse();
+        assertThat(response.helpfulCount()).isEqualTo(2);
+    }
+
+    @Test
+    void toggleHelpful_onOwnReview_throwsIllegalState() {
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(review(9L, 5, TRAVELER)));
+
+        assertThatThrownBy(() -> service.toggleHelpful(9L, TRAVELER))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("tua stessa");
+        verify(reviewVoteRepository, never()).save(any());
+    }
+
+    @Test
+    void toggleHelpful_whenReviewMissing_throwsNoSuchElement() {
+        when(reviewRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.toggleHelpful(9L, "me"))
+                .isInstanceOf(NoSuchElementException.class);
+    }
+
+    @Test
+    void deleteReview_alsoRemovesItsHelpfulVotes() {
+        Review existing = review(9L, 5, TRAVELER);
+        when(reviewRepository.findById(9L)).thenReturn(Optional.of(existing));
+        when(reviewRepository.findByCatalogItemId(ITEM)).thenReturn(List.of());
+
+        service.deleteReview(9L, TRAVELER);
+
+        verify(reviewVoteRepository).deleteByReviewId(9L);
+        verify(reviewRepository).delete(existing);
     }
 }

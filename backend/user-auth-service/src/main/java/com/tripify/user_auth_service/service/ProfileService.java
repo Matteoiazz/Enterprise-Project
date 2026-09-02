@@ -358,11 +358,18 @@ public class ProfileService {
     @org.springframework.transaction.annotation.Transactional
     public List<PaymentMethodDto> getPaymentMethods(String userEmail) {
         return paymentMethodRepository.findByUser(getUser(userEmail)).stream()
-                .map(p -> PaymentMethodDto.builder().id(p.getId()).cardProvider(p.getCardProvider())
-                        .lastFourDigits(p.getLastFourDigits()).expirationMonthYear(p.getExpirationMonthYear()).build())
+                .sorted((a, b) -> Boolean.compare(b.isDefault(), a.isDefault()))
+                .map(this::toPaymentMethodDto)
                 .collect(Collectors.toList());
     }
 
+    private PaymentMethodDto toPaymentMethodDto(PaymentMethod p) {
+        return PaymentMethodDto.builder().id(p.getId()).cardProvider(p.getCardProvider())
+                .lastFourDigits(p.getLastFourDigits()).expirationMonthYear(p.getExpirationMonthYear())
+                .defaultCard(p.isDefault()).build();
+    }
+
+    @org.springframework.transaction.annotation.Transactional
     public PaymentMethodDto addPaymentMethod(String userEmail, PaymentMethodDto dto) {
         String cardNumber = dto.getCardNumber() != null ? dto.getCardNumber().replaceAll("\\s+", "") : null;
         if (cardNumber == null || cardNumber.length() < 13 || cardNumber.length() > 19 || !cardNumber.matches("\\d+")) {
@@ -381,16 +388,35 @@ public class ProfileService {
             throw new IllegalArgumentException("Formato scadenza non valido, usa MM/AA");
         }
 
+        User user = getUser(userEmail);
+        boolean firstCard = paymentMethodRepository.findByUser(user).isEmpty();
         String lastFour = cardNumber.substring(cardNumber.length() - 4);
 
         PaymentMethod saved = paymentMethodRepository.save(PaymentMethod.builder()
                 .cardProvider(dto.getCardProvider()).lastFourDigits(lastFour)
-                .expirationMonthYear(dto.getExpirationMonthYear()).user(getUser(userEmail)).build());
+                .expirationMonthYear(dto.getExpirationMonthYear()).isDefault(firstCard).user(user).build());
 
-        return PaymentMethodDto.builder().id(saved.getId()).cardProvider(saved.getCardProvider())
-                .lastFourDigits(saved.getLastFourDigits()).expirationMonthYear(saved.getExpirationMonthYear()).build();
+        return toPaymentMethodDto(saved);
     }
 
+    @org.springframework.transaction.annotation.Transactional
+    public void setDefaultPaymentMethod(String userEmail, UUID id) {
+        User user = getUser(userEmail);
+        PaymentMethod target = paymentMethodRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Metodo di pagamento non trovato"));
+        if (!target.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedActionException("Non autorizzato");
+        }
+        for (PaymentMethod pm : paymentMethodRepository.findByUser(user)) {
+            boolean shouldBeDefault = pm.getId().equals(id);
+            if (pm.isDefault() != shouldBeDefault) {
+                pm.setDefault(shouldBeDefault);
+                paymentMethodRepository.save(pm);
+            }
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
     public void deletePaymentMethod(String userEmail, UUID id) {
         User user = getUser(userEmail);
         PaymentMethod method = paymentMethodRepository.findById(id)
@@ -399,7 +425,18 @@ public class ProfileService {
         if (!method.getUser().getId().equals(user.getId())) {
             throw new UnauthorizedActionException("Non autorizzato");
         }
+        boolean wasDefault = method.isDefault();
         paymentMethodRepository.delete(method);
+
+        if (wasDefault) {
+            paymentMethodRepository.findByUser(user).stream()
+                    .filter(pm -> !pm.getId().equals(id))
+                    .findFirst()
+                    .ifPresent(pm -> {
+                        pm.setDefault(true);
+                        paymentMethodRepository.save(pm);
+                    });
+        }
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -449,38 +486,13 @@ public class ProfileService {
     public User updateUserProfile(String email, String keycloakUserId, com.tripify.user_auth_service.dto.request.UpdateProfileRequestDTO request) {
         User user = getUser(email);
 
-        if (request.getName() != null) user.setName(request.getName());
-        if (request.getSurname() != null) user.setSurname(request.getSurname());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
-        if (request.getAddress() != null) user.setAddress(request.getAddress());
-        if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
-            if (userRepository.existsByEmail(request.getEmail())) {
-                throw new IllegalArgumentException("Email già in uso da un altro account");
-            }
-            user.setEmail(request.getEmail());
+        boolean emailChanged = request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail());
+        if (emailChanged && userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email già in uso da un altro account");
         }
-
-        userRepository.save(user);
 
         Keycloak keycloak = getKeycloakAdminClient();
         UserResource userResource = keycloak.realm("tripify").users().get(keycloakUserId);
-
-        if (request.getName() != null || request.getSurname() != null || request.getEmail() != null || request.getPhone() != null) {
-            org.keycloak.representations.idm.UserRepresentation kcUser = userResource.toRepresentation();
-            if (request.getName() != null) kcUser.setFirstName(request.getName());
-            if (request.getSurname() != null) kcUser.setLastName(request.getSurname());
-            if (request.getEmail() != null) {
-                kcUser.setEmail(request.getEmail());
-                kcUser.setUsername(request.getEmail());
-            }
-            if (request.getPhone() != null) {
-                if (kcUser.getAttributes() == null) {
-                    kcUser.setAttributes(new java.util.HashMap<>());
-                }
-                kcUser.getAttributes().put("phoneNumber", java.util.List.of(request.getPhone()));
-            }
-            userResource.update(kcUser);
-        }
 
         if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
             org.keycloak.representations.idm.CredentialRepresentation passwordCred = new org.keycloak.representations.idm.CredentialRepresentation();
@@ -497,6 +509,31 @@ public class ProfileService {
                 }
                 throw passwordRejected;
             }
+        }
+
+        if (request.getName() != null) user.setName(request.getName());
+        if (request.getSurname() != null) user.setSurname(request.getSurname());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getAddress() != null) user.setAddress(request.getAddress());
+        if (emailChanged) user.setEmail(request.getEmail());
+
+        userRepository.save(user);
+
+        if (request.getName() != null || request.getSurname() != null || emailChanged || request.getPhone() != null) {
+            org.keycloak.representations.idm.UserRepresentation kcUser = userResource.toRepresentation();
+            if (request.getName() != null) kcUser.setFirstName(request.getName());
+            if (request.getSurname() != null) kcUser.setLastName(request.getSurname());
+            if (emailChanged) {
+                kcUser.setEmail(request.getEmail());
+                kcUser.setUsername(request.getEmail());
+            }
+            if (request.getPhone() != null) {
+                if (kcUser.getAttributes() == null) {
+                    kcUser.setAttributes(new java.util.HashMap<>());
+                }
+                kcUser.getAttributes().put("phoneNumber", java.util.List.of(request.getPhone()));
+            }
+            userResource.update(kcUser);
         }
 
         return user;

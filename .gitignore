@@ -19,3 +19,11 @@ backend/keycloak-data/
 # parecchio git status/add quando non sono esclusi, perche' li deve
 # scansionare tutti ogni volta.
 .gradle/
+
+# Copie generate da iCloud quando il progetto sta sotto "Desktop e Documenti"
+# (es. "Foo 2.java", "bar 3.kt"): non sono file reali del progetto e mandano
+# in errore la compilazione con "duplicate class".
+* [0-9].*
+* [0-9]
+*\ copy
+*\ copy.*

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.*
@@ -42,10 +43,6 @@ fun SettingsScreen(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Prima, se l'eliminazione account falliva lato server, non succedeva
-    // visibilmente nulla (solo un log in console): l'utente restava sulla
-    // schermata senza sapere se doveva riprovare. Stesso pattern già usato in
-    // LoginScreen per viewModel.errorMessage.
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -66,7 +63,7 @@ fun SettingsScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)

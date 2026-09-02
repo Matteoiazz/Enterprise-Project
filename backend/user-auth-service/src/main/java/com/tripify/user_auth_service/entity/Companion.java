@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "companions")
+@Table(name = "companions", indexes = @Index(name = "idx_companions_user", columnList = "user_id"))
 @Getter
 @Setter
 @AllArgsConstructor

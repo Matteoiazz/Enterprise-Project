@@ -14,7 +14,9 @@ import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.data.model.UpdatePecRequest
 import com.tripify.tripify_android.data.model.UpdateProfileRequest
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.EndSessionRequest
@@ -44,6 +46,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     private val api = RetrofitClient.createApi(tokenManager)
     private val profileApi = RetrofitClient.createProfileApi(tokenManager)
 
+    private var authService: AuthorizationService? = null
+
     var organizersList by mutableStateOf<List<com.tripify.tripify_android.data.UserResponse>>(emptyList())
     var isLoadingOrganizers by mutableStateOf(false)
 
@@ -58,7 +62,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     val user = response.body()!!
                     name = user.name ?: ""
                     surname = user.surname ?: ""
-                    email = user.email
+                    email = user.email ?: ""
                     profilePictureUrl = user.profilePictureUrl
                     phone = user.phone ?: ""
                     address = user.address ?: ""
@@ -70,8 +74,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
-                errorMessage = "Errore: ${e.localizedMessage}"
+                android.util.Log.e("ProfileViewModel", "loadUserProfile fallita", e)
+                errorMessage = "Impossibile caricare il profilo. Controlla la connessione e riprova."
             } finally {
                 isLoading = false
             }
@@ -82,16 +86,16 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         viewModelScope.launch {
             isUploadingImage = true
             errorMessage = null
+            var tempFile: File? = null
             try {
-                val file = getFileFromUri(context, uri)
-                if (file == null) {
+                tempFile = withContext(Dispatchers.IO) { copyUriToCache(context, uri) }
+                if (tempFile == null) {
                     errorMessage = "Errore durante la lettura dell'immagine."
-                    isUploadingImage = false
                     return@launch
                 }
 
-                val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
-                val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+                val requestFile = tempFile.asRequestBody("image/*".toMediaTypeOrNull())
+                val body = MultipartBody.Part.createFormData("file", tempFile.name, requestFile)
 
                 val response = profileApi.uploadProfilePicture(body)
 
@@ -99,31 +103,33 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     profilePictureUrl = response.body()?.get("imageUrl")
                 } else {
                     errorMessage = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                        ?: "Errore caricamento immagine: ${response.code()}"
+                        ?: "Errore durante il caricamento dell'immagine (${response.code()})."
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
-                errorMessage = "Errore di rete: ${e.localizedMessage}"
+                android.util.Log.e("ProfileViewModel", "uploadProfilePicture fallita", e)
+                errorMessage = "Errore di rete durante il caricamento. Riprova."
             } finally {
+                tempFile?.let { runCatching { it.delete() } }
                 isUploadingImage = false
             }
         }
     }
 
-    private fun getFileFromUri(context: Context, uri: Uri): File? {
+    private fun copyUriToCache(context: Context, uri: Uri): File? {
+        val tempFile = File.createTempFile("profile_img", ".jpg", context.cacheDir)
         return try {
-            val contentResolver = context.contentResolver
-            val tempFile = File.createTempFile("profile_img", ".jpg", context.cacheDir)
-            val inputStream = contentResolver.openInputStream(uri)
-            val outputStream = FileOutputStream(tempFile)
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
+            val stream = context.contentResolver.openInputStream(uri)
+            if (stream == null) {
+                tempFile.delete()
+                return null
+            }
+            stream.use { input -> FileOutputStream(tempFile).use { output -> input.copyTo(output) } }
             tempFile
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("ProfileViewModel", "copyUriToCache fallita", e)
+            tempFile.delete()
             null
         }
     }
@@ -167,8 +173,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
-                errorMessage = "Errore di rete: ${e.localizedMessage}"
+                android.util.Log.e("ProfileViewModel", "Salvataggio profilo fallito", e)
+                errorMessage = "Errore di rete durante il salvataggio. Riprova."
             } finally {
                 isLoading = false
             }
@@ -199,8 +205,8 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             .setPostLogoutRedirectUri(Uri.parse("com.tripify.app://oauth"))
             .build()
 
-        val authService = AuthorizationService(context)
-        return authService.getEndSessionRequestIntent(endSessionRequest)
+        val service = authService ?: AuthorizationService(context.applicationContext).also { authService = it }
+        return service.getEndSessionRequestIntent(endSessionRequest)
     }
 
     fun logout() {
@@ -214,15 +220,19 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    var organizersError by mutableStateOf<String?>(null)
+
     fun loadOrganizers() {
         viewModelScope.launch {
             isLoadingOrganizers = true
+            organizersError = null
             try {
                 organizersList = profileApi.getOrganizers()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("ProfileViewModel", "loadOrganizers fallita", e)
+                organizersError = "Impossibile caricare gli organizzatori. Controlla la connessione e riprova."
             } finally {
                 isLoadingOrganizers = false
             }
@@ -245,11 +255,17 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
-                errorMessage = "Errore di rete: ${e.localizedMessage}"
+                android.util.Log.e("ProfileViewModel", "Salvataggio profilo fallito", e)
+                errorMessage = "Errore di rete durante il salvataggio. Riprova."
             } finally {
                 isLoading = false
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        authService?.dispose()
+        authService = null
     }
 }
