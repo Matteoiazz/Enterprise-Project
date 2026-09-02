@@ -271,12 +271,14 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     healthcheck:
+
       # curl (non wget): la base non-alpine non ha wget
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8082/api/v1/catalog/items/search"]
+
       interval: 10s
       timeout: 5s
       retries: 15
-      start_period: 40s
+      start_period: 30s
     networks:
       - travel-network
 
