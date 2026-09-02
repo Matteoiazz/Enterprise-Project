@@ -10,6 +10,7 @@ public record UserResponse(
         String address,
         String companyName,
         String vatNumber,
-        String pec
+        String pec,
+        String role
 ) {
 }

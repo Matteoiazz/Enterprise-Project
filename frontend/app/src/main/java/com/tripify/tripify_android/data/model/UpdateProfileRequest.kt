@@ -6,5 +6,6 @@ data class UpdateProfileRequest(
     val phone: String? = null,
     val address: String? = null,
     val email: String? = null,
-    val newPassword: String? = null
+    val newPassword: String? = null,
+    val currentPassword: String? = null
 )

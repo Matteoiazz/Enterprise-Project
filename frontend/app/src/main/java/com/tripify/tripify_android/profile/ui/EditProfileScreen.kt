@@ -41,7 +41,7 @@ private val PHONE_REGEX = Regex("^\\+?[0-9\\s\\-]{8,20}$")
 fun EditProfileScreen(
     viewModel: ProfileViewModel,
     onNavigateBack: () -> Unit,
-    onSaveProfile: (String, String, String, String, String, String) -> Unit
+    onSaveProfile: (String, String, String, String, String, String, String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -55,8 +55,10 @@ fun EditProfileScreen(
 
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var currentPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var currentPasswordVisible by remember { mutableStateOf(false) }
 
     var isSavingProfile by remember { mutableStateOf(false) }
     var isSavingPec by remember { mutableStateOf(false) }
@@ -86,8 +88,9 @@ fun EditProfileScreen(
     val hasSpecial = newPassword.any { !it.isLetterOrDigit() }
     val isPasswordValid = newPassword.isBlank() || (hasMinLength && hasUpper && hasDigit && hasSpecial)
     val passwordsMatch = newPassword.isBlank() || newPassword == confirmPassword
+    val currentPasswordProvided = newPassword.isBlank() || currentPassword.isNotBlank()
     val isFormValid = isEmailValid && isNameValid && isSurnameValid &&
-        isPhoneValid && isAddressValid && isPasswordValid && passwordsMatch
+        isPhoneValid && isAddressValid && isPasswordValid && passwordsMatch && currentPasswordProvided
 
     val cardOverlap = 32.dp
     val securityOffset = if (viewModel.companyName.isNotBlank()) 0.dp else -cardOverlap + 16.dp
@@ -275,6 +278,22 @@ fun EditProfileScreen(
                                 onVisibilityToggle = { confirmPasswordVisible = !confirmPasswordVisible },
                                 onValueChange = { confirmPassword = it }
                             )
+
+                            if (newPassword.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                ProfileOutlinedTextField(
+                                    value = currentPassword,
+                                    label = "Password Attuale",
+                                    icon = Icons.Default.Lock,
+                                    isError = !currentPasswordProvided,
+                                    supportingText = if (!currentPasswordProvided)
+                                        "Inserisci la password attuale per cambiarla" else null,
+                                    isPassword = true,
+                                    isVisible = currentPasswordVisible,
+                                    onVisibilityToggle = { currentPasswordVisible = !currentPasswordVisible },
+                                    onValueChange = { currentPassword = it }
+                                )
+                            }
                         }
                     }
                 }
@@ -285,7 +304,7 @@ fun EditProfileScreen(
                 Button(
                     onClick = {
                         isSavingProfile = true
-                        onSaveProfile(name, surname, phone, address, email, newPassword)
+                        onSaveProfile(name, surname, phone, address, email, newPassword, currentPassword)
                     },
                     enabled = isFormValid && !isSavingProfile,
                     modifier = Modifier
