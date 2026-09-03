@@ -375,6 +375,27 @@ fun TripifyApp(
                     onNavigateToDetail = { id, publicToken ->
                         if (!publicToken.isNullOrBlank()) navController.navigate("itinerary_public/$publicToken")
                         else navController.navigate("itinerary_detail/$id")
+                    },
+                    onNavigateToGenerate = { navController.navigate("itinerary_generate") }
+                )
+            }
+
+            // Form per generare una bozza di itinerario (volo+hotel+attività) dal catalogo esistente.
+            composable("itinerary_generate") {
+                val context = LocalContext.current
+                val tokenManager = remember { TokenManager(context) }
+                val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
+                    factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
+                )
+
+                com.tripify.tripify_android.itinerary.ui.GenerateItineraryScreen(
+                    viewModel = itineraryViewModel,
+                    catalogViewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onGenerated = { newListId ->
+                        navController.navigate("itinerary_detail/$newListId") {
+                            popUpTo("itinerary_generate") { inclusive = true }
+                        }
                     }
                 )
             }
@@ -394,7 +415,10 @@ fun TripifyApp(
                     tokenManager = tokenManager,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToComponent = { itemId -> navController.navigate("detail/$itemId") },
-                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
+                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") },
+                    onCloned = { newListId ->
+                        navController.navigate("itinerary_detail/$newListId")
+                    }
                 )
             }
 
@@ -418,7 +442,10 @@ fun TripifyApp(
                     tokenManager = tokenManager,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToComponent = { itemId -> navController.navigate("detail/$itemId") },
-                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") }
+                    onChatWithOrganizer = { chatId -> navController.navigate("chat_detail/$chatId") },
+                    onCloned = { newListId ->
+                        navController.navigate("itinerary_detail/$newListId")
+                    }
                 )
             }
 

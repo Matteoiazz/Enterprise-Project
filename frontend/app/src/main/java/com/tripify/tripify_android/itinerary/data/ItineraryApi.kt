@@ -37,6 +37,14 @@ interface ItineraryApi {
     @POST("api/v1/itinerary")
     suspend fun createList(@Body request: CreateListRequest): Response<FavoriteListDto>
 
+    /** Copia i componenti di una lista accessibile (pubblica, propria o condivisa) in una nuova lista privata di chi clona. */
+    @POST("api/v1/itinerary/{id}/clone")
+    suspend fun cloneList(@Path("id") id: Long): Response<FavoriteListDto>
+
+    /** Genera una bozza di itinerario per una città a partire dal catalogo esistente. */
+    @POST("api/v1/itinerary/generate")
+    suspend fun generateItinerary(@Body request: GenerateItineraryRequest): Response<FavoriteListDto>
+
     @POST("api/v1/itinerary/{id}/items")
     suspend fun addItem(@Path("id") id: Long, @Body request: AddListItemRequest): Response<Unit>
 
