@@ -11,6 +11,7 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 val backendIp = localProperties.getProperty("BACKEND_IP") ?: "10.0.2.2"
+val keycloakIp = localProperties.getProperty("KEYCLOAK_IP") ?: "10.0.2.2"
 
 android {
     namespace = "com.tripify.tripify_android"
@@ -30,16 +31,28 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // CONTROLLO INTELLIGENTE AGGIORNATO
-        val finalUrl = if (backendIp.contains("ngrok")) {
-            "https://$backendIp" // Se è Ngrok, usa HTTPS e NIENTE porta
-        } else if (backendIp.contains("http")) {
-            backendIp // Se ha già http, lo lascia così com'è
+        // BACKEND_IP: se contiene "http" e' gia' un URL completo (tunnel Cloudflare
+        // https://api.tripify.cloud), usato cosi' com'e'; altrimenti e' un host nudo
+        // e diventa http://<host>:8080 (IP LAN della macchina, o 10.0.2.2 da emulatore).
+        val finalUrl = if (backendIp.contains("http")) {
+            backendIp
         } else {
-            "http://$backendIp:8080" // Se è un IP classico (es. 10.0.2.2), mette HTTP e porta 8080
+            "http://$backendIp:8080"
+        }
+
+        // KEYCLOAK_IP: stessa regola. In demo e' https://keycloak.tripify.cloud.
+        val keycloakUrl = if (keycloakIp.contains("http")) {
+            keycloakIp
+        } else {
+            "http://$keycloakIp:8180"
         }
 
         buildConfigField("String", "BASE_URL", "\"$finalUrl\"")
+        buildConfigField("String", "KEYCLOAK_BASE_URL", "\"$keycloakUrl\"")
+        buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY") ?: ""}\"")
+
+        // Schema URL per il reindirizzamento dopo il login con Keycloak
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.tripify.app"
     }
 
     buildTypes {
@@ -68,9 +81,12 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-
 
     val composeBom = platform("androidx.compose:compose-bom:2024.04.01")
     implementation(composeBom)
@@ -85,29 +101,26 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // --- LIBRERIE PER DARIO (AUTH & NETWORK) ---
-
-    // Retrofit per le chiamate API al Gateway
+    // --- LIBRERIE AUTH & NETWORK ---
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-
-    // OkHttp per l'Interceptor (inietta il Token JWT in automatico)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // DataStore (La cassaforte per salvare il JWT in modo persistente)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // Navigation Compose (per spostarsi tra le schermate)
     implementation("androidx.navigation:navigation-compose:2.7.7")
-
-    // Lifecycle e Coroutines (Per chiamate asincrone senza bloccare la UI)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+
     // --- LIBRERIE PER I WEBSOCKETS (CHAT) ---
-    // Client STOMP per connettersi a Spring Boot
     implementation("com.github.NaikSoftware:StompProtocolAndroid:1.6.6")
-    // Reactor Netty / Core (spesso richiesto come dipendenza sottostante per la gestione dei flussi asincroni dei socket)
     implementation("io.reactivex.rxjava2:rxjava:2.2.21")
     implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
+
+    // --- LIBRERIA APPAUTH PER KEYCLOAK ---
+    implementation("net.openid:appauth:0.11.1")
+
+    // --- GENERAZIONE QR CODE (biglietto/check-in) ---
+    // Solo il modulo "core": qui serve solo codificare una stringa in
+    // un'immagine QR (biglietto in-app), non leggerla via fotocamera.
+    implementation("com.google.zxing:core:3.5.3")
 }

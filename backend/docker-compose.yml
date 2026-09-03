@@ -1,16 +1,19 @@
-version: '3.8'
-
 services:
-  # Database per il servizio Catalog (il tuo)
+  # Database per il servizio Catalog
   db-catalog:
     image: postgres:15
     container_name: db-catalog
     ports:
-      - "5432:5432"
+      - "5435:5432"
     environment:
       POSTGRES_DB: db_catalog
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_catalog"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
@@ -19,50 +22,413 @@ services:
     image: postgres:15
     container_name: db-booking
     ports:
-      - "5433:5432" # Porta esterna 5433 per non conflittare con catalog
+      - "5433:5432"
     environment:
       POSTGRES_DB: db_booking
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_booking"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
 
   # Database per l'Auth (User)
   db-auth:
     image: postgres:15
     container_name: db-auth
     ports:
-      - "5434:5432" # Porta esterna 5434
+      - "5434:5432"
     environment:
       POSTGRES_DB: db_auth
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
-    # Database per il servizio Communication (Gianmaria)
-  communication-service:
+  # Database per l'Auth (User)
+  db-communication:
     image: postgres:15
-    container_name: communication-service
+    container_name: db-communication
     ports:
-      - "5435:5432" # Porta esterna 5435
+      - "5437:5432"
     environment:
       POSTGRES_DB: communication-service
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d communication-service"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - travel-network
 
-  # RabbitMQ per le comunicazioni asincrone
+
+
+  # Microservizio Java Communication (Gianmaria)
+
+  communication-app:
+    build:
+      context: ./communication-service
+      dockerfile: Dockerfile
+    container_name: communication-app
+    ports:
+      - "8084:8084"
+    restart: unless-stopped
+    depends_on:
+      db-communication:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      keycloak:
+        condition: service_started
+      catalog-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-communication:5432/communication-service
+      SPRING_RABBITMQ_HOST: rabbitmq
+      CATALOG_SERVICE_URL: http://catalog-service:8082
+      # serve al controllo "hai prenotato questo item?" prima di lasciare una
+      # recensione (ReviewService -> BookingClient). Senza, Feign va su
+      # localhost:8083 dentro il container e il controllo salta.
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      # serve a ReviewService -> UserProfileClient per risolvere il nome del
+      # recensore quando spunta "mostra il mio nome". Senza, Feign va su
+      # localhost:8081 dentro il container, la chiamata fallisce e la
+      # recensione resta salvata come "Utente verificato" anche col flag attivo.
+      USER_AUTH_SERVICE_URL: http://user-auth-service:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env}
+    networks:
+      - travel-network
+
+  # Database per il servizio Itinerary
+  db-itinerary:
+    image: postgres:15
+    container_name: db-itinerary
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_DB: db_itinerary
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_itinerary"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks:
+      - travel-network
+
+  # Database persistente per Keycloak
+  db-keycloak:
+    image: postgres:15
+    container_name: db-keycloak
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks:
+      - travel-network
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+
+  # Booking Service (carrello, checkout, pagamento simulato, prenotazioni)
+  booking-service:
+    build:
+      context: ./booking-service
+    container_name: booking-service
+    restart: unless-stopped
+    depends_on:
+      db-booking:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      user-auth-service:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-booking:5432/db_booking
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      # Con la colonna vuota (":?") una .env copiata da .env.example ma non
+      # compilata fa fallire subito "docker compose up" con un errore chiaro,
+      # invece di partire con la chiave vuota e far fallire in silenzio (403,
+      # solo loggato) la compensazione degli hold verso catalog-service.
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env, stessa chiave su booking-service, catalog-service e communication-service}
+      LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      # Ora che catalog-service e user-auth-service hanno una loro voce qui
+      # sotto, si raggiungono per nome servizio come fa anche itinerary-service.
+      CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
+      USER_AUTH_SERVICE_URL: http://user-auth-service:8081
+    networks:
+      - travel-network
+
+  # RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"   # Porta per i messaggi
-      - "15672:15672" # Interfaccia web di gestione
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      # Cookie Erlang fisso: senza, in alcuni casi il container legge un
+      # .erlang.cookie vuoto (es. layer di una run precedente crashata) e
+      # Erlang muore subito con "Too short cookie string".
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-tripify-rmq-cookie}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - travel-network
+
+  # Il tuo guardiano Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.3
+    container_name: keycloak
+    # --import-realm: importa automaticamente i file .json trovati nella cartella
+    # montata su /opt/keycloak/data/import al primo avvio di un database vuoto.
+    # Se il realm "tripify" esiste gia' nel DB, Keycloak lo lascia stare (non lo
+    # sovrascrive) - serve soprattutto per chi clona il progetto da zero o resetta
+    # il volume del DB.
+    command: start-dev --import-realm
+    depends_on:
+      db-keycloak:
+        condition: service_healthy
+    ports:
+      - "8180:8080"
+    # Niente healthcheck: l'immagine Keycloak non ha shell bash (il trucco
+    # /dev/tcp non funziona) ne' curl/wget, quindi ogni test resta "unhealthy"
+    # per sempre pur con Keycloak funzionante. Tutti i servizi dipendono da
+    # keycloak con "condition: service_started", quindi non serve.
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # hostname pubblico HTTPS (tunnel Cloudflare su keycloak): stesso "iss"
+      # per app, container e per il redirect dell'IdP Google. Obbligatorio:
+      # se manca, Keycloak emette token con iss=localhost mentre l'app (buildata
+      # sul dominio del tunnel) ne manda altri -> ogni chiamata autenticata a
+      # ogni servizio torna 401, con lo stack tutto "verde". Vedi backend/.env.example.
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?imposta KEYCLOAK_PUBLIC_URL in backend/.env (URL https del tunnel Cloudflare davanti a Keycloak)}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: "xforwarded"
+      KC_HEALTH_ENABLED: "true"
+      # Collegamento al DB
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db-keycloak:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+    networks:
+      - travel-network
+    volumes:
+      - ./keycloak-themes/tripify:/opt/keycloak/themes/tripify
+      # keycloak-import/ contiene solo il realm reale (gitignored, coi segreti).
+      # Il template sta in backend/keycloak-import.example.json, fuori da qui,
+      # cosi' --import-realm non prova a importarlo come secondo realm "tripify".
+      - ./keycloak-import:/opt/keycloak/data/import
+
+  # Catalog Service (Matteo)
+  catalog-service:
+    build: ./catalog-service
+    container_name: catalog-service
+    restart: unless-stopped
+    depends_on:
+      db-catalog:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-catalog:5432/db_catalog
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?serve una chiave, vedi backend/.env.example}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    healthcheck:
+      # curl con GET vera: "wget --spider" manda una HEAD, che il permitAll()
+      # solo-GET della security config non copre (401), facendo fallire il
+      # controllo anche a servizio perfettamente funzionante.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8082/api/v1/catalog/items/search"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    networks:
+      - travel-network
+
+  # Itinerary Service (Matteo)
+  itinerary-service:
+    build: ./itinerary-service
+    container_name: itinerary-service
+    restart: unless-stopped
+    depends_on:
+      db-itinerary:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-itinerary:5432/db_itinerary
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
+      CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
+      BOOKING_SERVICE_URL: http://booking-service:8083
+    healthcheck:
+      # curl con GET vera: stesso motivo del catalog-service qui sopra.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8085/api/v1/itinerary/public"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - travel-network
+
+  # ----------------------------------------------------------------------
+  # user-auth-service e api-gateway (Dario). booking-service, communication-app,
+  # catalog-service e itinerary-service sono gia' dockerizzati qui sopra,
+  # quindi il gateway li raggiunge tutti col nome del servizio. Variabili in
+  # backend/.env (copiare da backend/.env.example).
+  # ----------------------------------------------------------------------
+  user-auth-service:
+    build: ./user-auth-service
+    container_name: user-auth-service
+    restart: unless-stopped
+    depends_on:
+      db-auth:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-auth:5432/db_auth
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      # user-auth non usa LOCAL_IP: parla con Keycloak sulla rete Docker interna.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
+      KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    networks:
+      - travel-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: unless-stopped
+    depends_on:
+      - user-auth-service
+      - catalog-service
+      - itinerary-service
+      - booking-service
+      - communication-app
+    ports:
+      - "8080:8080"
+    environment:
+      USER_AUTH_SERVICE_URL: http://user-auth-service:8081
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      COMMUNICATION_SERVICE_URL: http://communication-app:8084
+      CATALOG_SERVICE_URL: http://catalog-service:8082
+      ITINERARY_SERVICE_URL: http://itinerary-service:8085
+      GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
+      GATEWAY_RATE_LIMIT_MAX: ${GATEWAY_RATE_LIMIT_MAX:-3000}
+    networks:
+      - travel-network
+
+  # Un solo tunnel Cloudflare STABILE davanti a TUTTO il sistema, due hostname:
+  #   - keycloak.tripify.cloud -> keycloak:8080   (l'IdP Google rifiuta redirect http/IP)
+  #   - api.tripify.cloud      -> api-gateway:8080 (il telefono raggiunge il backend
+  #                                                da qualsiasi rete, WebSocket inclusi)
+  # Le regole di instradamento stanno in backend/cloudflared/config.yml (gitignored,
+  # insieme a <UUID>.json con le credenziali del tunnel). L'immagine cloudflared non
+  # ha shell: la modalita' si sceglie qui sul campo "command:", non con uno script.
+  #
+  # Rigenerare il tunnel da zero (terminale, senza dashboard ne' carta):
+  #   cloudflared tunnel login
+  #   cloudflared tunnel create tripify-keycloak
+  #   cloudflared tunnel route dns tripify-keycloak keycloak.tripify.cloud
+  #   cloudflared tunnel route dns tripify-keycloak api.tripify.cloud
+  #   cp ~/.cloudflared/<UUID>.json backend/cloudflared/   (+ scrivere config.yml)
+  #
+  # Alternative (sostituiscono la riga "command:"):
+  #  - token da dashboard Zero Trust:
+  #      command: ["tunnel","--no-autoupdate","run","--token","<IL-TUO-TOKEN>"]
+  #  - tunnel "quick" con URL random, solo Keycloak (test veloci, senza dominio):
+  #      command: ["tunnel","--no-autoupdate","--url","http://keycloak:8080"]
+  #
+  # KEYCLOAK_PUBLIC_URL in .env e KEYCLOAK_IP in frontend/local.properties devono
+  # essere https://keycloak.tripify.cloud ; BACKEND_IP in local.properties deve
+  # essere https://api.tripify.cloud .
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    user: root
+    entrypoint: cloudflared
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - keycloak
+      - api-gateway
     networks:
       - travel-network
 
 networks:
   travel-network:
     driver: bridge
+
+volumes:
+  keycloak-db-data:
+  booking-db-data:

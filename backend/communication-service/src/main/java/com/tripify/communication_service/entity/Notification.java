@@ -20,9 +20,8 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // SOFT LINK: ID del Viaggiatore o Organizzatore a cui è destinata
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private String userId;
 
     @Column(nullable = false)
     private String title;

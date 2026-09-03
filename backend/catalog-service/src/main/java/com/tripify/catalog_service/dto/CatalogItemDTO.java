@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CatalogItemDTO {
-    // Campi comuni a tutti
     private Long id;
     private String title;
     private String description;
@@ -22,20 +21,39 @@ public class CatalogItemDTO {
     private String itemType;
     private String category;
     private Integer rating;
+    private Double ratingAvg;
+    private Integer reviewCount;
     private List<String> imageUrls;
+    // --- CHAT ---
+    private String hostId;
+    private boolean isUserGenerated;
+    // Esposto solo per la dashboard privata del proprietario (getMyItems): la vetrina
+    // pubblica non restituisce mai un annuncio disattivato, quindi lì è sempre true.
+    private boolean isActive;
 
-    // --- CAMPI SPECIFICI DEL VOLO (Flight) ---
+    // --- VOLO ---
     private String departureAirport;
     private String arrivalAirport;
+    private String departureCity;
+    private String arrivalCity;
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;
-    private Integer availableSeats;
+    private Integer totalSeats;
+    private Integer stops;
+    private List<FareClassDTO> fareClasses;
 
-    // --- CAMPI SPECIFICI DELL'HOTEL (Hotel) ---
-    private String roomType;
-    private Integer availableRooms;
+    // --- HOTEL ---
     private Double locationLat;
     private Double locationLng;
+    private String address;
+    private String city;
+    private List<String> amenities;
+    private List<RoomTypeDTO> roomTypes;
 
-
+    // --- ATTIVITÀ ---
+    private String activityType;
+    private String duration;
+    private String meetingPoint;
+    private Integer maxParticipants;
+    private Boolean guideIncluded;
 }

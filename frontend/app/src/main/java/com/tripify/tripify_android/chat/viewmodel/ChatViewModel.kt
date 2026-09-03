@@ -1,82 +1,140 @@
 package com.tripify.tripify_android.chat.viewmodel
 
+import android.util.Base64
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.tripify.tripify_android.BuildConfig
+import com.tripify.tripify_android.data.TokenManager
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import ua.naiksoftware.stomp.Stomp
 import ua.naiksoftware.stomp.StompClient
-import io.reactivex.disposables.Disposable
-import io.reactivex.schedulers.Schedulers
-import com.google.gson.Gson // Assicurati di avere Gson nelle dipendenze (di solito c'è già)
-import kotlinx.coroutines.Dispatchers
 import ua.naiksoftware.stomp.dto.LifecycleEvent
+import ua.naiksoftware.stomp.dto.StompHeader
+import java.net.HttpURLConnection
+import java.net.URL
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(
+    val roomId: String,
+    private val tokenManager: TokenManager
+) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
     private lateinit var stompClient: StompClient
-    private var subscriptions: Disposable? = null
+    private val compositeDisposable = CompositeDisposable()
     private val gson = Gson()
 
-    // Esempio: ID temporanei per testare la chat tra l'utente 1 e l'utente 2
-    val currentUserId: Long = 1L
-    private val targetUserId: Long = 2L
+    private val baseUrl = BuildConfig.BASE_URL
+
+    var currentUserId: String = ""
+        private set
 
     init {
-        connectWebSocket("http://172.20.10.2:8084")
-        loadHistory()
-    }
+        viewModelScope.launch {
+            val token = tokenManager.tokenFlow.first() ?: ""
+            currentUserId = extractUserIdFromToken(token)
 
-    fun connectWebSocket(baseUrl: String) {
-        val wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat"
-
-        stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl)
-
-        stompClient.lifecycle().subscribe { lifecycleEvent ->
-            when (lifecycleEvent.type) {
-                LifecycleEvent.Type.OPENED -> android.util.Log.d("STOMP", "Connessione aperta!")
-                LifecycleEvent.Type.CLOSED -> android.util.Log.d("STOMP", "Connessione chiusa!")
-                LifecycleEvent.Type.ERROR -> android.util.Log.e("STOMP", "Errore connessione: " + lifecycleEvent.exception)
-                else -> android.util.Log.d("STOMP", "Stato: " + lifecycleEvent.message)
+            if (token.isNotBlank()) {
+                loadHistory(baseUrl, token)
+                connectWebSocket(baseUrl, token)
+            } else {
+                android.util.Log.e("STOMP", "Impossibile connettersi: Token vuoto o non disponibile")
             }
         }
-
-        stompClient.connect()
-
-        // Ascolto sulla coda privata configurata dal backend (/user/queue/messages)
-        subscriptions = stompClient.topic("/user/$currentUserId/queue/messages")
-            .subscribeOn(Schedulers.io())
-            .subscribe({ stompMessage ->
-                val jsonPayload = stompMessage.payload
-                try {
-                    // Converte il JSON ricevuto dal backend nell'oggetto ChatMessage
-                    val incomingMessage = gson.fromJson(jsonPayload, ChatMessage::class.java)
-                    _messages.value = _messages.value + incomingMessage
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }, { error ->
-                error.printStackTrace()
-            })
     }
-    fun loadHistory() {
+
+    private fun extractUserIdFromToken(token: String): String {
+        try {
+            val parts = token.split(".")
+            if (parts.size == 3) {
+                val payload = String(Base64.decode(parts[1], Base64.URL_SAFE))
+                val jsonObject = JSONObject(payload)
+                return jsonObject.optString("sub", "")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return ""
+    }
+
+    private fun connectWebSocket(serverUrl: String, token: String) {
+        val wsUrl = serverUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat"
+        val httpHeaders = mutableMapOf("Authorization" to "Bearer $token")
+
+        stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl, httpHeaders)
+
+        val lifecycleDisposable = stompClient.lifecycle()
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                { lifecycleEvent ->
+                    when (lifecycleEvent.type) {
+                        LifecycleEvent.Type.OPENED -> {
+                            android.util.Log.d("STOMP", "WebSocket socket aperto")
+                        }
+                        LifecycleEvent.Type.CLOSED -> {
+                            android.util.Log.d("STOMP", "WebSocket connessione chiusa")
+                        }
+                        LifecycleEvent.Type.ERROR -> {
+                            android.util.Log.e("STOMP", "Errore connessione STOMP", lifecycleEvent.exception)
+                        }
+                        else -> {}
+                    }
+                },
+                { error ->
+                    android.util.Log.e("STOMP", "Errore lifecycle RxJava", error)
+                }
+            )
+        compositeDisposable.add(lifecycleDisposable)
+
+        val topicDisposable = stompClient.topic("/topic/room/$roomId")
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                { stompMessage ->
+                    val jsonPayload = stompMessage.payload
+                    try {
+                        val incomingMessage = gson.fromJson(jsonPayload, ChatMessage::class.java)
+                        if (incomingMessage.senderId != currentUserId) {
+                            _messages.value = _messages.value + incomingMessage
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                },
+                { error ->
+                    android.util.Log.e("STOMP", "Errore ricezione messaggio", error)
+                }
+            )
+        compositeDisposable.add(topicDisposable)
+
+        val stompHeaders = listOf(StompHeader("Authorization", "Bearer $token"))
+        stompClient.connect(stompHeaders)
+    }
+
+    private fun loadHistory(serverUrl: String, token: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val url = URL("$serverUrl/chat/history/$roomId")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer $token")
 
-                val url = "http://172.20.10.2:8084/chat/history/1/2"
-                val response = java.net.URL(url).readText()
-
-                // Converte il JSON ricevuto in una lista di ChatMessage
-                val type = object : com.google.gson.reflect.TypeToken<List<ChatMessage>>() {}.type
-                val history: List<ChatMessage> = gson.fromJson(response, type)
-
-                // Aggiorna la lista dei messaggi con lo storico + quelli inviati in sessione
-                _messages.value = history
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val type = object : com.google.gson.reflect.TypeToken<List<ChatMessage>>() {}.type
+                    val history: List<ChatMessage> = gson.fromJson(response, type)
+                    _messages.value = history
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -86,34 +144,51 @@ class ChatViewModel : ViewModel() {
     fun sendMessage(messageText: String) {
         if (messageText.isBlank()) return
 
-        // Crea l'oggetto da inviare al backend
         val chatMessage = ChatMessage(
+            roomId = roomId,
             senderId = currentUserId,
-            receiverId = targetUserId,
             content = messageText
         )
 
         _messages.value = _messages.value + chatMessage
 
-        // Converte l'oggetto in formato JSON stringa
         val jsonPayload = gson.toJson(chatMessage)
 
-        // Invia all'endpoint @MessageMapping("/chat.sendMessage") del backend
-        stompClient.send("/app/chat.sendMessage", jsonPayload).subscribe(
-            {
-                // Messaggio inviato con successo tramite STOMP
-            },
-            { error ->
-                error.printStackTrace()
-            }
-        )
+        val sendDisposable = stompClient.send("/app/chat.sendMessage", jsonPayload)
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                {
+                    android.util.Log.d("STOMP", "Messaggio inviato con successo")
+                },
+                { error ->
+                    android.util.Log.e("STOMP", "Errore durante l'invio", error)
+                }
+            )
+        compositeDisposable.add(sendDisposable)
     }
 
     override fun onCleared() {
         super.onCleared()
-        subscriptions?.dispose()
-        if (::stompClient.isInitialized) {
-            stompClient.disconnect()
+        try {
+            compositeDisposable.clear()
+            if (::stompClient.isInitialized && stompClient.isConnected) {
+                stompClient.disconnect()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
+    }
+}
+
+class ChatViewModelFactory(
+    private val roomId: String,
+    private val tokenManager: TokenManager
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return ChatViewModel(roomId, tokenManager) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

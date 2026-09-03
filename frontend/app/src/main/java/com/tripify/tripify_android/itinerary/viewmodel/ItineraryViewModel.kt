@@ -1,0 +1,383 @@
+package com.tripify.tripify_android.itinerary.viewmodel
+
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.itinerary.data.CreateListRequest
+import com.tripify.tripify_android.itinerary.data.FavoriteListDto
+import com.tripify.tripify_android.itinerary.data.GenerateItineraryRequest
+import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
+import com.tripify.tripify_android.itinerary.data.UpdateVisibilityRequest
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.io.File
+
+sealed class ItineraryFeedState {
+    data object Loading : ItineraryFeedState()
+    data class Success(val lists: List<FavoriteListDto>) : ItineraryFeedState()
+    data class Error(val message: String) : ItineraryFeedState()
+}
+
+sealed class ItineraryDetailState {
+    data object Loading : ItineraryDetailState()
+    data class Success(val list: FavoriteListDto) : ItineraryDetailState()
+    data class Error(val message: String) : ItineraryDetailState()
+}
+
+class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
+
+    private val api = ItineraryRetrofit.create(tokenManager)
+
+    private val _feedState = MutableStateFlow<ItineraryFeedState>(ItineraryFeedState.Loading)
+    val feedState: StateFlow<ItineraryFeedState> = _feedState.asStateFlow()
+
+    private val _detailState = MutableStateFlow<ItineraryDetailState>(ItineraryDetailState.Loading)
+    val detailState: StateFlow<ItineraryDetailState> = _detailState.asStateFlow()
+
+    fun loadFeed(city: String? = null, sort: String = "likes") {
+        viewModelScope.launch {
+            _feedState.value = ItineraryFeedState.Loading
+            try {
+                val response = api.getPublicFeed(city?.trim()?.ifBlank { null }, sort)
+                _feedState.value = if (response.isSuccessful && response.body() != null) {
+                    ItineraryFeedState.Success(response.body()!!)
+                } else {
+                    ItineraryFeedState.Error("Errore nel caricamento (${response.code()})")
+                }
+            } catch (e: Exception) {
+                _feedState.value = ItineraryFeedState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** "Miei itinerari": le liste possedute (+ condivise con me), riusa lo stesso feedState del feed pubblico. */
+    fun loadMine() {
+        viewModelScope.launch {
+            _feedState.value = ItineraryFeedState.Loading
+            try {
+                val response = api.getMyLists()
+                _feedState.value = if (response.isSuccessful && response.body() != null) {
+                    ItineraryFeedState.Success(response.body()!!)
+                } else {
+                    ItineraryFeedState.Error("Errore nel caricamento (${response.code()})")
+                }
+            } catch (e: Exception) {
+                _feedState.value = ItineraryFeedState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
+    fun createList(name: String, onResult: (FavoriteListDto?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.createList(CreateListRequest(name))
+                onResult(if (response.isSuccessful) response.body() else null)
+            } catch (e: Exception) {
+                onResult(null)
+            }
+        }
+    }
+
+    /** Copia i componenti di una lista accessibile in una nuova lista privata di proprietà dell'utente corrente. */
+    fun cloneList(sourceId: Long, onResult: (newListId: Long?, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.cloneList(sourceId)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.id, null)
+                } else {
+                    onResult(null, extractErrorMessage(response.errorBody()?.string(), "Impossibile clonare l'itinerario"))
+                }
+            } catch (e: Exception) {
+                onResult(null, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Genera una bozza di itinerario da una città di partenza a una di destinazione, a partire dal catalogo esistente. */
+    fun generateItinerary(departureCity: String, city: String, days: Int, travelers: Int, returnFlight: Boolean, budget: java.math.BigDecimal?, onResult: (newListId: Long?, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.generateItinerary(GenerateItineraryRequest(departureCity.trim(), city.trim(), days, travelers, returnFlight, budget))
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.id, null)
+                } else {
+                    onResult(null, extractErrorMessage(response.errorBody()?.string(), "Impossibile generare l'itinerario"))
+                }
+            } catch (e: Exception) {
+                onResult(null, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Estrae il campo "message" del corpo di errore JSON (vedi ApiError sul backend), con un fallback leggibile. */
+    private fun extractErrorMessage(raw: String?, fallback: String): String {
+        if (raw.isNullOrBlank()) return fallback
+        return try {
+            org.json.JSONObject(raw).optString("message").ifBlank { fallback }
+        } catch (e: Exception) {
+            fallback
+        }
+    }
+
+    // loadDetail/loadDetailByPublicToken sono richiamate come "refresh" da tantissimi
+    // punti (like, rinomina, visibilità, link, rimozione componente...): senza annullare
+    // la richiesta precedente, due refresh sovrapposte che arrivano in ordine invertito
+    // potrebbero far tornare _detailState a uno stato precedente invece che al più recente.
+    private var detailJob: Job? = null
+
+    fun loadDetail(id: Long) {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            _detailState.value = ItineraryDetailState.Loading
+            try {
+                val response = api.getById(id)
+                _detailState.value = if (response.isSuccessful && response.body() != null) {
+                    ItineraryDetailState.Success(response.body()!!)
+                } else {
+                    ItineraryDetailState.Error("Itinerario non trovato")
+                }
+            } catch (e: Exception) {
+                _detailState.value = ItineraryDetailState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Apertura via link condiviso (capabilities): nessuna autenticazione richiesta. */
+    fun loadDetailByPublicToken(token: String) {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            _detailState.value = ItineraryDetailState.Loading
+            try {
+                val response = api.getByPublicToken(token)
+                _detailState.value = if (response.isSuccessful && response.body() != null) {
+                    ItineraryDetailState.Success(response.body()!!)
+                } else {
+                    ItineraryDetailState.Error("Link non valido o itinerario non più pubblico")
+                }
+            } catch (e: Exception) {
+                _detailState.value = ItineraryDetailState.Error("Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Elimina l'intero itinerario. */
+    fun deleteList(listId: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.deleteList(listId)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Rimuove un componente dalla lista (per posizione) e ricarica il dettaglio. */
+    fun removeItem(listId: Long, index: Int, onResult: (success: Boolean, alsoRemoved: List<String>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.removeItem(listId, index)
+                if (response.isSuccessful) {
+                    loadDetail(listId)
+                }
+                onResult(response.isSuccessful, response.body()?.alsoRemoved ?: emptyList())
+            } catch (e: Exception) {
+                onResult(false, emptyList())
+            }
+        }
+    }
+
+    /** Toggle like e ricarica il dettaglio per aggiornare il contatore mostrato. */
+    private var likeInFlight = false
+
+    fun toggleLike(id: Long) {
+        // Un doppio tap veloce prima che il primo tap sia tornato dal server
+        // invertirebbe il like due volte invece di una (like->unlike->like).
+        if (likeInFlight) return
+        likeInFlight = true
+        viewModelScope.launch {
+            try {
+                val response = api.toggleLike(id)
+                if (response.isSuccessful) {
+                    loadDetail(id)
+                }
+            } catch (e: Exception) {
+                // like non riuscito: la UI resta invariata, l'utente può riprovare
+            } finally {
+                likeInFlight = false
+            }
+        }
+    }
+
+    fun updateVisibility(id: Long, visibility: String, city: String?, onResult: (success: Boolean, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.updateVisibility(id, UpdateVisibilityRequest(visibility, city))
+                if (response.isSuccessful) {
+                    loadDetail(id)
+                    onResult(true, null)
+                } else {
+                    onResult(false, extractErrorMessage(response.errorBody()?.string(), "Requisiti di pubblicazione non soddisfatti"))
+                }
+            } catch (e: Exception) {
+                onResult(false, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Attiva il link di condivisione, anche su una lista privata o condivisa. Nessun requisito minimo. */
+    fun enableLinkSharing(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.enableLinkSharing(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Revoca il link: la visibilità non cambia, solo il token viene invalidato. */
+    fun disableLinkSharing(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.disableLinkSharing(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Link di invito: chi lo apre da loggato entra come collaboratore (può modificare la lista). */
+    fun enableCollabInvite(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.enableCollabInvite(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun disableCollabInvite(id: Long, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.disableCollabInvite(id)
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /** Apertura di un link di invito: se riesce, l'id della lista serve a navigare al dettaglio. */
+    fun joinAsCollaborator(token: String, onResult: (listId: Long?, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.joinAsCollaborator(token)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.id, null)
+                } else {
+                    onResult(null, "Link di invito non valido o non più attivo")
+                }
+            } catch (e: Exception) {
+                onResult(null, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    fun renameList(id: Long, newName: String, onResult: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.renameList(id, CreateListRequest(newName))
+                if (response.isSuccessful) loadDetail(id)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    /**
+     * Aggiunge ogni componente della lista al carrello reale su booking-service.
+     * Il loop e la propagazione del token avvengono lato itinerary-service (vedi
+     * ItineraryService.bookAllItems), qui c'è solo una chiamata all'endpoint dedicato.
+     */
+    fun bookAll(list: FavoriteListDto, onResult: (successCount: Int, total: Int, errors: List<String>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.bookAll(list.id)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.successCount, body.total, body.errors)
+                } else {
+                    onResult(0, list.items.size, emptyList())
+                }
+            } catch (e: Exception) {
+                onResult(0, list.items.size, emptyList())
+            }
+        }
+    }
+
+    /**
+     * Scarica il file .ics della lista e lo apre con l'app Calendario del telefono
+     * tramite un content:// URI (FileProvider, vedi AndroidManifest.xml): il file
+     * .ics grezzo non passa dal converter Gson, per questo l'endpoint restituisce
+     * un ResponseBody invece di un DTO.
+     */
+    fun exportCalendar(context: Context, id: Long, listName: String, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.exportCalendar(id)
+                val body = response.body()
+                if (!response.isSuccessful || body == null) {
+                    if (response.code() == 401) {
+                        onError("Accedi per esportare il calendario")
+                    } else {
+                        onError("Impossibile scaricare il calendario")
+                    }
+                    return@launch
+                }
+                val safeName = listName.replace(Regex("[^a-zA-Z0-9 -]"), "").trim().ifBlank { "itinerario" }
+                val file = File(context.cacheDir, "$safeName.ics")
+                file.outputStream().use { output -> body.byteStream().copyTo(output) }
+
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "text/calendar")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "Apri con"))
+            } catch (e: Exception) {
+                onError("Nessuna connessione al server")
+            }
+        }
+    }
+}
+
+class ItineraryViewModelFactory(private val tokenManager: TokenManager) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ItineraryViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return ItineraryViewModel(tokenManager) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}

@@ -1,23 +1,42 @@
 server:
   port: 8080
 
+gateway:
+  rate-limit:
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+    max-per-minute: ${GATEWAY_RATE_LIMIT_MAX:3000}
+    global-max-per-minute: ${GATEWAY_RATE_LIMIT_GLOBAL_MAX:20000}
+
 spring:
   application:
     name: api-gateway
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 15s
       routes:
         - id: user-auth-service
-          uri: http://localhost:8081
+          uri: ${USER_AUTH_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/api/v1/auth/**
+            - Path=/api/v1/profile/**
 
         - id: catalog-service
-          uri: http://localhost:8082
+          uri: ${CATALOG_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/v1/catalog/**
 
+        - id: booking-service
+          uri: ${BOOKING_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/cart/**, /api/v1/bookings/**, /api/v1/payments/**
+
         - id: itinerary-service
-          uri: http://localhost:8085
+          uri: ${ITINERARY_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/v1/itinerary/**
+
+        - id: communication-service
+          uri: ${COMMUNICATION_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/chat/**, /ws-chat/**, /api/notifications/**, /api/v1/reviews/**

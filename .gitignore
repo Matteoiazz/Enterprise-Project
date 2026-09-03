@@ -1,5 +1,6 @@
 .idea/
 .vscode/
+.claude/
 target/
 build/
 out/
@@ -7,3 +8,50 @@ out/
 .DS_Store
 Thumbs.db
 *.zip
+
+# Valori reali delle variabili d'ambiente per docker-compose (IP locale, chiavi
+# Cloudinary, internal service key): solo backend/.env.example va committato.
+backend/.env
+
+# Dati grezzi Postgres del Keycloak locale (pg_wal, pg_multixact, ecc.) - non
+# ha senso versionare un database, e la cartella sembra un residuo di una
+# vecchia configurazione a bind mount (il docker-compose.yml attuale usa un
+# volume Docker nominato, non questa cartella).
+backend/keycloak-data/
+
+# Cache locale di Gradle: tantissimi file piccoli che si rigenerano da soli
+# ad ogni build, non ha senso versionarli e (soprattutto) fanno rallentare
+# parecchio git status/add quando non sono esclusi, perche' li deve
+# scansionare tutti ogni volta.
+.gradle/
+
+# Copie generate da iCloud quando il progetto sta sotto "Desktop e Documenti"
+# (es. "Foo 2.java", "bar 3.kt"): non sono file reali del progetto e mandano
+# in errore la compilazione con "duplicate class".
+* [0-9].*
+* [0-9]
+*\ copy
+*\ copy.*
+
+# Variabili d'ambiente reali del backend (credenziali Cloudinary, chiavi
+# interne, ecc.): solo backend/.env.example va versionato, mai il .env vero.
+.env
+backend/.env
+
+# Realm Keycloak coi segreti reali dentro (password SMTP Gmail, client secret
+# Google): si consegna fuori da Git, come il .env. In repo sta solo il template
+# sanificato backend/keycloak-import.example.json (quei due campi = CHANGEME).
+# Il pattern prima puntava a "realm-export-4.json" (un nome mai esistito) e non
+# escludeva il file vero: ora il glob copre qualsiasi realm dentro la cartella.
+backend/keycloak-import/*.json
+
+# Tuning locale delle risorse (mem_limit, -Xmx) per la VM di Docker Desktop.
+# Non committato: ognuno lo tara sulla propria macchina.
+backend/docker-compose.override.yml
+
+# Credenziali del named tunnel Cloudflare creato da terminale (config.yml +
+# <UUID>.json col TunnelSecret). Non committare: e' un segreto dell'account.
+backend/cloudflared/
+
+# Log locale generato lanciando la build di booking-service a mano.
+backend/booking-service/booking-log.txt

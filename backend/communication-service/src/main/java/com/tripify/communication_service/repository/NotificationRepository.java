@@ -9,6 +9,8 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    // Spring Data JPA capirà automaticamente di ordinare per data decrescente
-    List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
+
+    long countByUserIdAndIsReadFalse(String userId);
 }

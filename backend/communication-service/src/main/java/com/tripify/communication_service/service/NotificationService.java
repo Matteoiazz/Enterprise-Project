@@ -11,25 +11,35 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NotificationService {
 
-    private final NotificationRepository repository;
+    private final NotificationRepository notificationRepository;
 
-    public Notification createNotification(Long userId, String title, String message) {
+    public List<Notification> getUserNotifications(String userId) {
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    public Notification createNotification(String userId, String title, String message) {
         Notification notification = Notification.builder()
                 .userId(userId)
                 .title(title)
                 .message(message)
+                .isRead(false)
                 .build();
-        return repository.save(notification);
+        return notificationRepository.save(notification);
     }
 
-    public List<Notification> getUserNotifications(Long userId) {
-        return repository.findByUserIdOrderByCreatedAtDesc(userId);
+    public Notification markAsRead(Long notificationId, String userId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new RuntimeException("Notifica non trovata"));
+
+        if (!notification.getUserId().equals(userId)) {
+            throw new RuntimeException("Non sei autorizzato a modificare questa notifica");
+        }
+
+        notification.setRead(true);
+        return notificationRepository.save(notification);
     }
 
-    public void markAsRead(Long notificationId) {
-        repository.findById(notificationId).ifPresent(notification -> {
-            notification.setRead(true);
-            repository.save(notification);
-        });
+    public long getUnreadCount(String userId) {
+        return notificationRepository.countByUserIdAndIsReadFalse(userId);
     }
 }

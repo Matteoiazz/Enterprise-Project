@@ -6,10 +6,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "chat_messages")
-@Data // Se usi Lombok, ti genera in automatico Getter, Setter e Costruttori
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatMessage {
@@ -19,16 +20,19 @@ public class ChatMessage {
     private Long id;
 
     @Column(nullable = false)
-    private Long senderId; // Chi invia il messaggio
+    private String roomId;
 
     @Column(nullable = false)
-    private Long receiverId; // Chi riceve il messaggio
+    private String senderId;
 
     @Column(nullable = false, length = 1000)
-    private String content; // Il testo del messaggio
+    private String content;
 
     @Column(nullable = false)
     private LocalDateTime timestamp;
+
+    @Column(name = "is_read", nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean isRead = false;
 
     @PrePersist
     protected void onCreate() {

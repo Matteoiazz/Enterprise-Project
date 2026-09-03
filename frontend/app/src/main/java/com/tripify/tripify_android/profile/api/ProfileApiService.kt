@@ -1,0 +1,71 @@
+package com.tripify.tripify_android.profile.api
+
+import com.tripify.tripify_android.data.model.PaymentMethodDto
+import com.tripify.tripify_android.data.model.TravelDocumentDto
+import com.tripify.tripify_android.profile.model.CompanionDto
+import okhttp3.MultipartBody
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.Multipart
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Part
+import retrofit2.http.Path
+
+interface ProfileApiService {
+    @GET("/api/v1/profile/companions")
+    suspend fun getCompanions(): List<CompanionDto>
+
+    @POST("/api/v1/profile/companions")
+    suspend fun addCompanion(@Body companion: CompanionDto): CompanionDto
+
+    @DELETE("/api/v1/profile/companions/{id}")
+    suspend fun deleteCompanion(@Path("id") id: String)
+
+    @GET("/api/v1/profile/documents")
+    suspend fun getTravelDocuments(): List<TravelDocumentDto>
+
+    @POST("/api/v1/profile/documents")
+    suspend fun addTravelDocument(@Body document: TravelDocumentDto): TravelDocumentDto
+
+    @DELETE("/api/v1/profile/documents/{id}")
+    suspend fun deleteTravelDocument(@Path("id") id: String)
+
+    @GET("/api/v1/profile/payments")
+    suspend fun getPaymentMethods(): List<PaymentMethodDto>
+
+    @POST("/api/v1/profile/payments")
+    suspend fun addPaymentMethod(@Body dto: PaymentMethodDto): PaymentMethodDto
+
+    @DELETE("/api/v1/profile/me")
+    suspend fun deleteMyAccount(): Response<Unit>
+
+    @PUT("/api/v1/profile/me")
+    suspend fun updateProfile(@Body request: com.tripify.tripify_android.data.model.UpdateProfileRequest): Response<Unit>
+
+    @PUT("/api/v1/profile/me/pec")
+    suspend fun updatePec(@Body request: com.tripify.tripify_android.data.model.UpdatePecRequest): Response<Unit>
+
+    @DELETE("/api/v1/profile/payments/{id}")
+    suspend fun deletePaymentMethod(@Path("id") id: String)
+
+    @PUT("/api/v1/profile/payments/{id}/default")
+    suspend fun setDefaultPaymentMethod(@Path("id") id: String): Response<Unit>
+
+    @Multipart
+    @POST("/api/v1/profile/me/picture")
+    suspend fun uploadProfilePicture(
+        @Part file: MultipartBody.Part
+    ): Response<Map<String, String>>
+
+    @GET("/api/v1/profile/organizers")
+    suspend fun getOrganizers(): List<com.tripify.tripify_android.data.UserResponse>
+
+    @GET("/api/v1/profile/organizers/{id}")
+    suspend fun getOrganizerById(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
+
+    @GET("/api/v1/profile/users/{id}/summary")
+    suspend fun getUserSummary(@Path("id") id: String): com.tripify.tripify_android.data.UserResponse
+}

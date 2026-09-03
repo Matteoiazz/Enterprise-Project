@@ -1,43 +1,211 @@
 package com.tripify.catalog_service.repository.spec;
 
+import com.tripify.catalog_service.entity.Activity;
 import com.tripify.catalog_service.entity.CatalogItem;
-import jakarta.persistence.criteria.Predicate;
+import com.tripify.catalog_service.entity.FareClass;
+import com.tripify.catalog_service.entity.Flight;
+import com.tripify.catalog_service.entity.Hotel;
+import com.tripify.catalog_service.entity.RoomType;
+import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class CatalogItemSpecification {
 
-    public static Specification<CatalogItem> withDynamicFilters(String category, String keyword, BigDecimal maxPrice, Integer minRating) {
-        return (root, query, criteriaBuilder) -> {
+    public static Specification<CatalogItem> withDynamicFilters(
+            String category,
+            String keyword,
+            BigDecimal maxPrice,
+            Integer minRating,
+            String destination,
+            String departure,
+            Boolean guideIncluded,
+            List<String> amenities,
+            Boolean directOnly,
+            LocalDate departureDate,
+            Integer minSeats
+    ) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            query.distinct(true);
 
-            // 1. Filtro Categoria (Ignora se è "Tutti" o null)
+            // 0. Solo annunci attivi: il fetch diretto per id resta possibile anche per
+            // un item disattivato (es. per chi lo ha già prenotato), ma non deve comparire
+            // in ricerca.
+            predicates.add(cb.isTrue(root.get("isActive")));
+
+            // 0b. Un volo già partito resta a catalogo (storico di chi lo ha prenotato,
+            // vedi FlightCleanupService), ma non deve comparire nella ricerca generale:
+            // altrimenti un volo con un hold CONFIRMED, mai ripulito dal cleanup,
+            // continuerebbe a essere trovabile indefinitamente anche da chi non l'ha
+            // mai prenotato. Il fetch diretto per id resta comunque possibile.
+            Root<Flight> flightForDepartureCheck = cb.treat(root, Flight.class);
+            Predicate isFlightType = cb.equal(root.type(), Flight.class);
+            Predicate departureInFuture = cb.greaterThan(flightForDepartureCheck.get("departureTime"), LocalDateTime.now());
+            predicates.add(cb.or(cb.not(isFlightType), departureInFuture));
+
+            // 1. Categoria
             if (category != null && !category.equalsIgnoreCase("Tutti")) {
-                predicates.add(criteriaBuilder.equal(criteriaBuilder.lower(root.get("category")), category.toLowerCase()));
+                predicates.add(cb.equal(cb.lower(root.get("category")), category.toLowerCase()));
             }
 
-            // 2. Filtro Keyword (Cerca in titolo OR descrizione)
+            // 2. Keyword libera (titolo OR descrizione)
             if (keyword != null && !keyword.trim().isEmpty()) {
                 String likePattern = "%" + keyword.toLowerCase() + "%";
-                Predicate titleMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), likePattern);
-                Predicate descMatch = criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), likePattern);
-                predicates.add(criteriaBuilder.or(titleMatch, descMatch));
+                Predicate titleMatch = cb.like(cb.lower(root.get("title")), likePattern);
+                Predicate descMatch = cb.like(cb.lower(root.get("description")), likePattern);
+                predicates.add(cb.or(titleMatch, descMatch));
             }
 
-            // 3. Filtro Prezzo Massimo
+            // 3. Destinazione: arrivalCity per i voli, city per hotel/activity)
+            if (destination != null && !destination.trim().isEmpty()) {
+                String destPattern = "%" + destination.trim().toLowerCase() + "%";
+
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Root<Hotel> hotelRoot = cb.treat(root, Hotel.class);
+                Root<Activity> activityRoot = cb.treat(root, Activity.class);
+
+                Predicate flightMatch = cb.and(
+                        cb.equal(root.type(), Flight.class),
+                        cb.like(cb.lower(flightRoot.get("arrivalCity")), destPattern)
+                );
+                Predicate hotelMatch = cb.and(
+                        cb.equal(root.type(), Hotel.class),
+                        cb.like(cb.lower(hotelRoot.get("city")), destPattern)
+                );
+                Predicate activityMatch = cb.and(
+                        cb.equal(root.type(), Activity.class),
+                        cb.like(cb.lower(activityRoot.get("city")), destPattern)
+                );
+
+                predicates.add(cb.or(flightMatch, hotelMatch, activityMatch));
+            }
+
+            // 4. Partenza: solo per i voli, ora sulla città invece del codice IATA
+            if (departure != null && !departure.trim().isEmpty()) {
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate departureMatch = cb.like(cb.lower(flightRoot.get("departureCity")), "%" + departure.trim().toLowerCase() + "%");
+                predicates.add(cb.or(cb.not(isFlight), departureMatch));
+            }
+
+            // 5. Prezzo massimo: confronta la tariffa/camera più economica, non il prezzo
+            // base dell'item, che è lo stesso prezzo mostrato in ricerca (vedi
+            // CatalogMapper.cheapestPrice) — altrimenti un hotel con una camera economica
+            // ma un prezzo di listino alto verrebbe escluso ingiustamente.
             if (maxPrice != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"), maxPrice));
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Root<Hotel> hotelRoot = cb.treat(root, Hotel.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate isHotel = cb.equal(root.type(), Hotel.class);
+
+                Subquery<BigDecimal> minFare = query.subquery(BigDecimal.class);
+                Root<Flight> fareCorrelated = minFare.correlate(flightRoot);
+                Join<Flight, FareClass> fareJoin = fareCorrelated.join("fareClasses");
+                minFare.select(cb.min(fareJoin.get("price")));
+
+                Subquery<BigDecimal> minRoom = query.subquery(BigDecimal.class);
+                Root<Hotel> roomCorrelated = minRoom.correlate(hotelRoot);
+                Join<Hotel, RoomType> roomJoin = roomCorrelated.join("roomTypes");
+                minRoom.select(cb.min(roomJoin.get("price")));
+
+                // Se non ci sono tariffe/camere (caso limite), ricadiamo sul prezzo base,
+                // stesso fallback usato da CatalogMapper.cheapestPrice().
+                Predicate flightOk = cb.and(isFlight, cb.lessThanOrEqualTo(cb.coalesce(minFare, flightRoot.get("price")), maxPrice));
+                Predicate hotelOk = cb.and(isHotel, cb.lessThanOrEqualTo(cb.coalesce(minRoom, hotelRoot.get("price")), maxPrice));
+                Predicate otherOk = cb.and(cb.not(isFlight), cb.not(isHotel), cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+
+                predicates.add(cb.or(flightOk, hotelOk, otherOk));
             }
 
-            // 4. Filtro Rating Minimo
+            // 6. Rating minimo
             if (minRating != null && minRating > 0) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("rating"), minRating));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("rating"), minRating));
             }
 
-            // Unisce tutti i pezzi creati con un AND
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+            // 7. Solo voli diretti
+            if (Boolean.TRUE.equals(directOnly)) {
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate isDirect = cb.equal(flightRoot.get("stops"), 0);
+                predicates.add(cb.or(cb.not(isFlight), isDirect));
+            }
+
+            // 8. Guida inclusa
+            if (Boolean.TRUE.equals(guideIncluded)) {
+                Root<Activity> activityRoot = cb.treat(root, Activity.class);
+                Predicate isActivity = cb.equal(root.type(), Activity.class);
+                Predicate hasGuide = cb.isTrue(activityRoot.get("guideIncluded"));
+                predicates.add(cb.or(cb.not(isActivity), hasGuide));
+            }
+
+            // 9b. Data di partenza: solo per i voli, confronta l'intera giornata locale
+            if (departureDate != null) {
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate onThatDay = cb.between(
+                        flightRoot.get("departureTime"),
+                        departureDate.atStartOfDay(),
+                        departureDate.plusDays(1).atStartOfDay().minusNanos(1)
+                );
+                predicates.add(cb.or(cb.not(isFlight), onThatDay));
+            }
+
+            // 9c. Posti minimi disponibili: solo per i voli
+            if (minSeats != null && minSeats > 0) {
+                Root<Flight> flightRoot = cb.treat(root, Flight.class);
+                Predicate isFlight = cb.equal(root.type(), Flight.class);
+                Predicate hasEnoughSeats = cb.greaterThanOrEqualTo(flightRoot.get("totalSeats"), minSeats);
+                predicates.add(cb.or(cb.not(isFlight), hasEnoughSeats));
+            }
+
+            // 9. Amenities (tutte richieste)
+            if (amenities != null && !amenities.isEmpty()) {
+                Root<Hotel> hotelRoot = cb.treat(root, Hotel.class);
+                Predicate isHotel = cb.equal(root.type(), Hotel.class);
+
+                List<Predicate> amenityChecks = new ArrayList<>();
+                for (String amenity : amenities) {
+                    Subquery<Long> subquery = query.subquery(Long.class);
+                    Root<Hotel> subRoot = subquery.correlate(hotelRoot);
+                    Join<Hotel, String> amenityJoin = subRoot.join("amenities");
+                    subquery.select(cb.literal(1L))
+                            .where(cb.equal(cb.lower(amenityJoin), amenity.toLowerCase()));
+                    amenityChecks.add(cb.exists(subquery));
+                }
+                Predicate hasAllAmenities = cb.and(amenityChecks.toArray(new Predicate[0]));
+                predicates.add(cb.or(cb.not(isHotel), hasAllAmenities));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
+     * Da comporre con .and() sulla specification base, solo per la ricerca con date
+     * (vedi CatalogServiceImpl.search): scarta a livello di query gli hotel che non
+     * hanno NEMMENO UNA RoomType con capienza sufficiente, prima del controllo preciso
+     * di disponibilità (che dipende da date/hold e resta quindi in memoria). Condizione
+     * necessaria ma non sufficiente: riduce drasticamente le righe caricate senza mai
+     * escludere un hotel che risulterebbe davvero disponibile.
+     */
+    public static Specification<CatalogItem> hasRoomTypeWithCapacity(int rooms) {
+        return (root, query, cb) -> {
+            Root<Hotel> hotelRoot = cb.treat(root, Hotel.class);
+            Predicate isHotel = cb.equal(root.type(), Hotel.class);
+
+            Subquery<Long> subquery = query.subquery(Long.class);
+            Root<Hotel> subRoot = subquery.correlate(hotelRoot);
+            Join<Hotel, RoomType> roomJoin = subRoot.join("roomTypes");
+            subquery.select(cb.literal(1L))
+                    .where(cb.greaterThanOrEqualTo(roomJoin.get("totalRooms"), rooms));
+
+            return cb.or(cb.not(isHotel), cb.exists(subquery));
         };
     }
 }
