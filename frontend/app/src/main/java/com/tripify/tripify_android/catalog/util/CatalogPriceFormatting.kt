@@ -25,7 +25,7 @@ object CatalogPriceFormatter {
 @Composable
 fun rememberCatalogCurrency(): State<String> {
     val context = LocalContext.current
-    val tokenManager = remember { TokenManager(context) }
+    val tokenManager = remember { TokenManager.getInstance(context) }
     return tokenManager.currencyFlow.collectAsState(initial = "EUR")
 }
 

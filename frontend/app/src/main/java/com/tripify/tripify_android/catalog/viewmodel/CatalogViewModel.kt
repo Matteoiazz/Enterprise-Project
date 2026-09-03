@@ -9,6 +9,7 @@ import com.tripify.tripify_android.catalog.ui.components.NO_PRICE_LIMIT
 import com.tripify.tripify_android.data.CatalogApi
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.data.parseApiError
 import com.tripify.tripify_android.data.model.CatalogItemDto
 import com.tripify.tripify_android.data.model.PagedResponse
 import com.tripify.tripify_android.data.model.RoomHoldRequest
@@ -42,6 +43,10 @@ class CatalogViewModel(
     private val api: CatalogApi,
     private val tokenManager: TokenManager? = null
 ) : ViewModel() {
+
+    private companion object {
+        const val PAGE_SIZE = 20
+    }
 
     private val _selectedCategory = MutableStateFlow("Tutti")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
@@ -96,6 +101,10 @@ class CatalogViewModel(
     private val _isLastPage = MutableStateFlow(true)
     val isLastPage: StateFlow<Boolean> = _isLastPage.asStateFlow()
     private var currentPage = 0
+
+    // Totale reale dei risultati (non solo quelli caricati): serve per "N risultati".
+    private val _totalResults = MutableStateFlow(0L)
+    val totalResults: StateFlow<Long> = _totalResults.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -201,8 +210,20 @@ class CatalogViewModel(
 
     fun clearErrorMessage() { _errorMessage.value = null }
 
+    private fun formatPrice(amount: Double, currency: String?): String {
+        val symbol = when (currency?.uppercase()) {
+            "EUR", null, "" -> "€"
+            "USD" -> "$"
+            "GBP" -> "£"
+            else -> currency.uppercase() + " "
+        }
+        val n = if (amount % 1.0 == 0.0) amount.toLong().toString()
+                else String.format(java.util.Locale.ITALY, "%.2f", amount)
+        return "$symbol $n"
+    }
+
     private fun mapDtoToItem(dto: CatalogItemDto): CatalogItem {
-        val priceString = "€ ${dto.price.toInt()}"
+        val priceString = formatPrice(dto.price, dto.currency)
         val immaginiReali = if (!dto.imageUrls.isNullOrEmpty()) dto.imageUrls else listOf(
             "https://picsum.photos/seed/${dto.id}A/600/800",
             "https://picsum.photos/seed/${dto.id}B/600/800"
@@ -252,19 +273,7 @@ class CatalogViewModel(
                     )
                 } ?: emptyList()
             )
-            "ACTIVITY" -> CatalogItem.Excursion(
-                id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
-                imageUrls = immaginiReali,
-                hostId = dto.hostId ?: "",
-                isUserGenerated = dto.isUserGenerated,
-                duration = dto.duration ?: "Da definire",
-                guideIncluded = dto.guideIncluded ?: false,
-                activityType = dto.activityType ?: "Esperienza",
-                meetingPoint = dto.meetingPoint ?: "Da definire",
-                maxParticipants = dto.maxParticipants,
-                rating = rating,
-                reviewCount = reviewCount
-            )
+            // "ACTIVITY" e qualsiasi tipo sconosciuto -> Escursione (stesso mapping)
             else -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
@@ -307,7 +316,7 @@ class CatalogViewModel(
             checkOut = _hotelCheckOut.value?.format(DateTimeFormatter.ISO_LOCAL_DATE),
             rooms = _hotelRooms.value.takeIf { it > 1 },
             page = page,
-            size = 20
+            size = PAGE_SIZE
         )
     }
 
@@ -327,6 +336,7 @@ class CatalogViewModel(
                 _catalogList.value = mappedItems
                 currentPage = 0
                 _isLastPage.value = pageResult.last
+                _totalResults.value = pageResult.totalElements
 
                 if (isUserSearch) {
                     _hasSearched.value = true
@@ -338,6 +348,7 @@ class CatalogViewModel(
                 e.printStackTrace()
                 _catalogList.value = emptyList()
                 _isLastPage.value = true
+                _totalResults.value = 0L
                 _errorMessage.value = "Impossibile collegarsi al server. Riprova più tardi."
                 _recommendedItems.value = emptyList()
             } finally {
@@ -435,7 +446,7 @@ class CatalogViewModel(
             amenities = null,
             directOnly = null,
             page = 0,
-            size = 20
+            size = PAGE_SIZE
         )
         return dtos.content
             .filter { it.id !in excludeIds }
@@ -477,8 +488,14 @@ class CatalogViewModel(
         }
     }
 
+    private var lastRecommendedForItemId: Int? = null
+
     fun onItemViewed(item: CatalogItem) {
         _hasSearched.value = true
+        // Aprire e riaprire lo stesso item (o scorrere avanti/indietro fra i
+        // dettagli) rilanciava ogni volta una searchCatalog per le raccomandazioni.
+        if (item.id == lastRecommendedForItemId) return
+        lastRecommendedForItemId = item.id
         val category = when (item) {
             is CatalogItem.Flight -> "Voli"
             is CatalogItem.Hotel -> "Hotel"
@@ -579,6 +596,12 @@ class CatalogViewModel(
         // la risposta più lenta del primo potrebbe arrivare dopo e sovrascrivere
         // recensioni/stato-prenotato mostrati per il secondo.
         reviewsAndBookingJob?.cancel()
+        // Azzera lo stato del vecchio item: se una delle due chiamate qui sotto
+        // fallisce per il nuovo item, senza questo reset resterebbero appiccicati
+        // recensioni e "hai prenotato" del precedente (form recensione mostrato
+        // a sproposito -> invio -> 403 dal backend).
+        _itemReviews.value = emptyList()
+        _hasBookedCurrentItem.value = false
         reviewsAndBookingJob = viewModelScope.launch {
             tokenManager?.let { tm ->
                 try {
@@ -604,16 +627,6 @@ class CatalogViewModel(
         }
     }
 
-    private fun reviewServerError(res: retrofit2.Response<*>): String? {
-        val raw = try { res.errorBody()?.string() } catch (e: Exception) { null }
-        if (raw.isNullOrBlank()) return null
-        return try {
-            org.json.JSONObject(raw).optString("error").takeIf { it.isNotBlank() } ?: raw
-        } catch (e: Exception) {
-            raw
-        }
-    }
-
     fun submitReview(itemId: Long, rating: Int, comment: String, showName: Boolean = false, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -626,10 +639,11 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        onError(reviewServerError(res)
-                            ?: "Impossibile inviare la recensione. Assicurati di aver prenotato.")
+                        onError(res.parseApiError("Impossibile inviare la recensione. Assicurati di aver prenotato."))
                     }
                 } ?: onError("Devi accedere per recensire.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }
@@ -649,9 +663,11 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        onError(reviewServerError(res) ?: "Impossibile modificare la recensione.")
+                        onError(res.parseApiError("Impossibile modificare la recensione."))
                     }
                 } ?: onError("Devi accedere per modificare la recensione.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }
@@ -668,9 +684,11 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        onError(reviewServerError(res) ?: "Impossibile eliminare la recensione.")
+                        onError(res.parseApiError("Impossibile eliminare la recensione."))
                     }
                 } ?: onError("Devi accedere per eliminare la recensione.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }
@@ -690,9 +708,11 @@ class CatalogViewModel(
                         loadReviewsAndBookingStatus(itemId)
                         onSuccess()
                     } else {
-                        onError(reviewServerError(res) ?: "Impossibile inviare la risposta.")
+                        onError(res.parseApiError("Impossibile inviare la risposta."))
                     }
                 } ?: onError("Devi accedere per rispondere.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onError("Errore di rete. Controlla la connessione.")
             }
@@ -716,7 +736,7 @@ class CatalogViewModel(
                             }
                         }
                     } else {
-                        onError(reviewServerError(res) ?: "Impossibile registrare il voto.")
+                        onError(res.parseApiError("Impossibile registrare il voto."))
                     }
                 } ?: onError("Devi accedere per votare le recensioni.")
             } catch (e: CancellationException) {

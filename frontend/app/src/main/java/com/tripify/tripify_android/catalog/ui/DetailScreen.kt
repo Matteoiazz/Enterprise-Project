@@ -144,7 +144,7 @@ private fun DetailContent(
     val isLoggedIn by viewModel.isLoggedInState.collectAsState()
 
     val currency by rememberCatalogCurrency()
-    val itineraryApi = remember { ItineraryRetrofit.create(com.tripify.tripify_android.data.TokenManager(context)) }
+    val itineraryApi = remember { ItineraryRetrofit.create(com.tripify.tripify_android.data.TokenManager.getInstance(context)) }
     LaunchedEffect(item.id) {
         try {
             val response = itineraryApi.getLikedCatalogItemIds()
@@ -157,7 +157,7 @@ private fun DetailContent(
 
     var currentUserId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        val token = com.tripify.tripify_android.data.TokenManager(context).tokenFlow.first()
+        val token = com.tripify.tripify_android.data.TokenManager.getInstance(context).tokenFlow.first()
         currentUserId = token?.let { com.tripify.tripify_android.itinerary.util.extractUserIdFromToken(it) }
     }
 
@@ -438,7 +438,7 @@ private fun DetailContent(
                     IconButton(
                         onClick = {
                             scope.launch {
-                                val token = com.tripify.tripify_android.data.TokenManager(context).tokenFlow.first()
+                                val token = com.tripify.tripify_android.data.TokenManager.getInstance(context).tokenFlow.first()
                                 if (token.isNullOrBlank()) {
                                     snackbarHostState.showSnackbar("Accedi per salvare tra i preferiti")
                                     return@launch
@@ -677,7 +677,7 @@ private fun DetailContent(
                     OutlinedButton(
                         onClick = {
                             scope.launch {
-                                val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
+                                val tokenManager = com.tripify.tripify_android.data.TokenManager.getInstance(context)
                                 val token = tokenManager.tokenFlow.first()
                                 if (token.isNullOrBlank()) {
                                     snackbarHostState.showSnackbar("Accedi per contattare l'organizzatore")
@@ -720,7 +720,7 @@ private fun DetailContent(
                 OutlinedButton(
                     onClick = {
                         scope.launch {
-                            val tokenManager = com.tripify.tripify_android.data.TokenManager(context)
+                            val tokenManager = com.tripify.tripify_android.data.TokenManager.getInstance(context)
                             val token = tokenManager.tokenFlow.first()
                             if (token.isNullOrBlank()) {
                                 snackbarHostState.showSnackbar("Accedi per aggiungere a un itinerario")

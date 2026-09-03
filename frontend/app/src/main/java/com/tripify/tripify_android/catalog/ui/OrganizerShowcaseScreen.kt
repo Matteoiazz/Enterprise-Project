@@ -49,7 +49,7 @@ fun OrganizerShowcaseScreen(
     onChatWithOrganizer: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val tokenManager = remember { TokenManager(context) }
+    val tokenManager = remember { TokenManager.getInstance(context) }
     val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -141,8 +141,10 @@ fun OrganizerShowcaseScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(text = displayName, style = CatalogType.Hero, color = CatalogColors.Ink, textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = org.email.orEmpty(), style = CatalogType.Body, color = CatalogColors.InkMuted)
+                        if (!org.companyName.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = org.companyName!!, style = CatalogType.Body, color = CatalogColors.InkMuted)
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(

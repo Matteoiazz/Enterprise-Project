@@ -12,8 +12,11 @@ import com.tripify.tripify_android.data.model.CreateFlightRequest
 import com.tripify.tripify_android.data.model.CreateHotelRequest
 import com.tripify.tripify_android.data.model.OrganizerItemDto
 import com.tripify.tripify_android.data.model.ReceivedBookingLineDto
+import com.tripify.tripify_android.data.parseApiError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -26,16 +29,16 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     private val bookingApi = RetrofitClient.createBookingApi(tokenManager)
 
     private val _myItems = MutableStateFlow<List<OrganizerItemDto>>(emptyList())
-    val myItems: StateFlow<List<OrganizerItemDto>> = _myItems
+    val myItems: StateFlow<List<OrganizerItemDto>> = _myItems.asStateFlow()
 
     private val _receivedBookings = MutableStateFlow<List<ReceivedBookingLineDto>>(emptyList())
-    val receivedBookings: StateFlow<List<ReceivedBookingLineDto>> = _receivedBookings
+    val receivedBookings: StateFlow<List<ReceivedBookingLineDto>> = _receivedBookings.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     fun loadMyItems() {
         viewModelScope.launch {
@@ -43,11 +46,16 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
             try {
                 val response = catalogApi.getMyItems()
                 _myItems.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
-                if (!response.isSuccessful) _errorMessage.value = "Impossibile caricare i tuoi annunci"
+                if (!response.isSuccessful) {
+                    _errorMessage.value = response.parseApiError("Impossibile caricare i tuoi annunci")
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"
+            } finally {
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
 
@@ -57,11 +65,16 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
             try {
                 val response = bookingApi.getReceivedBookings()
                 _receivedBookings.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
-                if (!response.isSuccessful) _errorMessage.value = "Impossibile caricare le prenotazioni ricevute"
+                if (!response.isSuccessful) {
+                    _errorMessage.value = response.parseApiError("Impossibile caricare le prenotazioni ricevute")
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"
+            } finally {
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
 
@@ -75,36 +88,28 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
 
     fun deleteItem(id: Int, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.deleteItem(id) }
 
+    fun createHotel(request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) =
+        saveHotel(id = null, request = request, imageUris = imageUris, context = context, onResult = onResult)
 
-    fun createHotel(request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
+    fun updateHotel(id: Int, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) =
+        saveHotel(id = id, request = request, imageUris = imageUris, context = context, onResult = onResult)
+
+    // Creazione e modifica hotel: stesso flusso (salva l'annuncio, poi carica le
+    // eventuali foto). Differenza: in creazione l'id lo restituisce il backend.
+    private fun saveHotel(id: Int?, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                val response = catalogApi.createHotel(request)
+                val response = if (id == null) catalogApi.createHotel(request) else catalogApi.updateHotel(id, request)
                 if (!response.isSuccessful) {
-                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    _errorMessage.value = response.parseApiError("Operazione non riuscita")
                     onResult(false); return@launch
                 }
-                val newId = response.body()?.id
-                if (newId != null && imageUris.isNotEmpty()) uploadImages(newId, imageUris, context)
+                val itemId = id ?: response.body()?.id
+                if (itemId != null && imageUris.isNotEmpty()) uploadImages(itemId, imageUris, context)
                 loadMyItems()
                 onResult(true)
-            } catch (e: Exception) {
-                _errorMessage.value = "Nessuna connessione al server"; onResult(false)
-            }
-        }
-    }
-
-    fun updateHotel(id: Int, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val response = catalogApi.updateHotel(id, request)
-                if (!response.isSuccessful) {
-                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
-                    onResult(false); return@launch
-                }
-                if (imageUris.isNotEmpty()) uploadImages(id, imageUris, context)
-                loadMyItems()
-                onResult(true)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"; onResult(false)
             }
@@ -117,6 +122,8 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
                 val response = catalogApi.deleteItemImage(id, imageUrl)
                 if (!response.isSuccessful) _errorMessage.value = "Impossibile rimuovere la foto"
                 onResult(response.isSuccessful)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"; onResult(false)
             }
@@ -128,8 +135,10 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
             try {
                 val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@mapIndexedNotNull null
                 val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                // "image/jpeg" -> "jpg", "image/png" -> "png", altro/strano -> "jpg"
+                val ext = mime.substringAfterLast('/', "jpg").takeWhile { it.isLetterOrDigit() }.ifBlank { "jpg" }
                 val body = bytes.toRequestBody(mime.toMediaTypeOrNull())
-                MultipartBody.Part.createFormData("files", "photo_$index.${mime.substringAfter('/', "jpg")}", body)
+                MultipartBody.Part.createFormData("files", "photo_$index.$ext", body)
             } catch (e: Exception) {
                 null
             }
@@ -138,6 +147,8 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
         try {
             val response = catalogApi.uploadItemImages(itemId, parts)
             if (!response.isSuccessful) _errorMessage.value = "Annuncio salvato, ma alcune foto non sono state caricate"
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _errorMessage.value = "Annuncio salvato, ma le foto non sono state caricate"
         }
@@ -151,9 +162,11 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
                     loadMyItems()
                     onResult(true)
                 } else {
-                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    _errorMessage.value = response.parseApiError("Operazione non riuscita")
                     onResult(false)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"
                 onResult(false)

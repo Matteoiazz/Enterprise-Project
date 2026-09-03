@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.data.parseApiError
 import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.Period
@@ -90,8 +91,7 @@ class CompanionsViewModel(
                 apiService.addCompanion(newCompanion)
                 loadCompanions()
             } catch (e: HttpException) {
-                val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
-                _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
+                _errorMessage.value = e.parseApiError("Errore durante il salvataggio.")
                 Log.e("CompanionsVM", "Add Error", e)
             } catch (e: CancellationException) {
                 throw e

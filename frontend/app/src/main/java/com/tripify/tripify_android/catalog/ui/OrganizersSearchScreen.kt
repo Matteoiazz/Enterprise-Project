@@ -45,12 +45,15 @@ fun OrganizersSearchScreen(
         viewModel.loadOrganizers()
     }
 
-    // Filtriamo gli organizzatori in tempo reale
-    val filteredOrganizers = organizers.filter { org ->
-        val fullName = "${org.name.orEmpty()} ${org.surname.orEmpty()}".lowercase()
-        val email = org.email.orEmpty().lowercase()
-        val query = searchQuery.lowercase()
-        fullName.contains(query) || email.contains(query)
+    // Filtro in tempo reale, ricalcolato solo quando cambia la lista o la query
+    // (prima girava a ogni recomposition).
+    val filteredOrganizers = remember(organizers, searchQuery) {
+        val query = searchQuery.trim().lowercase()
+        if (query.isEmpty()) organizers
+        else organizers.filter { org ->
+            val fullName = "${org.name.orEmpty()} ${org.surname.orEmpty()}".lowercase()
+            fullName.contains(query) || org.companyName.orEmpty().lowercase().contains(query)
+        }
     }
 
     Scaffold(
@@ -180,15 +183,17 @@ fun OrganizersSearchScreen(
                     }
                 }
             } else {
-                items(filteredOrganizers, key = { it.email ?: it.hashCode().toString() }) { org ->
+                items(filteredOrganizers, key = { it.id ?: it.email ?: it.hashCode().toString() }) { org ->
                     val displayName = "${org.name ?: ""} ${org.surname ?: ""}".trim().ifEmpty { "Organizzatore" }
-                    val organizerEmail = org.email
+                    // Naviga col sub Keycloak (id), non con l'email: cosi' non
+                    // passa PII nella route e niente problemi di URL-encoding.
+                    val organizerRef = org.id ?: org.email
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 14.dp)
-                            .clickable { organizerEmail?.let { onNavigateToOrganizer(it) } },
+                            .clickable { organizerRef?.let { onNavigateToOrganizer(it) } },
                         shape = CatalogShapes.Card,
                         colors = CardDefaults.cardColors(containerColor = CatalogColors.Surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -232,14 +237,16 @@ fun OrganizersSearchScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = organizerEmail.orEmpty(),
-                                    style = CatalogType.Caption,
-                                    color = CatalogColors.InkMuted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                if (!org.companyName.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = org.companyName!!,
+                                        style = CatalogType.Caption,
+                                        color = CatalogColors.InkMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(
                                     modifier = Modifier

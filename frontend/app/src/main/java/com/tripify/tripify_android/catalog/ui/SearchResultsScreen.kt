@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
@@ -45,6 +45,7 @@ fun SearchResultsScreen(
     val hasSearched by viewModel.hasSearched.collectAsState()
     val recommendedItems by viewModel.recommendedItems.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val totalResults by viewModel.totalResults.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -101,7 +102,7 @@ fun SearchResultsScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = CatalogColors.Ink)
                         }
                     },
                     actions = {
@@ -165,7 +166,7 @@ fun SearchResultsScreen(
                 )
                 if (!isLoading) {
                     Text(
-                        text = "${catalogItems.size} risultati",
+                        text = if (totalResults == 1L) "1 risultato" else "$totalResults risultati",
                         style = CatalogType.LabelStrong,
                         color = CatalogColors.InkMuted
                     )

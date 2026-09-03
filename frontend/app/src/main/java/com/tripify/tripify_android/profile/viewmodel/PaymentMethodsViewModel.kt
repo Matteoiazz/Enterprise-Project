@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.model.PaymentMethodDto
+import com.tripify.tripify_android.data.parseApiError
 import com.tripify.tripify_android.profile.api.ProfileApiService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -95,8 +96,7 @@ class PaymentMethodsViewModel(private val apiService: ProfileApiService) : ViewM
             } catch (e: CancellationException) {
                 throw e
             } catch (e: HttpException) {
-                val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
-                _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
+                _errorMessage.value = e.parseApiError("Errore durante il salvataggio.")
             } catch (e: Exception) {
                 _errorMessage.value = "Errore durante il salvataggio."
             } finally {
