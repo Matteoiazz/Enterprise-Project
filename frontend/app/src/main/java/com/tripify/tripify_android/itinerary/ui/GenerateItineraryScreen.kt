@@ -2,6 +2,7 @@ package com.tripify.tripify_android.itinerary.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -216,47 +217,83 @@ fun GenerateItineraryScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            val returnFlightBgColor by androidx.compose.animation.animateColorAsState(
+                targetValue = if (wantReturnFlight) CatalogColors.AccentSoft else CatalogColors.Surface,
+                animationSpec = androidx.compose.animation.core.tween(300),
+                label = "returnFlightBg"
+            )
+
+            val returnFlightBorderColor by androidx.compose.animation.animateColorAsState(
+                targetValue = if (wantReturnFlight) CatalogColors.Accent else CatalogColors.Hairline,
+                animationSpec = androidx.compose.animation.core.tween(300),
+                label = "returnFlightBorder"
+            )
+
             Row(
-                modifier = Modifier.fillMaxWidth().background(CatalogColors.Surface, CatalogShapes.Field)
-                    .border(1.dp, CatalogColors.Hairline, CatalogShapes.Field)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(CatalogShapes.Field)
+                    .background(returnFlightBgColor)
+                    .border(1.dp, returnFlightBorderColor, CatalogShapes.Field)
+                    .clickable(enabled = !isGenerating) { wantReturnFlight = !wantReturnFlight }
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.FlightLand, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text("Aggiungi il volo di ritorno", style = CatalogType.BodyStrong, color = CatalogColors.Ink)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(if (wantReturnFlight) CatalogColors.Accent.copy(alpha = 0.15f) else CatalogColors.SurfaceMuted),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.FlightLand,
+                            contentDescription = null,
+                            tint = if (wantReturnFlight) CatalogColors.AccentDark else CatalogColors.InkSubtle,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.padding(end = 12.dp)) {
                         Text(
-                            "Se non lo troviamo disponibile, generiamo comunque il resto",
-                            style = CatalogType.Caption, color = CatalogColors.InkMuted
+                            text = "Volo di ritorno",
+                            style = CatalogType.BodyStrong,
+                            color = if (wantReturnFlight) CatalogColors.AccentDark else CatalogColors.Ink
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Aggiungilo automaticamente se disponibile nel catalogo",
+                            style = CatalogType.Caption,
+                            color = if (wantReturnFlight) CatalogColors.Accent else CatalogColors.InkMuted
                         )
                     }
                 }
+
                 Switch(
                     checked = wantReturnFlight,
-                    onCheckedChange = { wantReturnFlight = it },
+                    onCheckedChange = null,
                     enabled = !isGenerating,
-                    colors = SwitchDefaults.colors(checkedTrackColor = CatalogColors.AccentDark)
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = CatalogColors.AccentDark,
+                        uncheckedThumbColor = CatalogColors.Surface,
+                        uncheckedTrackColor = CatalogColors.Hairline,
+                        uncheckedBorderColor = CatalogColors.Hairline
+                    )
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
             Text("BUDGET (OPZIONALE)", style = CatalogType.Overline, color = CatalogColors.InkMuted)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = budgetText,
-                onValueChange = { new -> if (new.all { it.isDigit() }) budgetText = new },
-                placeholder = { Text("es. 800", style = CatalogType.Label, color = CatalogColors.InkSubtle) },
-                leadingIcon = { Icon(Icons.Filled.Payments, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(18.dp)) },
-                singleLine = true,
-                shape = CatalogShapes.Field,
-                colors = textFieldColors,
-                enabled = !isGenerating,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
 
             Spacer(modifier = Modifier.height(32.dp))
             Button(
