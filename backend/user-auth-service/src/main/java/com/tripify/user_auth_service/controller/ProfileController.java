@@ -161,12 +161,13 @@ public class ProfileController {
 
     @GetMapping("/organizers")
     public ResponseEntity<List<com.tripify.user_auth_service.dto.response.UserResponse>> getAllOrganizers(@AuthenticationPrincipal Jwt jwt) {
-        String currentKeycloakId = jwt.getSubject();
-        String currentEmail = jwt.getClaimAsString("email");
+        // Endpoint pubblico: senza login jwt e' null, la lista si restituisce lo stesso.
+        String currentKeycloakId = jwt != null ? jwt.getSubject() : null;
+        String currentEmail = jwt != null ? jwt.getClaimAsString("email") : null;
 
         List<com.tripify.user_auth_service.dto.response.UserResponse> organizers = profileService.getAllOrganizers().stream()
                 .map(org -> {
-                    if (org.email().equalsIgnoreCase(currentEmail)) {
+                    if (currentEmail != null && org.email().equalsIgnoreCase(currentEmail)) {
                         return new com.tripify.user_auth_service.dto.response.UserResponse(
                                 currentKeycloakId,
                                 org.name(), org.surname(), org.email(), org.profilePictureUrl(),
