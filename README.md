@@ -145,7 +145,9 @@ Oppure **registra un nuovo account** o **accedi con Google** (vedi sotto).
 La registrazione avviene sulla pagina di Keycloak (link dalla schermata di login dell'app). Nel form si sceglie il **tipo di account**:
 
 - **Viaggiatore** → `ROLE_TRAVELER`
-- **Organizzatore** → `ROLE_ORGANIZER` (compila anche i campi azienda: ragione sociale, P. IVA, ecc.)
+- **Organizzatore** → `ROLE_ORGANIZER`. Compila anche i campi azienda (ragione sociale, Partita IVA).
+
+> **Partita IVA.** Il campo è validato sul serio: 11 cifre **con cifra di controllo corretta** (algoritmo italiano della P. IVA). Un numero a caso viene rifiutato con "Partita IVA non valida". Per la prova usa **`12345678903`**, che supera il controllo.
 
 La **verifica email è attiva**: dopo la registrazione arriva un'email a `tripify.noreply@gmail.com` con un link da cliccare prima di poter accedere.
 
