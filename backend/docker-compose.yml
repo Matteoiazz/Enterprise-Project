@@ -260,7 +260,7 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/api/v1/catalog/items/search"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8082/api/v1/catalog/items/search"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -286,7 +286,7 @@ services:
       CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
       BOOKING_SERVICE_URL: http://booking-service:8083
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/api/v1/itinerary/public"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8085/api/v1/itinerary/public"]
       interval: 10s
       timeout: 5s
       retries: 10

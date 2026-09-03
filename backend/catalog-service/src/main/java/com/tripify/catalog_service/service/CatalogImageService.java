@@ -33,7 +33,11 @@ public class CatalogImageService {
                 throw new IllegalArgumentException("Sono ammesse solo immagini");
             }
             try {
-                Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(),
+                byte[] bytes = file.getBytes();
+                if (!looksLikeImage(bytes)) {
+                    throw new IllegalArgumentException("Sono ammesse solo immagini");
+                }
+                Map<?, ?> result = cloudinary.uploader().upload(bytes,
                         ObjectUtils.asMap("folder", "tripify_catalog"));
                 Object url = result.get("secure_url") != null ? result.get("secure_url") : result.get("url");
                 if (url != null) {
@@ -45,5 +49,22 @@ public class CatalogImageService {
             }
         }
         return urls;
+    }
+
+    /**
+     * Il Content-Type multipart è dichiarato dal client e falsificabile a piacere:
+     * controlla invece i byte iniziali del file (magic number) contro le firme dei
+     * formati immagine più comuni, prima di caricarlo sotto un URL pubblico che
+     * sembra un'immagine legittima dell'app.
+     */
+    private boolean looksLikeImage(byte[] bytes) {
+        if (bytes.length < 12) return false;
+        if ((bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF) return true; // JPEG
+        if ((bytes[0] & 0xFF) == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') return true; // PNG
+        if (bytes[0] == 'G' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == '8') return true; // GIF
+        if (bytes[0] == 'B' && bytes[1] == 'M') return true; // BMP
+        if (bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') return true; // WEBP
+        return false;
     }
 }

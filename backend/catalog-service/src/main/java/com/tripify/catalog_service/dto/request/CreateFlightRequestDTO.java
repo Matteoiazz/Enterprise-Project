@@ -65,4 +65,9 @@ public class CreateFlightRequestDTO {
     @NotEmpty(message = "serve almeno una classe tariffaria")
     @Valid
     private List<FareClassRequestDTO> fareClasses;
+
+    @AssertTrue(message = "l'orario di arrivo deve essere successivo a quello di partenza")
+    public boolean isArrivalAfterDeparture() {
+        return departureTime == null || arrivalTime == null || arrivalTime.isAfter(departureTime);
+    }
 }

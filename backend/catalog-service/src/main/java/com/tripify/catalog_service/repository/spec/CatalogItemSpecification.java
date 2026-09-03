@@ -11,6 +11,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +38,16 @@ public class CatalogItemSpecification {
             // un item disattivato (es. per chi lo ha già prenotato), ma non deve comparire
             // in ricerca.
             predicates.add(cb.isTrue(root.get("isActive")));
+
+            // 0b. Un volo già partito resta a catalogo (storico di chi lo ha prenotato,
+            // vedi FlightCleanupService), ma non deve comparire nella ricerca generale:
+            // altrimenti un volo con un hold CONFIRMED, mai ripulito dal cleanup,
+            // continuerebbe a essere trovabile indefinitamente anche da chi non l'ha
+            // mai prenotato. Il fetch diretto per id resta comunque possibile.
+            Root<Flight> flightForDepartureCheck = cb.treat(root, Flight.class);
+            Predicate isFlightType = cb.equal(root.type(), Flight.class);
+            Predicate departureInFuture = cb.greaterThan(flightForDepartureCheck.get("departureTime"), LocalDateTime.now());
+            predicates.add(cb.or(cb.not(isFlightType), departureInFuture));
 
             // 1. Categoria
             if (category != null && !category.equalsIgnoreCase("Tutti")) {

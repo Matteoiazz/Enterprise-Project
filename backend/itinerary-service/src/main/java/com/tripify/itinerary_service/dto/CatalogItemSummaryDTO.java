@@ -21,6 +21,6 @@ public record CatalogItemSummaryDTO(
         List<RoomTypeSummaryDTO> roomTypes,
         List<FareClassSummaryDTO> fareClasses
 ) {
-    public record RoomTypeSummaryDTO(Long id, BigDecimal price) {}
-    public record FareClassSummaryDTO(Long id, BigDecimal price) {}
+    public record RoomTypeSummaryDTO(Long id, BigDecimal price, Integer maxOccupancy) {}
+    public record FareClassSummaryDTO(Long id, BigDecimal price, Integer totalSeats) {}
 }

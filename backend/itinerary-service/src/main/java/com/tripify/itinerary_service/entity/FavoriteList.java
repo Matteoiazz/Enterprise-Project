@@ -94,6 +94,19 @@ public class FavoriteList {
     private LocalDateTime createdAt;
 
     /**
+     * Locking ottimistico: senza, due collaboratori che modificano la stessa lista in
+     * rapida successione (es. addItemToList) rischiano un lost update silenzioso —
+     * l'ultimo a salvare sovrascrive la collezione "items" con lo snapshot che aveva
+     * lui, perdendo l'aggiunta dell'altro senza nessuna eccezione. Con @Version, il
+     * secondo salvataggio basato su uno snapshot ormai superato fallisce esplicitamente
+     * (vedi GlobalExceptionHandler) invece di corrompere silenziosamente i dati.
+     */
+    @Version
+    @Column(name = "version", nullable = false, columnDefinition = "bigint default 0")
+    @Builder.Default
+    private Long version = 0L;
+
+    /**
      * Non persistito: valorizzato a runtime in base a chi sta chiedendo la lista,
      * cosi' il frontend sa se mostrare il cuore pieno o vuoto senza dover tenere
      * uno stato locale separato.

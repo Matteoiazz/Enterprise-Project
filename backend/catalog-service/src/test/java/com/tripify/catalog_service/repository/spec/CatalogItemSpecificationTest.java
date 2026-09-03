@@ -46,8 +46,8 @@ class CatalogItemSpecificationTest {
         flightDiretto.setArrivalAirport("LIN");
         flightDiretto.setDepartureCity("Roma");
         flightDiretto.setArrivalCity("Milano");
-        flightDiretto.setDepartureTime(LocalDateTime.now());
-        flightDiretto.setArrivalTime(LocalDateTime.now().plusHours(1));
+        flightDiretto.setDepartureTime(LocalDateTime.now().plusDays(1));
+        flightDiretto.setArrivalTime(LocalDateTime.now().plusDays(1).plusHours(1));
         flightDiretto.setTotalSeats(50);
         flightDiretto.setStops(0);
 
@@ -64,8 +64,8 @@ class CatalogItemSpecificationTest {
         flightConScalo.setArrivalAirport("LHR");
         flightConScalo.setDepartureCity("Roma");
         flightConScalo.setArrivalCity("Londra");
-        flightConScalo.setDepartureTime(LocalDateTime.now());
-        flightConScalo.setArrivalTime(LocalDateTime.now().plusHours(3));
+        flightConScalo.setDepartureTime(LocalDateTime.now().plusDays(1));
+        flightConScalo.setArrivalTime(LocalDateTime.now().plusDays(1).plusHours(3));
         flightConScalo.setTotalSeats(20);
         flightConScalo.setStops(1);
 
@@ -246,13 +246,15 @@ class CatalogItemSpecificationTest {
 
     @Test
     void filtroDataPartenza_trovaSoloIVoliDiQuelGiorno_nonEscludeGliAltriTipi() {
-        var domani = java.time.LocalDate.now().plusDays(1);
+        // I voli della fixture partono domani (devono restare nel futuro anche quando
+        // il filtro "0b" su departureTime > now esclude i voli già partiti): un giorno
+        // senza nessun volo è quindi dopodomani, non domani.
+        var senzaVoli = java.time.LocalDate.now().plusDays(2);
         var spec = CatalogItemSpecification.withDynamicFilters(
-                "Tutti", null, null, null, null, null, null, null, null, domani, null
+                "Tutti", null, null, null, null, null, null, null, null, senzaVoli, null
         );
         List<CatalogItem> risultati = repository.findAll(spec);
 
-        // Nessun volo del dataset parte "domani": devono restituirsi solo gli item non-volo.
         assertThat(risultati).hasSize(4);
         assertThat(risultati).noneMatch(item -> item instanceof Flight);
     }

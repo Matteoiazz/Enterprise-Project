@@ -59,4 +59,9 @@ public class Flight extends CatalogItem {
 
     @OneToMany(mappedBy = "flight", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FareClass> fareClasses = new ArrayList<>();
+
+    @jakarta.validation.constraints.AssertTrue(message = "l'orario di arrivo deve essere successivo a quello di partenza")
+    public boolean isArrivalAfterDeparture() {
+        return departureTime == null || arrivalTime == null || arrivalTime.isAfter(departureTime);
+    }
 }

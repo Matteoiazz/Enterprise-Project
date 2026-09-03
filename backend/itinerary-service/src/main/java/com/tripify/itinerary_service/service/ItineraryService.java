@@ -24,17 +24,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +54,7 @@ public class ItineraryService {
     private final CatalogItemLikeRepository catalogItemLikeRepository;
     private final CatalogClient catalogClient;
     private final BookingClient bookingClient;
+    private final PlatformTransactionManager transactionManager;
 
     public FavoriteList createList(String name, String ownerId) {
         FavoriteList list = FavoriteList.builder()
@@ -80,6 +86,273 @@ public class ItineraryService {
 
         list.getItems().add(newItem);
         repository.save(list);
+    }
+
+    /**
+     * Copia i componenti di una lista accessibile (pubblica, propria o condivisa) in
+     * una nuova lista privata di proprietà di chi clona. Stesso identico contenuto
+     * (componenti, quantità, date), ma like/visibilità/link ripartono da zero, come
+     * una lista appena creata a mano — non è collegata all'originale in alcun modo.
+     */
+    public FavoriteList cloneList(Long sourceId, String requesterId) {
+        FavoriteList source = getAccessibleById(sourceId, requesterId);
+        List<FavoriteListItem> copiedItems = new ArrayList<>();
+        for (FavoriteListItem item : source.getItems()) {
+            copiedItems.add(FavoriteListItem.builder()
+                    .catalogItemId(item.getCatalogItemId())
+                    .quantity(item.getQuantity())
+                    .roomTypeId(item.getRoomTypeId())
+                    .fareClassId(item.getFareClassId())
+                    .checkIn(item.getCheckIn())
+                    .checkOut(item.getCheckOut())
+                    .activityDate(item.getActivityDate())
+                    .build());
+        }
+        FavoriteList clone = FavoriteList.builder()
+                .name("Copia di " + source.getName())
+                .ownerId(requesterId)
+                .items(copiedItems)
+                .build();
+        return repository.save(clone);
+    }
+
+    private static final int GENERATE_CANDIDATE_POOL = 100;
+
+    /** Vero se almeno una tariffa ha abbastanza posti per tutta la comitiva (o se il volo non espone la capienza). */
+    private boolean flightHasCapacityFor(CatalogItemSummaryDTO flight, int travelers) {
+        if (flight.fareClasses() == null || flight.fareClasses().isEmpty()) return true;
+        return flight.fareClasses().stream().anyMatch(f -> f.totalSeats() == null || f.totalSeats() >= travelers);
+    }
+
+    /** Tariffa più economica TRA QUELLE con posti sufficienti per tutta la comitiva. */
+    private CatalogItemSummaryDTO.FareClassSummaryDTO cheapestFareClassFor(CatalogItemSummaryDTO flight, int travelers) {
+        if (flight.fareClasses() == null || flight.fareClasses().isEmpty()) return null;
+        return flight.fareClasses().stream()
+                .filter(f -> f.totalSeats() == null || f.totalSeats() >= travelers)
+                .min(Comparator.comparing(f -> f.price() != null ? f.price() : BigDecimal.ZERO))
+                .orElse(null);
+    }
+
+    private record RoomChoice(CatalogItemSummaryDTO.RoomTypeSummaryDTO roomType, int rooms, BigDecimal totalPerNight) {}
+
+    /**
+     * La combinazione camera+numero di camere che minimizza il costo TOTALE per notte
+     * per tutta la comitiva — non la camera con il prezzo unitario più basso: una
+     * camera da 80€ che ospita 2 persone richiede 2 camere (160€) per una comitiva di
+     * 4, mentre una da 100€ che ne ospita 4 basta da sola (100€) ed è più economica nel
+     * complesso pur costando di più "a listino".
+     */
+    private RoomChoice cheapestRoomChoiceFor(CatalogItemSummaryDTO hotel, int travelers) {
+        if (hotel.roomTypes() == null || hotel.roomTypes().isEmpty()) return null;
+        RoomChoice best = null;
+        for (CatalogItemSummaryDTO.RoomTypeSummaryDTO roomType : hotel.roomTypes()) {
+            int occupancy = (roomType.maxOccupancy() != null && roomType.maxOccupancy() > 0) ? roomType.maxOccupancy() : travelers;
+            int rooms = (int) Math.ceil(travelers / (double) occupancy);
+            BigDecimal totalPerNight = (roomType.price() != null ? roomType.price() : BigDecimal.ZERO)
+                    .multiply(BigDecimal.valueOf(rooms));
+            if (best == null || totalPerNight.compareTo(best.totalPerNight()) < 0) {
+                best = new RoomChoice(roomType, rooms, totalPerNight);
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Genera una bozza di itinerario per una città: il volo più economico da
+     * departureCity che vi atterra (con posti per tutta la comitiva), l'hotel più
+     * economico in città per tutta la durata (camere quante ne servono per la
+     * comitiva), fino a un'attività al giorno (le più economiche disponibili), ed
+     * eventualmente un volo di ritorno se richiesto — pescati da catalog-service con
+     * ricerche per destinazione. Hotel e attività sono ancorati alla stessa stringa di
+     * arrivalCity del volo scelto (non alla città passata dall'utente): la validazione
+     * di coerenza confronta stringhe esatte, quindi un'incoerenza di maiuscole/spazi
+     * tra il testo digitato e i dati di catalogo non deve far fallire una generazione
+     * altrimenti corretta. Se catalog-service non ha un volo per quella tratta (o
+     * abbastanza posti per la comitiva), fallisce con un messaggio chiaro invece di
+     * produrre un itinerario incoerente; il volo di ritorno invece non è mai motivo di
+     * fallimento — se non se ne trova uno adatto (o il budget non lo copre), l'utente
+     * può sempre aggiungerlo a mano. Il risultato finale passa comunque dalla stessa
+     * validazione usata per l'aggiunta manuale (validateItineraryCoherence).
+     */
+    public FavoriteList generateItinerary(String departureCity, String city, int days, int travelers,
+                                           boolean wantReturnFlight, BigDecimal budget, String ownerId) {
+        String from = departureCity.trim();
+        String to = city.trim();
+        List<CatalogItemSummaryDTO> candidates;
+        try {
+            candidates = catalogClient.searchByDestination(to, GENERATE_CANDIDATE_POOL).content();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Impossibile contattare il catalogo, riprova più tardi");
+        }
+
+        Comparator<CatalogItemSummaryDTO> byPrice = Comparator.comparing(
+                c -> c.price() != null ? c.price() : BigDecimal.ZERO);
+
+        // Un volo entra in gioco solo se in quella stessa città (stringa esatta,
+        // case-insensitive) esiste già almeno un hotel: senza questo, il volo più
+        // economico potrebbe atterrare in una città "vicina" nel testo (es. una
+        // ricerca su "Roma" che include anche un volo per "Roma Fiumicino") per cui
+        // non esiste nessun hotel con la stessa identica stringa città, facendo
+        // fallire la generazione con un "nessun hotel disponibile" fuorviante anche
+        // quando la destinazione richiesta ne ha eccome.
+        Set<String> hotelCities = candidates.stream()
+                .filter(c -> "Hotel".equals(c.itemType()) && c.city() != null)
+                .map(c -> c.city().toLowerCase())
+                .collect(Collectors.toSet());
+
+        List<CatalogItemSummaryDTO> flights = candidates.stream()
+                .filter(c -> "Flight".equals(c.itemType()) && c.arrivalCity() != null && c.arrivalTime() != null
+                        && hotelCities.contains(c.arrivalCity().toLowerCase())
+                        && c.departureCity() != null && c.departureCity().trim().equalsIgnoreCase(from))
+                .sorted(byPrice)
+                .toList();
+
+        // Tra i voli sulla tratta, il più economico che abbia davvero posto per tutta
+        // la comitiva: uno con una sola tariffa da 6 posti non basta per 10 viaggiatori,
+        // anche se è il più economico in assoluto.
+        CatalogItemSummaryDTO flight = flights.stream()
+                .filter(f -> flightHasCapacityFor(f, travelers))
+                .findFirst()
+                .orElse(null);
+        if (flight == null) {
+            if (flights.isEmpty()) {
+                throw new IllegalArgumentException("Nessun volo da " + from + " a " + to + " con hotel disponibile: prova un'altra tratta");
+            }
+            String people = travelers == 1 ? "1 persona" : travelers + " persone";
+            throw new IllegalArgumentException(
+                    "Nessun volo da " + from + " a " + to + " con posti sufficienti per " + people + ": prova un'altra tratta o riduci i viaggiatori");
+        }
+        String arrivalCity = flight.arrivalCity();
+
+        List<CatalogItemSummaryDTO> hotels = candidates.stream()
+                .filter(c -> "Hotel".equals(c.itemType()) && arrivalCity.equalsIgnoreCase(c.city()))
+                .sorted(byPrice)
+                .toList();
+        if (hotels.isEmpty()) {
+            // Non dovrebbe accadere mai (il filtro sui voli sopra lo garantisce): rete
+            // di sicurezza nel caso il presupposto smetta di valere.
+            throw new IllegalArgumentException("Nessun hotel disponibile a " + to + ": prova un'altra destinazione");
+        }
+        List<CatalogItemSummaryDTO> activities = candidates.stream()
+                .filter(c -> "Activity".equals(c.itemType()) && arrivalCity.equalsIgnoreCase(c.city()))
+                .sorted(byPrice)
+                .toList();
+
+        // La tariffa scelta deve essere davvero la più economica CON POSTO PER TUTTI:
+        // prendere semplicemente il primo elemento della lista restituita da Hibernate
+        // (senza @OrderBy) non garantisce affatto che sia la più economica, anche se il
+        // volo nel suo complesso è stato scelto per prezzo minimo tra i candidati.
+        CatalogItemSummaryDTO.FareClassSummaryDTO cheapestFare = cheapestFareClassFor(flight, travelers);
+        Long flightFareClassId = cheapestFare != null ? cheapestFare.id() : null;
+        BigDecimal flightUnitPrice = cheapestFare != null
+                ? (cheapestFare.price() != null ? cheapestFare.price() : BigDecimal.ZERO)
+                : (flight.price() != null ? flight.price() : BigDecimal.ZERO);
+        BigDecimal flightTotalPrice = flightUnitPrice.multiply(BigDecimal.valueOf(travelers));
+
+        LocalDate arrivalDate = flight.arrivalTime().toLocalDate();
+        LocalDate checkOut = arrivalDate.plusDays(days);
+
+        CatalogItemSummaryDTO hotel = hotels.get(0);
+        RoomChoice roomChoice = cheapestRoomChoiceFor(hotel, travelers);
+        Long roomTypeId = roomChoice != null ? roomChoice.roomType().id() : null;
+        int roomsNeeded = roomChoice != null ? roomChoice.rooms() : 1;
+        BigDecimal roomUnitPrice = roomChoice != null
+                ? (roomChoice.roomType().price() != null ? roomChoice.roomType().price() : BigDecimal.ZERO)
+                : (hotel.price() != null ? hotel.price() : BigDecimal.ZERO);
+        BigDecimal roomTotalPrice = roomUnitPrice.multiply(BigDecimal.valueOf(days)).multiply(BigDecimal.valueOf(roomsNeeded));
+        BigDecimal spent = flightTotalPrice.add(roomTotalPrice);
+
+        if (budget != null && spent.compareTo(budget) > 0) {
+            throw new IllegalArgumentException(
+                    "Il budget indicato non copre nemmeno il volo e l'hotel più economici disponibili per " + to);
+        }
+
+        // Costruiamo anche i ResolvedItem insieme ai FavoriteListItem: i DTO sono già
+        // in mano dalla ricerca, quindi la validazione finale può riusarli invece di
+        // rifare una chiamata a catalog-service per ciascun componente (vedi
+        // validateResolvedCoherence, la stessa usata da resolveItems).
+        List<FavoriteListItem> items = new ArrayList<>();
+        List<ResolvedItem> resolved = new ArrayList<>();
+
+        FavoriteListItem flightItem = FavoriteListItem.builder().catalogItemId(flight.id()).quantity(travelers).fareClassId(flightFareClassId).build();
+        items.add(flightItem);
+        resolved.add(new ResolvedItem(flightItem, flight));
+
+        FavoriteListItem hotelItem = FavoriteListItem.builder().catalogItemId(hotel.id()).quantity(roomsNeeded).roomTypeId(roomTypeId)
+                .checkIn(arrivalDate).checkOut(checkOut).build();
+        items.add(hotelItem);
+        resolved.add(new ResolvedItem(hotelItem, hotel));
+
+        int activityCount = Math.min(days, activities.size());
+        for (int i = 0; i < activityCount; i++) {
+            CatalogItemSummaryDTO activity = activities.get(i);
+            BigDecimal activityPrice = (activity.price() != null ? activity.price() : BigDecimal.ZERO)
+                    .multiply(BigDecimal.valueOf(travelers));
+            if (budget != null && spent.add(activityPrice).compareTo(budget) > 0) {
+                break;
+            }
+            FavoriteListItem activityItem = FavoriteListItem.builder().catalogItemId(activity.id()).quantity(travelers)
+                    .activityDate(arrivalDate.plusDays(i)).build();
+            items.add(activityItem);
+            resolved.add(new ResolvedItem(activityItem, activity));
+            spent = spent.add(activityPrice);
+        }
+
+        if (wantReturnFlight) {
+            addReturnFlightIfAffordable(items, resolved, from, arrivalCity, checkOut, travelers, budget, spent);
+        }
+
+        validateResolvedCoherence(resolved);
+
+        FavoriteList list = FavoriteList.builder()
+                .name("Viaggio a " + to)
+                .ownerId(ownerId)
+                .items(items)
+                .build();
+        return repository.save(list);
+    }
+
+    /**
+     * Cerca un volo di ritorno (da arrivalCity a departureCity, dopo il checkout) e lo
+     * aggiunge in coda alla lista se lo trova e il budget lo permette. Una seconda
+     * ricerca dedicata invece di riusare i candidati già in mano: quelli includono solo
+     * voli in ARRIVO alla destinazione, mai quelli in partenza da lì. Non lancia mai
+     * un'eccezione: un ritorno non trovato (o troppo caro) non deve mai far fallire
+     * un'intera generazione altrimenti riuscita.
+     */
+    private void addReturnFlightIfAffordable(List<FavoriteListItem> items, List<ResolvedItem> resolved,
+                                              String originalDepartureCity, String arrivalCity,
+                                              LocalDate checkOut, int travelers, BigDecimal budget, BigDecimal spent) {
+        List<CatalogItemSummaryDTO> returnCandidates;
+        try {
+            returnCandidates = catalogClient.searchByDestination(originalDepartureCity, GENERATE_CANDIDATE_POOL).content();
+        } catch (Exception e) {
+            return;
+        }
+        Comparator<CatalogItemSummaryDTO> byPrice = Comparator.comparing(
+                c -> c.price() != null ? c.price() : BigDecimal.ZERO);
+        CatalogItemSummaryDTO returnFlight = returnCandidates.stream()
+                .filter(c -> "Flight".equals(c.itemType()) && c.departureCity() != null && c.arrivalCity() != null && c.departureTime() != null
+                        && arrivalCity.equalsIgnoreCase(c.departureCity())
+                        && c.arrivalCity().trim().equalsIgnoreCase(originalDepartureCity)
+                        && !c.departureTime().toLocalDate().isBefore(checkOut)
+                        && flightHasCapacityFor(c, travelers))
+                .sorted(byPrice)
+                .findFirst()
+                .orElse(null);
+        if (returnFlight == null) return;
+
+        CatalogItemSummaryDTO.FareClassSummaryDTO returnFare = cheapestFareClassFor(returnFlight, travelers);
+        BigDecimal returnUnitPrice = returnFare != null
+                ? (returnFare.price() != null ? returnFare.price() : BigDecimal.ZERO)
+                : (returnFlight.price() != null ? returnFlight.price() : BigDecimal.ZERO);
+        BigDecimal returnTotalPrice = returnUnitPrice.multiply(BigDecimal.valueOf(travelers));
+        if (budget != null && spent.add(returnTotalPrice).compareTo(budget) > 0) return;
+
+        FavoriteListItem returnItem = FavoriteListItem.builder().catalogItemId(returnFlight.id()).quantity(travelers)
+                .fareClassId(returnFare != null ? returnFare.id() : null).build();
+        items.add(returnItem);
+        resolved.add(new ResolvedItem(returnItem, returnFlight));
     }
 
     /**
@@ -450,14 +723,20 @@ public class ItineraryService {
         return repository.findById(listId).orElseThrow(() -> new ListNotFoundException(listId));
     }
 
-    /** Dettaglio di una lista: visibile se pubblica, o se il richiedente è proprietario/condivisa con lui. */
+    /**
+     * Dettaglio di una lista: visibile se pubblica, o se il richiedente è
+     * proprietario/condivisa con lui. Stesso "non trovato" (404) sia per un id
+     * inesistente sia per uno esistente ma non accessibile (vedi toggleLike): un 403
+     * qui rivelerebbe a chiunque abbia un JWT quali id di liste private/condivise
+     * altrui esistono davvero, semplicemente provando id in sequenza.
+     */
     public FavoriteList getAccessibleById(Long listId, String requesterId) {
         FavoriteList list = getById(listId);
         boolean allowed = list.getVisibility() == Visibility.PUBLIC
                 || list.getOwnerId().equals(requesterId)
                 || list.getSharedUserIds().contains(requesterId);
         if (!allowed) {
-            throw new NotListOwnerException();
+            throw new ListNotFoundException(listId);
         }
         return list;
     }
@@ -631,6 +910,9 @@ public class ItineraryService {
             // altrui esiste davvero, solo provando a metterci like.
             throw new ListNotFoundException(listId);
         }
+        if (list.getOwnerId().equals(userId)) {
+            throw new IllegalArgumentException("Non puoi mettere mi piace al tuo stesso itinerario");
+        }
         var existing = likeRepository.findByListIdAndUserId(listId, userId);
         if (existing.isPresent()) {
             likeRepository.delete(existing.get());
@@ -681,16 +963,33 @@ public class ItineraryService {
             }
         }
 
+        // Non un'autoinvocazione a registerBookingAttempt(): chiamare un metodo
+        // @Transactional dalla stessa classe scavalca il proxy AOP di Spring, quindi
+        // l'annotazione verrebbe semplicemente ignorata — incrementBookingsCount è una
+        // query di UPDATE che senza una transazione davvero aperta lancia
+        // TransactionRequiredException, facendo fallire l'intera richiesta (con status
+        // 500) anche se ogni componente era già stato aggiunto al carrello sopra.
+        // TransactionTemplate apre una transazione vera qui, breve e indipendente dal
+        // ciclo di chiamate HTTP appena fatto (che quindi non la tiene aperta inutilmente).
         if (successCount > 0) {
-            registerBookingAttempt(listId, requesterId);
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> repository.incrementBookingsCount(listId));
         }
         return new BookAllResultDTO(successCount, list.getItems().size(), errors);
     }
 
+    /**
+     * 404 per PRIVATE/SHARED (non 403): stessa ragione di getAccessibleById, un id
+     * esistente ma non tuo non deve essere distinguibile da uno inesistente. Per una
+     * lista PUBLIC invece l'esistenza è già nota (visibile via GET/feed pubblico), quindi
+     * qui è corretto un 403 esplicito: un 404 sarebbe solo fuorviante, non protettivo.
+     */
     private FavoriteList getOwnedList(Long listId, String requesterId) {
         FavoriteList list = getById(listId);
         if (!list.getOwnerId().equals(requesterId)) {
-            throw new NotListOwnerException();
+            if (list.getVisibility() == Visibility.PUBLIC) {
+                throw new NotListOwnerException(listId);
+            }
+            throw new ListNotFoundException(listId);
         }
         return list;
     }
@@ -700,7 +999,10 @@ public class ItineraryService {
         FavoriteList list = getById(listId);
         boolean canEdit = list.getOwnerId().equals(requesterId) || list.getSharedUserIds().contains(requesterId);
         if (!canEdit) {
-            throw new NotListOwnerException("Non hai i permessi per modificare questa lista");
+            if (list.getVisibility() == Visibility.PUBLIC) {
+                throw new NotListOwnerException(listId);
+            }
+            throw new ListNotFoundException(listId);
         }
         return list;
     }

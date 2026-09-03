@@ -27,6 +27,9 @@ public class CatalogItemDTO {
     // --- CHAT ---
     private String hostId;
     private boolean isUserGenerated;
+    // Esposto solo per la dashboard privata del proprietario (getMyItems): la vetrina
+    // pubblica non restituisce mai un annuncio disattivato, quindi lì è sempre true.
+    private boolean isActive;
 
     // --- VOLO ---
     private String departureAirport;
