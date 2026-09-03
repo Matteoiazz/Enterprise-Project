@@ -25,7 +25,8 @@ Enterprise-Project/
 ├── backend/
 │   ├── docker-compose.yml       # infrastruttura + microservizi
 │   ├── .env.example             # variabili d'ambiente da configurare
-│   ├── keycloak-import/         # realm "tripify", importato al primo avvio
+│   ├── keycloak-import.example.json  # template del realm "tripify" (segreti = CHANGEME)
+│   ├── keycloak-import/         # dove va messo il realm vero (fuori da Git), importato al primo avvio
 │   ├── keycloak-themes/         # tema di login/registrazione personalizzato
 │   ├── api-gateway/
 │   ├── booking-service/
@@ -150,7 +151,7 @@ Il repository **non contiene nessuna credenziale reale**: `.env`, `local.propert
 
 1. **`backend/.env`** — con: `KEYCLOAK_PUBLIC_URL` (URL HTTPS del tunnel Cloudflare davanti a Keycloak) e, se si usa il dominio stabile, `CLOUDFLARE_TUNNEL_TOKEN`; `KEYCLOAK_ADMIN_PASSWORD` a una password forte; `LOCAL_IP` all'IP LAN della macchina della demo; `INTERNAL_SERVICE_KEY` a una stringa concordata; le tre variabili Cloudinary con le credenziali reali del gruppo. Il resto può restare ai default di `.env.example`.
 2. **`frontend/local.properties`** — con `KEYCLOAK_IP` **identico** a `KEYCLOAK_PUBLIC_URL` del punto 1 e `BACKEND_IP` all'host del gateway.
-3. **`backend/keycloak-import/realm-export-4.json`** — il realm `tripify` con la password SMTP Gmail e il client secret Google reali. Nel repo c'è solo il template `backend/keycloak-import.example.json` con quei due campi a `CHANGEME`: per ottenere il file vero basta `cp backend/keycloak-import.example.json backend/keycloak-import/realm-export-4.json` e sostituire i due valori (`smtpServer.password` e il `clientSecret` del provider `google`).
+3. **`backend/keycloak-import/realm-export-4.json`** — il realm `tripify` con la password SMTP Gmail e il client secret Google reali. Nel repo c'è solo il template `backend/keycloak-import.example.json` con quei due campi a `CHANGEME`: per ottenere il file vero, `mkdir -p backend/keycloak-import && cp backend/keycloak-import.example.json backend/keycloak-import/realm-export-4.json`, poi sostituire i due valori (`smtpServer.password` e il `clientSecret` del provider `google`). La cartella `backend/keycloak-import/` è gitignorata: il realm con i segreti non finisce mai su Git.
 
 Con questi tre file al posto giusto, il docente deve solo eseguire `docker compose up --build -d` in `backend/` e aprire/buildare l'app in `frontend/`: nessun'altra configurazione manuale. Il realm importa già due utenti di prova (`demo@tripify.it` e `organizer@tripify.it`, password `Demo1234!`), quindi si può entrare subito senza registrarsi.
 
