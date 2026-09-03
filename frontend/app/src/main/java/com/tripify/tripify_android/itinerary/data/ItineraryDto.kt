@@ -33,6 +33,15 @@ data class FavoriteListDto(
 
 data class CreateListRequest(val name: String)
 
+data class GenerateItineraryRequest(
+    val departureCity: String,
+    val city: String,
+    val days: Int,
+    val travelers: Int,
+    val returnFlight: Boolean,
+    val budget: java.math.BigDecimal? = null
+)
+
 data class AddListItemRequest(
     val catalogItemId: Long,
     val quantity: Int = 1,

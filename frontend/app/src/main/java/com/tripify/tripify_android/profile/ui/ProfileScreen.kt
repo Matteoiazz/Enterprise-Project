@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.LocalBottomNavBarHeight
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.util.extractRolesFromToken
@@ -306,7 +307,10 @@ fun LoggedProfileContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        contentPadding = PaddingValues(bottom = 40.dp)
+        // La barra di navigazione flottante galleggia sopra questo Scaffold: senza
+        // questo margine extra l'ultima voce (es. "Esci") resterebbe nascosta
+        // sotto di lei (vedi TripifyApp).
+        contentPadding = PaddingValues(bottom = 40.dp + LocalBottomNavBarHeight.current)
     ) {
         item {
             Box(

@@ -1,9 +1,12 @@
 package com.tripify.tripify_android.itinerary.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -30,6 +33,36 @@ import kotlinx.coroutines.flow.first
 
 private fun itineraryImageUrl(list: FavoriteListDto): String =
     "https://picsum.photos/seed/itinerary${list.id}/600/800"
+
+/** Una riga cliccabile del dialog "Nuovo itinerario": icona badge, titolo e sottotitolo. */
+@Composable
+private fun CreateChoiceOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CatalogColors.SurfaceMuted, CatalogShapes.Field)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(38.dp).background(CatalogColors.AccentSoft, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(title, style = CatalogType.LabelStrong, color = CatalogColors.Ink)
+            Text(subtitle, style = CatalogType.Caption, color = CatalogColors.InkMuted)
+        }
+    }
+}
 
 private enum class ItineraryTab { PUBLIC, MINE }
 
@@ -68,12 +101,14 @@ private fun RoutePreview(items: List<FavoriteListItemDto>, maxIcons: Int = 6) {
 fun ItineraryListScreen(
     viewModel: ItineraryViewModel,
     tokenManager: TokenManager,
-    onNavigateToDetail: (id: Long, publicToken: String?) -> Unit
+    onNavigateToDetail: (id: Long, publicToken: String?) -> Unit,
+    onNavigateToGenerate: () -> Unit = {}
 ) {
     var tab by remember { mutableStateOf(ItineraryTab.PUBLIC) }
     var city by remember { mutableStateOf("") }
     var sortByLikes by remember { mutableStateOf(true) }
     var isLoggedIn by remember { mutableStateOf(false) }
+    var showCreateChoiceDialog by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     val feedState by viewModel.feedState.collectAsState()
 
@@ -89,6 +124,57 @@ fun ItineraryListScreen(
     }
 
     LaunchedEffect(tab, sortByLikes) { reload() }
+
+    // Rientrando su questa schermata dopo aver clonato/generato un itinerario (che
+    // navigano dritti al dettaglio del nuovo itinerario, senza passare da qui), il
+    // feed non si aggiorna da solo: lo ricarica ogni volta che la schermata torna in
+    // primo piano, cosi' il nuovo itinerario compare senza dover cambiare tab a mano.
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                reload()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (showCreateChoiceDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateChoiceDialog = false },
+            containerColor = CatalogColors.Surface,
+            shape = CatalogShapes.Card,
+            title = { Text("Nuovo itinerario", style = CatalogType.Section, color = CatalogColors.Ink) },
+            text = {
+                Column {
+                    CreateChoiceOption(
+                        icon = Icons.Filled.Edit,
+                        title = "Da zero",
+                        subtitle = "Crei una lista vuota e aggiungi tu i componenti.",
+                        onClick = {
+                            showCreateChoiceDialog = false
+                            showCreateDialog = true
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    CreateChoiceOption(
+                        icon = Icons.Filled.AutoAwesome,
+                        title = "Genera automaticamente",
+                        subtitle = "Indichi città e durata, l'app propone volo, hotel e attività.",
+                        onClick = {
+                            showCreateChoiceDialog = false
+                            onNavigateToGenerate()
+                        }
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showCreateChoiceDialog = false }) { Text("Annulla", style = CatalogType.LabelStrong, color = CatalogColors.InkMuted) }
+            }
+        )
+    }
 
     if (showCreateDialog) {
         var name by remember { mutableStateOf("") }
@@ -144,13 +230,6 @@ fun ItineraryListScreen(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
                 HorizontalDivider(color = CatalogColors.Hairline)
-            }
-        },
-        floatingActionButton = {
-            if (isLoggedIn) {
-                FloatingActionButton(onClick = { showCreateDialog = true }, containerColor = CatalogColors.AccentDark) {
-                    Icon(Icons.Filled.Add, contentDescription = "Nuovo itinerario", tint = Color.White)
-                }
             }
         }
     ) { innerPadding ->
@@ -244,6 +323,29 @@ fun ItineraryListScreen(
                     }
                 }
             } else {
+                // Tessera "aggiungi" (bordo tratteggiato, come una tessera vuota da riempire):
+                // sempre il primo elemento di "Miei itinerari", visibile subito arrivando sul
+                // tab invece di un pulsante a parte da imparare a riconoscere.
+                if (tab == ItineraryTab.MINE) {
+                    item(key = "create-tile") {
+                        Surface(
+                            onClick = { showCreateChoiceDialog = true },
+                            shape = CatalogShapes.Card,
+                            color = Color.Transparent,
+                            border = BorderStroke(1.5.dp, CatalogColors.Accent),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = CatalogSpacing.Gutter, vertical = CatalogSpacing.ListGap / 2)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(Icons.Filled.Add, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(20.dp))
+                                Text("Crea un nuovo itinerario", style = CatalogType.BodyStrong, color = CatalogColors.AccentDark)
+                            }
+                        }
+                    }
+                }
                 when (val state = feedState) {
                     is ItineraryFeedState.Loading -> item(key = "loading") {
                         Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
@@ -271,7 +373,7 @@ fun ItineraryListScreen(
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         if (tab == ItineraryTab.PUBLIC) "Prova un'altra città, o pubblica il primo tu."
-                                        else "Creane uno con il pulsante +",
+                                        else "Creane uno con la tessera qui sopra",
                                         style = CatalogType.Body, color = CatalogColors.InkMuted, textAlign = TextAlign.Center
                                     )
                                 }

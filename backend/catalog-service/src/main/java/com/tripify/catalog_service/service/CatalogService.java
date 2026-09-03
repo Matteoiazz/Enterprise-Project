@@ -34,11 +34,16 @@ public interface CatalogService {
 
     List<CatalogItem> getItemsByHost(UUID hostId);
 
+    /** Come getItemsByHost, ma include anche gli annunci disattivati: solo per il proprietario stesso. */
+    List<CatalogItem> getAllItemsByHost(UUID hostId);
+
     CatalogItem saveItem(CatalogItem item);
 
     CatalogItem getRawItemById(Long id);
 
     void deactivateItem(Long id);
+
+    void reactivateItem(Long id);
 
     List<String> getCitySuggestions(String query);
 

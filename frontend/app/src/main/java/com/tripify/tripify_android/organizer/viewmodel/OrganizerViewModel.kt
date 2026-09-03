@@ -40,6 +40,12 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    // Vera per tutta la durata di una scrittura (crea/modifica/elimina/riattiva annuncio):
+    // impedisce un doppio tap su "Salva"/"Elimina"/"Riattiva" che altrimenti spedirebbe
+    // due richieste identiche prima che la prima risposta torni.
+    private val _isSubmitting = MutableStateFlow(false)
+    val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
+
     fun loadMyItems() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -87,6 +93,7 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     fun updateActivity(id: Int, request: CreateActivityRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.updateActivity(id, request) }
 
     fun deleteItem(id: Int, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.deleteItem(id) }
+    fun reactivateItem(id: Int, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.reactivateItem(id) }
 
     fun createHotel(request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) =
         saveHotel(id = null, request = request, imageUris = imageUris, context = context, onResult = onResult)
@@ -98,6 +105,7 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     // eventuali foto). Differenza: in creazione l'id lo restituisce il backend.
     private fun saveHotel(id: Int?, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
+            _isSubmitting.value = true
             try {
                 val response = if (id == null) catalogApi.createHotel(request) else catalogApi.updateHotel(id, request)
                 if (!response.isSuccessful) {
@@ -112,6 +120,8 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"; onResult(false)
+            } finally {
+                _isSubmitting.value = false
             }
         }
     }
@@ -156,6 +166,7 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
 
     private fun launchWrite(onResult: (Boolean) -> Unit, call: suspend () -> retrofit2.Response<*>) {
         viewModelScope.launch {
+            _isSubmitting.value = true
             try {
                 val response = call()
                 if (response.isSuccessful) {
@@ -170,6 +181,8 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"
                 onResult(false)
+            } finally {
+                _isSubmitting.value = false
             }
         }
     }

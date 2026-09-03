@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.tripify.tripify_android.LocalBottomNavBarHeight
 import com.tripify.tripify_android.booking.component.BookingCard
 import com.tripify.tripify_android.booking.model.BookingState
 import com.tripify.tripify_android.booking.model.CartState
@@ -64,7 +65,10 @@ fun BookingScreen(
 
     Scaffold(
         containerColor = CatalogColors.Background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // La barra di navigazione flottante galleggia sopra questo Scaffold: senza
+        // questo margine la snackbar finirebbe nascosta (e illeggibile) dietro di
+        // lei, invece che sopra (vedi TripifyApp).
+        snackbarHost = { SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = LocalBottomNavBarHeight.current)) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -108,7 +112,7 @@ fun BookingScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 16.dp)
+                            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp + LocalBottomNavBarHeight.current)
                         ) {
                             items(state.bookings, key = { it.id }) { booking ->
                                 BookingCard(

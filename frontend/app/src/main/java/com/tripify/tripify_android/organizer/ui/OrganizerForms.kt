@@ -117,7 +117,7 @@ private fun DateOnlyField(label: String, value: String, onValueChange: (String) 
 }
 
 @Composable
-private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled: Boolean, onSubmit: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled: Boolean, isSubmitting: Boolean = false, onSubmit: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -172,7 +172,7 @@ private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled:
                     ) { Text("Annulla", style = CatalogType.Button) }
                     Button(
                         onClick = onSubmit,
-                        enabled = submitEnabled,
+                        enabled = submitEnabled && !isSubmitting,
                         modifier = Modifier.weight(1f),
                         shape = CatalogShapes.Field,
                         colors = ButtonDefaults.buttonColors(
@@ -181,7 +181,13 @@ private fun FormDialogShell(title: String, onDismiss: () -> Unit, submitEnabled:
                             disabledContainerColor = CatalogColors.Hairline,
                             disabledContentColor = CatalogColors.InkSubtle
                         )
-                    ) { Text("Salva", style = CatalogType.Button) }
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = CatalogColors.Surface, strokeWidth = 2.dp)
+                        } else {
+                            Text("Salva", style = CatalogType.Button)
+                        }
+                    }
                 }
             }
         }
@@ -217,7 +223,7 @@ private fun RepeatableEntryCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: (CreateFlightRequest) -> Unit) {
+fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, isSubmitting: Boolean = false, onSubmit: (CreateFlightRequest) -> Unit) {
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var price by remember { mutableStateOf(existing?.price?.toString() ?: "") }
@@ -260,6 +266,7 @@ fun FlightFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit:
         title = if (existing == null) "Nuovo volo" else "Modifica volo",
         onDismiss = onDismiss,
         submitEnabled = isValid,
+        isSubmitting = isSubmitting,
         onSubmit = {
             onSubmit(
                 CreateFlightRequest(
@@ -362,6 +369,7 @@ private fun PhotoThumb(model: Any, onRemove: () -> Unit) {
 fun HotelFormDialog(
     existing: CatalogItemDto?,
     onDismiss: () -> Unit,
+    isSubmitting: Boolean = false,
     onSubmit: (CreateHotelRequest, List<Uri>) -> Unit,
     onDeleteImage: (String) -> Unit = {}
 ) {
@@ -395,6 +403,7 @@ fun HotelFormDialog(
         title = if (existing == null) "Nuovo hotel" else "Modifica hotel",
         onDismiss = onDismiss,
         submitEnabled = isValid,
+        isSubmitting = isSubmitting,
         onSubmit = {
             onSubmit(
                 CreateHotelRequest(
@@ -485,7 +494,7 @@ fun HotelFormDialog(
 }
 
 @Composable
-fun ActivityFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmit: (CreateActivityRequest) -> Unit) {
+fun ActivityFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, isSubmitting: Boolean = false, onSubmit: (CreateActivityRequest) -> Unit) {
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var price by remember { mutableStateOf(existing?.price?.toString() ?: "") }
@@ -503,6 +512,7 @@ fun ActivityFormDialog(existing: CatalogItemDto?, onDismiss: () -> Unit, onSubmi
         title = if (existing == null) "Nuova attività" else "Modifica attività",
         onDismiss = onDismiss,
         submitEnabled = isValid,
+        isSubmitting = isSubmitting,
         onSubmit = {
             onSubmit(
                 CreateActivityRequest(

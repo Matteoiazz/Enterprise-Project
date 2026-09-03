@@ -65,14 +65,17 @@ data class CreateActivityRequest(
 
 // Vista minima di un annuncio nella lista "I miei annunci": basta a mostrare la
 // riga; per i dettagli completi/modifica si può ancora chiamare getItemById.
-// Un annuncio cancellato (soft delete, @SQLRestriction lato catalog-service) non
-// compare più qui né altrove: non serve un campo isActive, semplicemente sparisce.
+// isActive distingue un annuncio disattivato (visibile solo qui, con opzione di
+// riattivarlo) da uno attivo: sulla vetrina pubblica un annuncio disattivato non
+// compare comunque mai.
 data class OrganizerItemDto(
     val id: Int,
     val itemType: String,
     val title: String,
     val price: Double,
-    val currency: String
+    val currency: String,
+    @com.google.gson.annotations.SerializedName("active")
+    val isActive: Boolean = true
 )
 
 data class ReceivedBookingLineDto(

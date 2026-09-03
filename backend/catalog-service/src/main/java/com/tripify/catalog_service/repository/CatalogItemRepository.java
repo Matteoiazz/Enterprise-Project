@@ -15,6 +15,13 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, Long>,
 
     List<CatalogItem> findByHostIdAndIsActiveTrue(UUID hostId);
 
+    /** Come findByHostIdAndIsActiveTrue, ma include anche gli annunci disattivati (solo per il proprietario). */
+    List<CatalogItem> findByHostId(UUID hostId);
+
+    // ESCAPE '\': senza, "%"/"_" nel testo digitato dall'utente sarebbero interpretati
+    // come metacaratteri LIKE invece che testo letterale (vedi getCitySuggestions, che
+    // esegue l'escape del testo prima di passarlo qui). Sottostringa (non solo prefisso):
+    // "ro" deve proporre sia "Roma" che, per esempio, "Cairo".
     @Query(value = """
     SELECT DISTINCT city FROM (
         SELECT departure_city AS city FROM flight_details
@@ -25,10 +32,10 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, Long>,
         UNION
         SELECT city FROM activity_details
     ) AS all_cities
-    WHERE LOWER(city) LIKE LOWER(CONCAT(:prefix, '%'))
+    WHERE LOWER(city) LIKE LOWER(CONCAT('%', :text, '%')) ESCAPE '\\'
     ORDER BY city
     LIMIT 10
     """, nativeQuery = true)
-    List<String> findCitySuggestions(@Param("prefix") String prefix);
+    List<String> findCitySuggestions(@Param("text") String text);
 
 }

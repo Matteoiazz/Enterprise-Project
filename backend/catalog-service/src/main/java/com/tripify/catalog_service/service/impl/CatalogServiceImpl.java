@@ -61,12 +61,18 @@ public class CatalogServiceImpl implements CatalogService {
         if (checkIn != null && checkOut != null) {
             int requestedRooms = rooms == null ? 1 : rooms;
 
+            // checkIn/checkOut hanno senso solo per gli hotel: restringere qui evita che
+            // il limite di candidati sotto tronchi silenziosamente voli/attività (che
+            // non hanno alcuna disponibilità legata a queste date) invece di scartare
+            // solo gli hotel strutturalmente incompatibili.
+            Specification<CatalogItem> onlyHotels = (root, q, cb) -> cb.equal(root.type(), Hotel.class);
+
             // La disponibilità precisa dipende da date/hold e non è esprimibile in
             // un'unica query qui: resta un controllo in memoria (hasAvailableRoomType).
             // Il filtro sulla capienza però SI può spingere nella query — scarta subito
             // gli hotel strutturalmente troppo piccoli, riducendo di molto sia le righe
             // caricate sia le chiamate a hasAvailableRoomType (una per hotel candidato).
-            Specification<CatalogItem> availabilitySpec = spec.and(CatalogItemSpecification.hasRoomTypeWithCapacity(requestedRooms));
+            Specification<CatalogItem> availabilitySpec = spec.and(onlyHotels).and(CatalogItemSpecification.hasRoomTypeWithCapacity(requestedRooms));
 
             // Limite di sicurezza sul residuo: senza, un catalogo grande caricherebbe
             // comunque in memoria ogni riga rimasta dopo il filtro sopra, prima ancora
@@ -105,6 +111,11 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    public List<CatalogItem> getAllItemsByHost(UUID hostId) {
+        return catalogItemRepository.findByHostId(hostId);
+    }
+
+    @Override
     public CatalogItem saveItem(CatalogItem item) {
         return catalogItemRepository.save(item);
     }
@@ -128,8 +139,18 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    public void reactivateItem(Long id) {
+        CatalogItem item = getRawItemById(id);
+        item.setActive(true);
+        catalogItemRepository.save(item);
+    }
+
+    @Override
     public List<String> getCitySuggestions(String query) {
-        return catalogItemRepository.findCitySuggestions(query);
+        // "\" va escapato per primo, altrimenti raddoppierebbe anche l'escape appena
+        // aggiunto per "%"/"_" sotto.
+        String escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return catalogItemRepository.findCitySuggestions(escaped);
     }
 
     @Override

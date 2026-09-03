@@ -61,6 +61,7 @@ fun OrganizerScreen(
     val myItems by viewModel.myItems.collectAsState()
     val receivedBookings by viewModel.receivedBookings.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isSubmitting by viewModel.isSubmitting.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val itemCache by catalogViewModel.itemCache.collectAsState()
     val currency by rememberCatalogCurrency()
@@ -166,7 +167,17 @@ fun OrganizerScreen(
                                         item = item,
                                         catalogViewModel = catalogViewModel,
                                         onEdit = { openEdit(item) },
-                                        onDelete = { itemToDelete = item }
+                                        onDelete = { itemToDelete = item },
+                                        isSubmitting = isSubmitting,
+                                        onReactivate = {
+                                            viewModel.reactivateItem(item.id) { success ->
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        if (success) "Annuncio riattivato" else "Impossibile riattivare l'annuncio"
+                                                    )
+                                                }
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -215,17 +226,17 @@ fun OrganizerScreen(
     }
     if (editingItemType != null && editingItemId == null && editingItemDto == null) {
         when (editingItemType) {
-            ListingType.FLIGHT -> FlightFormDialog(existing = null, onDismiss = { editingItemType = null }, onSubmit = { req ->
+            ListingType.FLIGHT -> FlightFormDialog(existing = null, onDismiss = { editingItemType = null }, isSubmitting = isSubmitting, onSubmit = { req ->
                 viewModel.createFlight(req) { success ->
                     if (success) { editingItemType = null; scope.launch { snackbarHostState.showSnackbar("Volo creato") } }
                 }
             })
-            ListingType.HOTEL -> HotelFormDialog(existing = null, onDismiss = { editingItemType = null }, onSubmit = { req, uris ->
+            ListingType.HOTEL -> HotelFormDialog(existing = null, onDismiss = { editingItemType = null }, isSubmitting = isSubmitting, onSubmit = { req, uris ->
                 viewModel.createHotel(req, uris, context) { success ->
                     if (success) { editingItemType = null; scope.launch { snackbarHostState.showSnackbar("Hotel creato") } }
                 }
             })
-            ListingType.ACTIVITY -> ActivityFormDialog(existing = null, onDismiss = { editingItemType = null }, onSubmit = { req ->
+            ListingType.ACTIVITY -> ActivityFormDialog(existing = null, onDismiss = { editingItemType = null }, isSubmitting = isSubmitting, onSubmit = { req ->
                 viewModel.createActivity(req) { success ->
                     if (success) { editingItemType = null; scope.launch { snackbarHostState.showSnackbar("Attività creata") } }
                 }
@@ -239,7 +250,7 @@ fun OrganizerScreen(
         val dto = editingItemDto!!
         fun closeEdit() { editingItemId = null; editingItemType = null; editingItemDto = null }
         when (editingItemType) {
-            ListingType.FLIGHT -> FlightFormDialog(existing = dto, onDismiss = { closeEdit() }, onSubmit = { req ->
+            ListingType.FLIGHT -> FlightFormDialog(existing = dto, onDismiss = { closeEdit() }, isSubmitting = isSubmitting, onSubmit = { req ->
                 viewModel.updateFlight(id, req) { success ->
                     if (success) { closeEdit(); scope.launch { snackbarHostState.showSnackbar("Volo aggiornato") } }
                 }
@@ -247,6 +258,7 @@ fun OrganizerScreen(
             ListingType.HOTEL -> HotelFormDialog(
                 existing = dto,
                 onDismiss = { closeEdit() },
+                isSubmitting = isSubmitting,
                 onSubmit = { req, uris ->
                     viewModel.updateHotel(id, req, uris, context) { success ->
                         if (success) { closeEdit(); scope.launch { snackbarHostState.showSnackbar("Hotel aggiornato") } }
@@ -254,7 +266,7 @@ fun OrganizerScreen(
                 },
                 onDeleteImage = { url -> viewModel.deleteHotelImage(id, url) {} }
             )
-            ListingType.ACTIVITY -> ActivityFormDialog(existing = dto, onDismiss = { closeEdit() }, onSubmit = { req ->
+            ListingType.ACTIVITY -> ActivityFormDialog(existing = dto, onDismiss = { closeEdit() }, isSubmitting = isSubmitting, onSubmit = { req ->
                 viewModel.updateActivity(id, req) { success ->
                     if (success) { closeEdit(); scope.launch { snackbarHostState.showSnackbar("Attività aggiornata") } }
                 }
@@ -385,7 +397,9 @@ private fun OrganizerItemRow(
     item: OrganizerItemDto,
     catalogViewModel: CatalogViewModel,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    isSubmitting: Boolean = false,
+    onReactivate: () -> Unit = {}
 ) {
     val currency by rememberCatalogCurrency()
     var resolved by remember(item.id) { mutableStateOf(catalogViewModel.itemCache.value[item.id]) }
@@ -420,7 +434,20 @@ private fun OrganizerItemRow(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    TypeBadge(meta)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TypeBadge(meta)
+                        if (!item.isActive) {
+                            Spacer(Modifier.width(6.dp))
+                            Surface(shape = CatalogShapes.Pill, color = CatalogColors.AlertSoft) {
+                                Text(
+                                    "DISATTIVATO",
+                                    style = CatalogType.Overline,
+                                    color = CatalogColors.Alert,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(6.dp))
                     Text(
                         item.title,
@@ -444,10 +471,22 @@ private fun OrganizerItemRow(
                     Spacer(Modifier.width(6.dp))
                     Text("Modifica", style = CatalogType.Label, color = CatalogColors.InkMuted)
                 }
-                TextButton(onClick = onDelete) {
-                    Icon(Icons.Filled.DeleteOutline, contentDescription = null, tint = CatalogColors.Alert, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Elimina", style = CatalogType.Label, color = CatalogColors.Alert)
+                if (item.isActive) {
+                    TextButton(onClick = onDelete) {
+                        Icon(Icons.Filled.DeleteOutline, contentDescription = null, tint = CatalogColors.Alert, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Elimina", style = CatalogType.Label, color = CatalogColors.Alert)
+                    }
+                } else {
+                    TextButton(onClick = onReactivate, enabled = !isSubmitting) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), color = CatalogColors.AccentDark, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Filled.Refresh, contentDescription = null, tint = CatalogColors.AccentDark, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text("Riattiva", style = CatalogType.Label, color = CatalogColors.AccentDark)
+                    }
                 }
             }
         }

@@ -19,6 +19,11 @@ data class CatalogItemDto(
     @SerializedName("userGenerated")
     val isUserGenerated: Boolean = false,
 
+    // Esposto solo dalla dashboard privata dell'organizzatore (/items/mine): sulla
+    // vetrina pubblica un annuncio disattivato non compare mai, quindi qui è sempre true.
+    @SerializedName("active")
+    val isActive: Boolean = true,
+
     // --- CAMPI SPECIFICI VOLO ---
     val departureAirport: String?,
     val arrivalAirport: String?,

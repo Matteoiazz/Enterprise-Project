@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.TokenManager
 import com.tripify.tripify_android.itinerary.data.CreateListRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
+import com.tripify.tripify_android.itinerary.data.GenerateItineraryRequest
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import com.tripify.tripify_android.itinerary.data.UpdateVisibilityRequest
 import kotlinx.coroutines.Job
@@ -81,6 +82,50 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
             } catch (e: Exception) {
                 onResult(null)
             }
+        }
+    }
+
+    /** Copia i componenti di una lista accessibile in una nuova lista privata di proprietà dell'utente corrente. */
+    fun cloneList(sourceId: Long, onResult: (newListId: Long?, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.cloneList(sourceId)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.id, null)
+                } else {
+                    onResult(null, extractErrorMessage(response.errorBody()?.string(), "Impossibile clonare l'itinerario"))
+                }
+            } catch (e: Exception) {
+                onResult(null, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Genera una bozza di itinerario da una città di partenza a una di destinazione, a partire dal catalogo esistente. */
+    fun generateItinerary(departureCity: String, city: String, days: Int, travelers: Int, returnFlight: Boolean, budget: java.math.BigDecimal?, onResult: (newListId: Long?, error: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.generateItinerary(GenerateItineraryRequest(departureCity.trim(), city.trim(), days, travelers, returnFlight, budget))
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    onResult(body.id, null)
+                } else {
+                    onResult(null, extractErrorMessage(response.errorBody()?.string(), "Impossibile generare l'itinerario"))
+                }
+            } catch (e: Exception) {
+                onResult(null, "Nessuna connessione al server")
+            }
+        }
+    }
+
+    /** Estrae il campo "message" del corpo di errore JSON (vedi ApiError sul backend), con un fallback leggibile. */
+    private fun extractErrorMessage(raw: String?, fallback: String): String {
+        if (raw.isNullOrBlank()) return fallback
+        return try {
+            org.json.JSONObject(raw).optString("message").ifBlank { fallback }
+        } catch (e: Exception) {
+            fallback
         }
     }
 
@@ -182,7 +227,7 @@ class ItineraryViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     loadDetail(id)
                     onResult(true, null)
                 } else {
-                    onResult(false, response.errorBody()?.string() ?: "Requisiti di pubblicazione non soddisfatti")
+                    onResult(false, extractErrorMessage(response.errorBody()?.string(), "Requisiti di pubblicazione non soddisfatti"))
                 }
             } catch (e: Exception) {
                 onResult(false, "Nessuna connessione al server")
