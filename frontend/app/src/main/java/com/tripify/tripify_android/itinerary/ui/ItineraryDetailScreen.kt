@@ -527,11 +527,20 @@ fun ItineraryDetailScreen(
                             }
                         } else {
                             val days = groupItineraryByDay(list.items, resolvedComponents)
-                            var dayNumber = 0
+                            var tripStartDate: java.time.LocalDate? = null
                             Column {
                                 days.forEach { (dateKey, entries) ->
                                     if (dateKey != null) {
-                                        dayNumber++
+                                        // Numero del giorno = distanza reale dal primo giorno del
+                                        // viaggio, non un contatore sequenziale sui gruppi: un
+                                        // soggiorno di 3 notti seguito dal volo di ritorno deve
+                                        // mostrare "Giorno 4", non "Giorno 2" (che ignorerebbe le
+                                        // notti passate in hotel senza altre tappe programmate).
+                                        val parsedDate = runCatching { java.time.LocalDate.parse(dateKey) }.getOrNull()
+                                        if (tripStartDate == null) tripStartDate = parsedDate
+                                        val dayNumber = if (parsedDate != null && tripStartDate != null) {
+                                            (java.time.temporal.ChronoUnit.DAYS.between(tripStartDate, parsedDate) + 1).toInt()
+                                        } else 1
                                         DayHeader(dayNumber = dayNumber, dateLabel = formatDayLabel(dateKey))
                                     }
                                     entries.forEachIndexed { posInDay, entry ->

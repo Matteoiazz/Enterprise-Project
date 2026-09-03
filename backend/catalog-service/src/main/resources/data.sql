@@ -819,6 +819,68 @@ DROP TABLE tmp_recurring_flights;
 
 
 -- ==========================================
+-- ALLINEAMENTO rating_avg/review_count CON LE RECENSIONI DEMO
+-- Le recensioni vere vivono in communication-service (tabella reviews, seed
+-- separato): senza questo passaggio rating_avg/review_count qui restano NULL/0
+-- per ogni annuncio, anche per quelli con recensioni demo già scritte, perché
+-- normalmente sono aggiornati da communication-service via una chiamata di
+-- servizio dopo ogni recensione (vedi CatalogController.updateRating), che il
+-- seed SQL ovviamente non genera. Valori calcolati dalle recensioni demo reali.
+-- ==========================================
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 1;
+UPDATE catalog_items SET rating_avg = 4.17, review_count = 6 WHERE id = 2;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 3;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 4;
+UPDATE catalog_items SET rating_avg = 4.75, review_count = 4 WHERE id = 5;
+UPDATE catalog_items SET rating_avg = 3.83, review_count = 6 WHERE id = 6;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 7;
+UPDATE catalog_items SET rating_avg = 3.20, review_count = 5 WHERE id = 8;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 9;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 10;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 11;
+UPDATE catalog_items SET rating_avg = 4.17, review_count = 6 WHERE id = 12;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 13;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 14;
+UPDATE catalog_items SET rating_avg = 4.75, review_count = 4 WHERE id = 15;
+UPDATE catalog_items SET rating_avg = 3.83, review_count = 6 WHERE id = 16;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 17;
+UPDATE catalog_items SET rating_avg = 3.20, review_count = 5 WHERE id = 18;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 19;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 20;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 21;
+UPDATE catalog_items SET rating_avg = 4.17, review_count = 6 WHERE id = 22;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 23;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 24;
+UPDATE catalog_items SET rating_avg = 4.75, review_count = 4 WHERE id = 25;
+UPDATE catalog_items SET rating_avg = 3.83, review_count = 6 WHERE id = 26;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 27;
+UPDATE catalog_items SET rating_avg = 3.20, review_count = 5 WHERE id = 28;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 29;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 30;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 31;
+UPDATE catalog_items SET rating_avg = 4.17, review_count = 6 WHERE id = 32;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 33;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 34;
+UPDATE catalog_items SET rating_avg = 4.75, review_count = 4 WHERE id = 35;
+UPDATE catalog_items SET rating_avg = 3.83, review_count = 6 WHERE id = 36;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 37;
+UPDATE catalog_items SET rating_avg = 3.20, review_count = 5 WHERE id = 38;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 39;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 40;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 41;
+UPDATE catalog_items SET rating_avg = 4.17, review_count = 6 WHERE id = 42;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 43;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 54;
+UPDATE catalog_items SET rating_avg = 4.75, review_count = 4 WHERE id = 55;
+UPDATE catalog_items SET rating_avg = 3.83, review_count = 6 WHERE id = 56;
+UPDATE catalog_items SET rating_avg = 4.60, review_count = 5 WHERE id = 57;
+UPDATE catalog_items SET rating_avg = 3.20, review_count = 5 WHERE id = 58;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 59;
+UPDATE catalog_items SET rating_avg = 3.80, review_count = 5 WHERE id = 60;
+UPDATE catalog_items SET rating_avg = 4.67, review_count = 6 WHERE id = 61;
+UPDATE catalog_items SET rating_avg = 4.17, review_count = 6 WHERE id = 62;
+
+-- ==========================================
 -- SINCRONIZZAZIONE SEQUENZE POSTGRESQL
 -- Per catalog_items e fare_classes la sequenza si basa solo sugli id sotto la
 -- fascia 100000 (riservata ai voli ricorrenti sopra): così un item creato da

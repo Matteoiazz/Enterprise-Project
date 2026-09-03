@@ -294,6 +294,19 @@ fun GenerateItineraryScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
             Text("BUDGET (OPZIONALE)", style = CatalogType.Overline, color = CatalogColors.InkMuted)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = budgetText,
+                onValueChange = { new -> if (new.all { it.isDigit() }) budgetText = new },
+                placeholder = { Text("es. 800", style = CatalogType.Label, color = CatalogColors.InkSubtle) },
+                leadingIcon = { Icon(Icons.Filled.Payments, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(18.dp)) },
+                singleLine = true,
+                shape = CatalogShapes.Field,
+                colors = textFieldColors,
+                enabled = !isGenerating,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
             Button(
