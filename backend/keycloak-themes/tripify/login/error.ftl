@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avviso | Tripify</title>
+    <title>Qualcosa è andato storto | Tripify</title>
     <style>
         :root{
             --tf-green:#1B8A5A;
@@ -11,7 +11,6 @@
             --tf-bg:#F7F5EF;
             --tf-white:#FFFFFF;
             --tf-gray:#8A8F8C;
-            --tf-light-gray:#E7E4DC;
             --tf-radius-sm:14px;
             font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
         }
@@ -36,24 +35,9 @@
             overflow-wrap:anywhere;
             word-break:break-word;
         }
-        .tf-icon{
-            font-size:48px;
-            margin-bottom:16px;
-            display:inline-block;
-        }
-        h2{
-            font-size:23px;
-            font-weight:900;
-            color:var(--tf-dark-green);
-            margin-bottom:12px;
-        }
-        p{
-            font-size:14.5px;
-            color:var(--tf-gray);
-            line-height:1.6;
-            overflow-wrap:anywhere;
-            word-break:break-word;
-        }
+        .tf-icon{ font-size:48px; margin-bottom:16px; display:inline-block; }
+        h2{ font-size:23px; font-weight:900; color:var(--tf-dark-green); margin-bottom:12px; }
+        p{ font-size:14.5px; color:var(--tf-gray); line-height:1.6; overflow-wrap:anywhere; word-break:break-word; }
         .tf-notice{
             margin-top:24px;
             padding:14px 16px;
@@ -64,7 +48,7 @@
             font-weight:600;
         }
         .tf-btn{
-            display:block;
+            display:inline-block;
             width:100%;
             margin-top:24px;
             padding:14px;
@@ -76,38 +60,19 @@
             text-decoration:none;
             transition:background .2s ease;
         }
-        .tf-btn:hover{
-            background:var(--tf-dark-green);
-        }
-        .tf-btn.tf-secondary{
-            margin-top:12px;
-            background:transparent;
-            color:var(--tf-dark-green);
-            border:1.5px solid var(--tf-light-gray);
-        }
-        .tf-btn.tf-secondary:hover{
-            background:var(--tf-bg);
-        }
+        .tf-btn:hover{ background:var(--tf-dark-green); }
     </style>
 </head>
 <body>
 <div class="tf-card">
-    <div class="tf-icon">✅</div>
-    <h2>Tutto a posto</h2>
-    <p>${message.summary}</p>
+    <div class="tf-icon">⚠️</div>
+    <h2>Qualcosa è andato storto</h2>
+    <p>${kcSanitize(message.summary)?no_esc}</p>
 
-    <#if skipLink??>
+    <#if client?? && client.baseUrl?has_content>
+        <p><a href="${client.baseUrl}" class="tf-btn">Torna a Tripify</a></p>
     <#else>
-        <#if pageRedirectUri?has_content>
-            <a href="${pageRedirectUri}" class="tf-btn">Continua</a>
-        <#elseif actionUri?has_content>
-            <a href="${actionUri}" class="tf-btn">Continua</a>
-        <#else>
-            <#if url?? && url.loginRestartFlowUrl?has_content>
-                <a href="${url.loginRestartFlowUrl}" class="tf-btn">Torna al login</a>
-            </#if>
-            <div class="tf-notice">📱 Puoi tornare all'app e accedere di nuovo.</div>
-        </#if>
+        <div class="tf-notice">📱 Puoi chiudere questa pagina e riprovare dall'app.</div>
     </#if>
 </div>
 </body>

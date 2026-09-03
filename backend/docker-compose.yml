@@ -104,6 +104,11 @@ services:
       # recensione (ReviewService -> BookingClient). Senza, Feign va su
       # localhost:8083 dentro il container e il controllo salta.
       BOOKING_SERVICE_URL: http://booking-service:8083
+      # serve a ReviewService -> UserProfileClient per risolvere il nome del
+      # recensore quando spunta "mostra il mio nome". Senza, Feign va su
+      # localhost:8081 dentro il container, la chiamata fallisce e la
+      # recensione resta salvata come "Utente verificato" anche col flag attivo.
+      USER_AUTH_SERVICE_URL: http://user-auth-service:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
       # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
       # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
