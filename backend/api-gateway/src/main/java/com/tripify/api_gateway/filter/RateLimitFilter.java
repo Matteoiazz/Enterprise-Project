@@ -116,7 +116,11 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                 windowStart = now;
                 count.set(0);
             }
-            return count.incrementAndGet() <= max;
+            if (count.get() >= max) {
+                return false;
+            }
+            count.incrementAndGet();
+            return true;
         }
     }
 }

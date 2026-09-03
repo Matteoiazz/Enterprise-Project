@@ -14,7 +14,11 @@ public class UpdateProfileRequestDTO {
     @Size(min = 2, max = 50, message = "Il cognome deve avere tra 2 e 50 caratteri")
     private String surname;
 
-    @Pattern(regexp = "^\\+?[0-9\\s\\-]{8,20}$", message = "Formato telefono non valido (es. +39 333 1234567)")
+    // Tollerante: prefisso (+ o 00), spazi, punti, trattini, parentesi, slash.
+    // Prima "+39 (055) 123.4567" o un numero salvato da Google venivano rifiutati
+    // anche quando l'utente stava solo cambiando un altro campo.
+    @Pattern(regexp = "^(\\+|00)?[0-9][0-9\\s.\\-()/]{5,24}$",
+            message = "Formato telefono non valido (es. +39 333 1234567)")
     private String phone;
 
     @Size(max = 100, message = "L'indirizzo è troppo lungo")

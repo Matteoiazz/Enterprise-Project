@@ -144,7 +144,7 @@ public class ProfileController {
     @PutMapping("/me/pec")
     public ResponseEntity<Void> updateMyPec(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestBody com.tripify.user_auth_service.dto.request.UpdatePecRequestDTO request) {
+            @Valid @RequestBody com.tripify.user_auth_service.dto.request.UpdatePecRequestDTO request) {
 
         String email = jwt.getClaimAsString("email");
         profileService.updatePec(email, request.getPec());

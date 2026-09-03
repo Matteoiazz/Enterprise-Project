@@ -56,21 +56,23 @@ Poi apri `.env` e valorizza le variabili:
 | Variabile | Obbligatoria | A cosa serve | Da dove prenderla |
 |---|---|---|---|
 | `DB_PASSWORD` | no (default `password`) | Password di tutti i Postgres | Va bene il default per uso locale/demo |
-| `KEYCLOAK_ADMIN_USERNAME` / `KEYCLOAK_ADMIN_PASSWORD` | no (default `admin`/`admin`) | Credenziali admin di Keycloak (console + Admin Client usato da user-auth-service) | Va bene il default per uso locale/demo |
-| `LOCAL_IP` | **sì** | Host con cui backend **e** app Android raggiungono Keycloak per validare i JWT | L'IP LAN reale della macchina che fa girare `docker compose` (vedi nota sotto) |
+| `KEYCLOAK_ADMIN_USERNAME` | no (default `admin`) | Utente admin di Keycloak (console + Admin Client di user-auth-service) | Va bene il default |
+| `KEYCLOAK_ADMIN_PASSWORD` | **sì** | Password admin di Keycloak: user-auth-service la usa per sincronizzare nome/ruolo/attributi e per reset password / delete account | Mettine una **forte** (non `admin`), la stessa della console Keycloak |
+| `KEYCLOAK_PUBLIC_URL` | **sì** | URL HTTPS pubblico di Keycloak: e' l'`iss` atteso nei JWT (app **e** backend). Senza, lo stack parte ma ogni chiamata autenticata torna 401 | L'URL del tunnel Cloudflare davanti a Keycloak (vedi nota sotto) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | no | Se valorizzato, `cloudflared` usa un **named tunnel su dominio tuo** (URL stabile). Se vuoto, tunnel "quick" con URL random che cambia a ogni riavvio | Cloudflare Zero Trust → Tunnels (vedi nota sotto) |
+| `LOCAL_IP` | **sì** | IP LAN della macchina: serve **solo a booking-service** per le notifiche RabbitMQ | `ipconfig getifaddr en0` (macOS) / `ipconfig` (Windows) |
 | `RABBITMQ_*` | no (default `guest`/`guest`) | Credenziali RabbitMQ | Va bene il default per uso locale/demo |
-| `INTERNAL_SERVICE_KEY` | no (default `dev-internal-key` in `.env.example`) | Chiave condivisa tra booking-service, catalog-service e communication-service per la compensazione degli hold: deve essere **identica** sui tre | Il default va bene per demo; altrimenti una stringa a caso, es. `openssl rand -hex 32` |
-| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | solo per l'upload immagini | Credenziali Cloudinary del gruppo (foto profilo e foto annunci, usate da user-auth-service e catalog-service) | Dashboard Cloudinary del gruppo (cloudinary.com/console) |
+| `INTERNAL_SERVICE_KEY` | no (default `dev-internal-key` in `.env.example`) | Chiave condivisa tra booking-service, catalog-service e communication-service: deve essere **identica** sui tre | Il default va bene per demo; altrimenti `openssl rand -hex 32` |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | solo per l'upload immagini | Credenziali Cloudinary del gruppo (foto profilo/annunci, user-auth-service e catalog-service) | Dashboard Cloudinary del gruppo |
 | `GATEWAY_RATE_LIMIT_*` | no | Limite di richieste/minuto sul gateway | Va bene il default |
 
-> **Nota su `LOCAL_IP`**: non usare `localhost` né il nome del servizio Docker (`keycloak`). Il token emesso da Keycloak porta come issuer l'indirizzo con cui il *client* lo ha contattato; l'app Android sta fuori dalla rete Docker, quindi backend e app devono raggiungere Keycloak allo **stesso indirizzo**, altrimenti la validazione del JWT fallisce per issuer diverso. Usa l'IP LAN reale del PC (es. `192.168.1.50`) — lo stesso da mettere anche in `frontend/local.properties` come `KEYCLOAK_IP`.
-
-> **Se cambi rete / l'IP della macchina cambia**: `LOCAL_IP` va tenuto allineato in tre punti, poi va **ricompilata l'app** (i valori finiscono in `BuildConfig` a compile-time):
-> 1. `backend/.env` → `LOCAL_IP`
-> 2. `frontend/local.properties` → `KEYCLOAK_IP` (e `BACKEND_IP`, se non usi un tunnel come ngrok)
-> 3. `frontend/app/src/main/res/xml/network_security_config.xml` → aggiungi il nuovo IP alla whitelist `<domain-config>`
+> **Keycloak deve stare dietro un URL HTTPS con hostname** (non IP, non `http`): l'IdP Google rifiuta i redirect altrimenti, e il claim `iss` del token dev'essere identico per app e backend. Il compose include un container `cloudflared` che espone `keycloak:8080`. Due modi:
 >
-> L'IP LAN si ricava con `ipconfig getifaddr en0` (macOS) o `ipconfig` (Windows). Dopo la modifica: `docker compose down && docker compose up -d` e rebuild dell'app.
+> **A) Tunnel "quick" (gratis, zero setup, URL instabile).** Lascia `CLOUDFLARE_TUNNEL_TOKEN` vuoto. Primo `docker compose up -d`, poi leggi l'URL da `docker compose logs cloudflared` (`https://<parole-a-caso>.trycloudflare.com`) e mettilo in `KEYCLOAK_PUBLIC_URL`, poi `docker compose up -d --no-deps` sui servizi Java. **L'URL cambia ogni volta che `cloudflared` riparte** → non riavviarlo durante la demo.
+>
+> **B) Named tunnel su dominio proprio (URL stabile, ~1 €/anno).** Registra un dominio economico (es. `.xyz`), aggiungilo a Cloudflare (piano free). Poi Cloudflare → **Zero Trust → Networks → Tunnels → Create tunnel → Cloudflared**: dai un nome, copia il **token** in `CLOUDFLARE_TUNNEL_TOKEN`; nel tunnel aggiungi un **Public Hostname** `keycloak.tuo-dominio.xyz` → Service `HTTP` → `keycloak:8080`. Metti `KEYCLOAK_PUBLIC_URL=https://keycloak.tuo-dominio.xyz`. Da qui in poi l'URL non cambia mai.
+>
+> **In entrambi i casi** `KEYCLOAK_PUBLIC_URL` va copiato identico in `frontend/local.properties` (`KEYCLOAK_IP`) e nel redirect URI della Google Console, e l'app Android va **ricompilata** dopo ogni cambio (i valori finiscono in `BuildConfig` a compile-time). Col modo B lo fai una volta sola.
 
 ## 2. Avvio del backend
 
@@ -109,12 +111,15 @@ Crea `frontend/local.properties` (non è versionato, va creato da chi clona il p
 ```properties
 sdk.dir=/percorso/del/tuo/Android/sdk
 
-# IP della macchina che fa girare il backend. Da un emulatore Android puoi
-# usare 10.0.2.2 (alias dell'host) SOLO se anche LOCAL_IP nel backend punta
-# a un indirizzo raggiungibile dall'emulatore; da un dispositivo fisico sulla
-# stessa rete, usa l'IP LAN del PC (lo stesso di LOCAL_IP in backend/.env).
+# Host del backend (api-gateway). Con un valore che contiene "ngrok" viene
+# usato come https://<host>; con "http" viene preso cosi' com'e'; altrimenti
+# diventa http://<host>:8080. Da emulatore puoi usare 10.0.2.2.
 BACKEND_IP=192.168.1.50
-KEYCLOAK_IP=192.168.1.50
+
+# URL di Keycloak: DEVE combaciare con KEYCLOAK_PUBLIC_URL in backend/.env.
+# Con un valore che contiene "http" viene usato tale e quale (e' il caso del
+# tunnel Cloudflare), es. KEYCLOAK_IP=https://keycloak.tuo-dominio.xyz
+KEYCLOAK_IP=https://keycloak.tuo-dominio.xyz
 
 # Opzionale: serve solo per le mappe statiche nel dettaglio di un annuncio.
 MAPS_API_KEY=
@@ -126,8 +131,8 @@ Poi apri il progetto in Android Studio (o esegui `./gradlew assembleDebug`) e av
 
 Il repository **non contiene nessuna credenziale reale**: `.env`, `local.properties` e il realm Keycloak con i segreti dentro sono nel `.gitignore` apposta, così un push non li fa mai finire su Git. Perché il docente possa far girare il progetto senza doversi creare account propri, il gruppo deve consegnargli **fuori da Git** (email, piattaforma del corso, chiavetta) tre file già pronti:
 
-1. **`backend/.env`** — con `LOCAL_IP` impostato all'IP della macchina su cui girerà la demo, `INTERNAL_SERVICE_KEY` a una stringa qualsiasi concordata, e le tre variabili Cloudinary valorizzate con le credenziali reali dell'account del gruppo. Il resto può restare ai default di `.env.example`.
-2. **`frontend/local.properties`** — con `BACKEND_IP`/`KEYCLOAK_IP` coerenti con lo stesso `LOCAL_IP` usato nel punto 1.
+1. **`backend/.env`** — con: `KEYCLOAK_PUBLIC_URL` (URL HTTPS del tunnel Cloudflare davanti a Keycloak) e, se si usa il dominio stabile, `CLOUDFLARE_TUNNEL_TOKEN`; `KEYCLOAK_ADMIN_PASSWORD` a una password forte; `LOCAL_IP` all'IP LAN della macchina della demo; `INTERNAL_SERVICE_KEY` a una stringa concordata; le tre variabili Cloudinary con le credenziali reali del gruppo. Il resto può restare ai default di `.env.example`.
+2. **`frontend/local.properties`** — con `KEYCLOAK_IP` **identico** a `KEYCLOAK_PUBLIC_URL` del punto 1 e `BACKEND_IP` all'host del gateway.
 3. **`backend/keycloak-import/realm-export-4.json`** — il realm `tripify` con la password SMTP Gmail e il client secret Google reali. Nel repo c'è solo il template `backend/keycloak-import.example.json` con quei due campi a `CHANGEME`: per ottenere il file vero basta `cp backend/keycloak-import.example.json backend/keycloak-import/realm-export-4.json` e sostituire i due valori (`smtpServer.password` e il `clientSecret` del provider `google`).
 
 Con questi tre file al posto giusto, il docente deve solo eseguire `docker compose up --build -d` in `backend/` e aprire/buildare l'app in `frontend/`: nessun'altra configurazione manuale. Il realm importa già due utenti di prova (`demo@tripify.it` e `organizer@tripify.it`, password `Demo1234!`), quindi si può entrare subito senza registrarsi.

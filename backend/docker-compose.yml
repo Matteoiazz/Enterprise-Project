@@ -240,10 +240,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # hostname pubblico HTTPS (tunnel Cloudflare su keycloak): stesso "iss"
-      # per app, container e per il redirect dell'IdP Google. Il default
-      # localhost e' solo per far partire lo stack prima di conoscere l'URL
-      # del tunnel (vedi commento sul servizio cloudflared).
-      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
+      # per app, container e per il redirect dell'IdP Google. Obbligatorio:
+      # se manca, Keycloak emette token con iss=localhost mentre l'app (buildata
+      # sul dominio del tunnel) ne manda altri -> ogni chiamata autenticata a
+      # ogni servizio torna 401, con lo stack tutto "verde". Vedi backend/.env.example.
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?imposta KEYCLOAK_PUBLIC_URL in backend/.env (URL https del tunnel Cloudflare davanti a Keycloak)}
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
@@ -350,7 +351,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-auth:5432/db_auth
       DB_PASSWORD: ${DB_PASSWORD:-password}
-      LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
+      # user-auth non usa LOCAL_IP: parla con Keycloak sulla rete Docker interna.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
       # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
       # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
@@ -387,18 +388,38 @@ services:
     networks:
       - travel-network
 
-  # Tunnel Cloudflare "quick" davanti a Keycloak: espone keycloak:8080 su un
-  # URL https://<random>.trycloudflare.com (cert valido, NESSUN interstitial,
-  # gratis, senza dominio). Serve perche' l'IdP Google rifiuta redirect in
-  # http o su IP. L'URL lo stampa nei log all'avvio: prendilo e mettilo in
-  # backend/.env come KEYCLOAK_PUBLIC_URL, poi "docker compose up -d".
-  # NB: l'URL cambia a ogni riavvio del container -> tienilo su per la demo.
+  # Tunnel Cloudflare davanti a Keycloak (l'IdP Google rifiuta redirect http/IP).
+  # Due modalita', scelte in automatico da CLOUDFLARE_TUNNEL_TOKEN in backend/.env:
+  #
+  #  - TOKEN VUOTO  -> tunnel "quick": URL https://<random>.trycloudflare.com,
+  #    gratis e senza dominio, ma CAMBIA a ogni riavvio del container. L'URL
+  #    e' nei log ("docker compose logs cloudflared"): copialo in
+  #    KEYCLOAK_PUBLIC_URL (.env) e KEYCLOAK_IP (frontend/local.properties),
+  #    poi rifai "docker compose up -d --no-deps <servizi-java>".
+  #
+  #  - TOKEN VALORIZZATO -> named tunnel STABILE su un tuo dominio
+  #    (es. https://keycloak.tuo-dominio.xyz). Non cambia mai: KEYCLOAK_PUBLIC_URL,
+  #    KEYCLOAK_IP e il redirect Google si impostano una volta sola. Come:
+  #    Cloudflare Zero Trust -> Networks -> Tunnels -> Create tunnel (cloudflared),
+  #    Public Hostname keycloak.tuo-dominio.xyz -> service http://keycloak:8080,
+  #    copia il token in CLOUDFLARE_TUNNEL_TOKEN. Vedi backend/.env.example.
+  #
   # ngrok resta com'e' per il backend (porta 8080), non c'entra con questo.
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://keycloak:8080
+    environment:
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command:
+      - sh
+      - -c
+      - >-
+        if [ -n "$${CLOUDFLARE_TUNNEL_TOKEN}" ]; then
+          exec cloudflared tunnel --no-autoupdate run --token "$${CLOUDFLARE_TUNNEL_TOKEN}";
+        else
+          exec cloudflared tunnel --no-autoupdate --url http://keycloak:8080;
+        fi
     depends_on:
       - keycloak
     networks:

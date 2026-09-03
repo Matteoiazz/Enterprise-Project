@@ -236,15 +236,26 @@ public class ProfileService {
             Keycloak keycloak = getKeycloakAdminClient();
             List<UserRepresentation> matches = keycloak.realm("tripify").users().searchByEmail(email, true);
 
-            if (!matches.isEmpty()) {
-                UserRepresentation kcUser = matches.get(0);
-                userBuilder.name(kcUser.getFirstName());
-                userBuilder.surname(kcUser.getLastName());
-
-                String phone = getAttributeValue(kcUser, "phoneNumber");
-                if (phone != null) userBuilder.phone(phone);
+            if (matches.isEmpty()) {
+                // Keycloak raggiungibile ma nessun utente con questa email: il token
+                // e' obsoleto (email cambiata) o non valido. Non creiamo una riga
+                // "fantasma": senza questo, un JWT vecchio dopo un cambio email
+                // generava un secondo utente con la mail vecchia.
+                throw new ResourceNotFoundException("Nessun utente Keycloak per " + email);
             }
+
+            UserRepresentation kcUser = matches.get(0);
+            userBuilder.name(kcUser.getFirstName());
+            userBuilder.surname(kcUser.getLastName());
+            userBuilder.username(kcUser.getId());
+
+            String phone = getAttributeValue(kcUser, "phoneNumber");
+            if (phone != null) userBuilder.phone(phone);
+        } catch (ResourceNotFoundException staleOrUnknown) {
+            throw staleOrUnknown;
         } catch (Exception e) {
+            // Keycloak irraggiungibile: NON blocchiamo il primo login legittimo,
+            // creiamo con i default e i campi si completano al sync successivo.
             log.warn("Impossibile contattare Keycloak per l'utente {}, uso i valori di default: {}", email, e.getMessage());
         }
 
@@ -754,7 +765,27 @@ public class ProfileService {
                     } catch (IllegalArgumentException notAUuid) {
                         return java.util.Optional.empty();
                     }
-                });
+                })
+                // Ultima spiaggia: il chiamante (es. booking-service per l'invito
+                // amici) passa il "sub" Keycloak, ma quell'utente non ha ancora
+                // colpito /profile/** quindi la colonna username non e' popolata.
+                // Chiediamo a Keycloak l'email dal sub e risolviamo per email.
+                .or(() -> resolveEmailFromKeycloakId(identifier)
+                        .flatMap(userRepository::findByEmail));
+    }
+
+    private java.util.Optional<String> resolveEmailFromKeycloakId(String keycloakId) {
+        if (keycloakId == null || keycloakId.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        try {
+            UserRepresentation kcUser = getKeycloakAdminClient()
+                    .realm("tripify").users().get(keycloakId).toRepresentation();
+            return java.util.Optional.ofNullable(kcUser.getEmail());
+        } catch (Exception e) {
+            log.warn("Impossibile risolvere l'email dal sub Keycloak {}: {}", keycloakId, e.getMessage());
+            return java.util.Optional.empty();
+        }
     }
 
     private String resolveKeycloakSubject(User user) {
