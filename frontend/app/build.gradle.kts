@@ -11,7 +11,6 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 val backendIp = localProperties.getProperty("BACKEND_IP") ?: "10.0.2.2"
-// Nuova variabile per l'IP di Keycloak
 val keycloakIp = localProperties.getProperty("KEYCLOAK_IP") ?: "10.0.2.2"
 
 android {
@@ -32,16 +31,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // URL BACKEND (API Gateway tramite Ngrok)
-        val finalUrl = if (backendIp.contains("ngrok")) {
-            "https://$backendIp"
-        } else if (backendIp.contains("http")) {
+        // BACKEND_IP: se contiene "http" e' gia' un URL completo (tunnel Cloudflare
+        // https://api.tripify.cloud), usato cosi' com'e'; altrimenti e' un host nudo
+        // e diventa http://<host>:8080 (IP LAN della macchina, o 10.0.2.2 da emulatore).
+        val finalUrl = if (backendIp.contains("http")) {
             backendIp
         } else {
             "http://$backendIp:8080"
         }
 
-        // URL KEYCLOAK (Rete Locale)
+        // KEYCLOAK_IP: stessa regola. In demo e' https://keycloak.tripify.cloud.
         val keycloakUrl = if (keycloakIp.contains("http")) {
             keycloakIp
         } else {

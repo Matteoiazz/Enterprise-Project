@@ -1,0 +1,38 @@
+# Cap di memoria per le 6 JVM del backend. Docker Compose carica in automatico
+# un file chiamato "docker-compose.override.yml" (senza ".example") sopra il
+# docker-compose.yml principale.
+#
+# QUANDO SERVE: se "docker compose up" fa crashare la VM di Docker Desktop o i
+# servizi vengono uccisi per OOM. Senza -Xmx ogni JVM dimensiona l'heap su una
+# frazione della RAM totale della VM (non della propria quota mem_limit): 6
+# servizi insieme vanno in over-commit. I valori qui sotto stanno comodi in una
+# VM da ~8 GB.
+#
+# COME USARLO:  cp docker-compose.override.yml.example docker-compose.override.yml
+# Poi ritocca i numeri se la tua macchina ha piu' o meno RAM.
+
+services:
+  user-auth-service:
+    mem_limit: 700m
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx420m -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m"
+  api-gateway:
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx300m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
+  catalog-service:
+    mem_limit: 760m
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx480m -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m"
+  itinerary-service:
+    mem_limit: 700m
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx420m -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m"
+  booking-service:
+    mem_limit: 760m
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx480m -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m"
+  communication-app:
+    mem_limit: 760m
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx480m -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m"

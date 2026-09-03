@@ -15,7 +15,6 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
-import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.PUT
@@ -113,6 +112,5 @@ interface CatalogApi {
     ): Response<CatalogItemDto>
 
     @GET("/api/v1/catalog/items/host/{hostId}")
-    @Headers("ngrok-skip-browser-warning: true")
     suspend fun getItemsByHostId(@Path("hostId") hostId: String): List<CatalogItemDto>
 }
