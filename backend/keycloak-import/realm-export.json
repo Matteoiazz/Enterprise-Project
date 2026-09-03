@@ -1692,8 +1692,7 @@
         "clientSecret": "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",
         "clientId": "29035195985-tgspb5klhued54dskhnjf6lqj8boh1rd.apps.googleusercontent.com",
         "issuer": "https://accounts.google.com",
-        "jwtAuthorizationGrantMaxAllowedAssertionExpiration": "3600",
-        "syncMode": "IMPORT"
+        "jwtAuthorizationGrantMaxAllowedAssertionExpiration": "3600"
       },
       "types": [],
       "trustEmail": true,
@@ -1706,7 +1705,7 @@
       "identityProviderAlias": "google",
       "identityProviderMapper": "oidc-user-attribute-idp-mapper",
       "config": {
-        "syncMode": "IMPORT",
+        "syncMode": "INHERIT",
         "claim": "given_name",
         "user.attribute": "firstName"
       }
@@ -1716,7 +1715,7 @@
       "identityProviderAlias": "google",
       "identityProviderMapper": "oidc-user-attribute-idp-mapper",
       "config": {
-        "syncMode": "IMPORT",
+        "syncMode": "INHERIT",
         "claim": "family_name",
         "user.attribute": "lastName"
       }
@@ -1726,7 +1725,7 @@
       "identityProviderAlias": "google",
       "identityProviderMapper": "oidc-user-attribute-idp-mapper",
       "config": {
-        "syncMode": "IMPORT",
+        "syncMode": "INHERIT",
         "claim": "email",
         "user.attribute": "email"
       }
@@ -2617,7 +2616,7 @@
       "id": "b6cb972f-e786-4d09-b4e0-b39ab11adc90",
       "alias": "review profile config",
       "config": {
-        "update.profile.on.first.login": "off"
+        "update.profile.on.first.login": "missing"
       }
     }
   ],

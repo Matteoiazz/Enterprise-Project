@@ -30,7 +30,6 @@ public class NotificationConsumer {
             String title = event.getTitle() != null ? event.getTitle() : "Notifica";
             String message = event.getMessage();
 
-            // Validazione di sicurezza sulla lunghezza del messaggio (evita crash su DB se > 500 char)
             if (message != null && message.length() > 500) {
                 message = message.substring(0, 497) + "...";
             }
@@ -53,12 +52,10 @@ public class NotificationConsumer {
 
             log.info("Notifica salvata e processata con successo per l'utente {}", userId);
 
-            // 3. Invio sul WebSocket del DTO completo (Risolve M2)
             messagingTemplate.convertAndSend("/topic/notifications/" + userId, dto);
 
         } catch (Exception e) {
             log.error("Errore critico durante l'elaborazione del messaggio RabbitMQ nella NotificationConsumer", e);
-            // Rilanciare l'eccezione permette a Spring AMQP di gestire il fallback o la DLQ se configurata
             throw e;
         }
     }

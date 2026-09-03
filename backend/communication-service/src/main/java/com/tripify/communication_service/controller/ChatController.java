@@ -47,7 +47,7 @@ public class ChatController {
     public ChatRoom getOrCreateChatRoom(
             @RequestParam String hostId,
             @RequestParam(required = false) String title,
-            @RequestParam(required = false) String travelerName, // <-- Aggiunto per ricevere il nome cliente
+            @RequestParam(required = false) String travelerName,
             Principal principal) {
 
         String travelerId = extractUserId(principal);
@@ -69,7 +69,7 @@ public class ChatController {
         newRoom.setTravelerId(travelerId);
         newRoom.setHostId(hostId);
         newRoom.setTitle(title);
-        newRoom.setTravelerName(travelerName); // <-- Salvato nel DB
+        newRoom.setTravelerName(travelerName);
         return chatRoomRepository.save(newRoom);
     }
 
@@ -90,12 +90,9 @@ public class ChatController {
             dto.setTravelerId(room.getTravelerId());
             dto.setHostId(room.getHostId());
 
-            // LOGICA DI SCAMBIO TITOLO
             if (userId.equals(room.getHostId())) {
-                // L'organizzatore vede il nome del cliente
                 dto.setTitle(room.getTravelerName() != null ? room.getTravelerName() : "Cliente");
             } else {
-                // Il cliente vede il nome dell'organizzatore
                 dto.setTitle(room.getTitle());
             }
 
@@ -114,7 +111,6 @@ public class ChatController {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stanza non trovata"));
 
-        // 3. Blocco sicurezza: verifica che chi chiama faccia parte della chat
         if (!userId.equals(room.getTravelerId()) && !userId.equals(room.getHostId())) {
             log.warn("Tentativo di accesso negato alla stanza {} dall'utente {}", roomId, userId);
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accesso negato a questa conversazione");
@@ -126,27 +122,22 @@ public class ChatController {
     @MessageMapping("/chat.sendMessage")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
         log.info("Messaggio STOMP ricevuto - RoomId: {}, Content: {}", chatMessage.getRoomId(), chatMessage.getContent());
-        // 1. Estrazione sicura dell'utente senza fallback vulnerabili sul payload (A1)
         String senderId = extractUserId(principal);
 
         chatMessage.setSenderId(senderId);
         chatMessage.setIsRead(false);
 
-        // 2. Controllo rigoroso della stanza: se non esiste, bloccata e scartata (A1)
         ChatRoom room = chatRoomRepository.findById(chatMessage.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Impossibile inviare: stanza inesistente"));
 
-        // 3. Controllo di appartenenza (membership)
         if (!senderId.equals(room.getTravelerId()) && !senderId.equals(room.getHostId())) {
             log.error("Tentativo di invio non autorizzato: l'utente {} non appartiene alla stanza {}", senderId, chatMessage.getRoomId());
             throw new IllegalArgumentException("Non sei un membro di questa stanza di chat");
         }
 
-        // 4. Salvataggio e Invio sul canale WebSocket
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
         messagingTemplate.convertAndSend("/topic/room/" + chatMessage.getRoomId(), savedMessage);
 
-        // 5. Logica Notifiche push
         String recipientId = senderId.equals(room.getTravelerId()) ? room.getHostId() : room.getTravelerId();
         if (recipientId != null) {
             NotificationEvent notificationEvent = new NotificationEvent(
@@ -163,7 +154,6 @@ public class ChatController {
     public void markMessagesAsRead(@PathVariable String roomId, Principal principal) {
         String userId = extractUserId(principal);
 
-        // AGGIUNTO: Controllo di membership obbligatorio per prevenire IDOR (A2)
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stanza non trovata"));
 

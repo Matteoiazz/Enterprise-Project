@@ -13,12 +13,10 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
 
-    // 1. Recupera tutte le notifiche di un utente
     public List<Notification> getUserNotifications(String userId) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    // 2. Crea e salva una nuova notifica
     public Notification createNotification(String userId, String title, String message) {
         Notification notification = Notification.builder()
                 .userId(userId)
@@ -29,12 +27,10 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
-    // 3. Segna una notifica come letta
     public Notification markAsRead(Long notificationId, String userId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notifica non trovata"));
 
-        // Controllo di sicurezza: verifichiamo che la notifica appartenga all'utente
         if (!notification.getUserId().equals(userId)) {
             throw new RuntimeException("Non sei autorizzato a modificare questa notifica");
         }
@@ -43,7 +39,6 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
-    // 4. Conta le notifiche non lette
     public long getUnreadCount(String userId) {
         return notificationRepository.countByUserIdAndIsReadFalse(userId);
     }

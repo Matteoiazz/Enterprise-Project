@@ -84,7 +84,7 @@ object ChatRepository {
                     connection.setRequestProperty("Authorization", "Bearer $authToken")
                 }
 
-                connection.responseCode // Esegue la chiamata al server
+                connection.responseCode
             } catch (e: Exception) {
                 Log.e("ChatRepository", "Errore markAsRead", e)
             }
