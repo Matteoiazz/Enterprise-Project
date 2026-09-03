@@ -47,5 +47,9 @@ backend/keycloak-import/realm-export-4.json
 # Non committato: ognuno lo tara sulla propria macchina.
 backend/docker-compose.override.yml
 
+# Credenziali del named tunnel Cloudflare creato da terminale (config.yml +
+# <UUID>.json col TunnelSecret). Non committare: e' un segreto dell'account.
+backend/cloudflared/
+
 # Log locale generato lanciando la build di booking-service a mano.
 backend/booking-service/booking-log.txt

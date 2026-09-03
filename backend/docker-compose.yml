@@ -389,37 +389,31 @@ services:
       - travel-network
 
   # Tunnel Cloudflare davanti a Keycloak (l'IdP Google rifiuta redirect http/IP).
-  # Due modalita', scelte in automatico da CLOUDFLARE_TUNNEL_TOKEN in backend/.env:
+  # L'immagine cloudflared non ha una shell: la modalita' si sceglie qui sul
+  # campo "command:", non con uno script. Modalita' attiva ora:
   #
-  #  - TOKEN VUOTO  -> tunnel "quick": URL https://<random>.trycloudflare.com,
-  #    gratis e senza dominio, ma CAMBIA a ogni riavvio del container. L'URL
-  #    e' nei log ("docker compose logs cloudflared"): copialo in
-  #    KEYCLOAK_PUBLIC_URL (.env) e KEYCLOAK_IP (frontend/local.properties),
-  #    poi rifai "docker compose up -d --no-deps <servizi-java>".
+  #  CONFIG FILE (named tunnel STABILE su dominio proprio, creato da terminale
+  #  senza dashboard ne' carta). In backend/cloudflared/ ci sono config.yml +
+  #  <UUID>.json (credenziali, gitignored). Vedi backend/.env.example per come
+  #  rigenerarli (cloudflared tunnel login / create / route dns).
   #
-  #  - TOKEN VALORIZZATO -> named tunnel STABILE su un tuo dominio
-  #    (es. https://keycloak.tuo-dominio.xyz). Non cambia mai: KEYCLOAK_PUBLIC_URL,
-  #    KEYCLOAK_IP e il redirect Google si impostano una volta sola. Come:
-  #    Cloudflare Zero Trust -> Networks -> Tunnels -> Create tunnel (cloudflared),
-  #    Public Hostname keycloak.tuo-dominio.xyz -> service http://keycloak:8080,
-  #    copia il token in CLOUDFLARE_TUNNEL_TOKEN. Vedi backend/.env.example.
+  # Alternative (sostituisci la riga "command:"):
+  #  - token da dashboard Zero Trust:
+  #      command: ["tunnel","--no-autoupdate","run","--token","<IL-TUO-TOKEN>"]
+  #  - tunnel "quick" con URL random (per test veloci, senza dominio):
+  #      command: ["tunnel","--no-autoupdate","--url","http://keycloak:8080"]
   #
-  # ngrok resta com'e' per il backend (porta 8080), non c'entra con questo.
+  # KEYCLOAK_PUBLIC_URL in .env deve combaciare con l'URL del tunnel e con
+  # KEYCLOAK_IP in frontend/local.properties. ngrok resta com'e' per il backend.
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    environment:
-      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
-    command:
-      - sh
-      - -c
-      - >-
-        if [ -n "$${CLOUDFLARE_TUNNEL_TOKEN}" ]; then
-          exec cloudflared tunnel --no-autoupdate run --token "$${CLOUDFLARE_TUNNEL_TOKEN}";
-        else
-          exec cloudflared tunnel --no-autoupdate --url http://keycloak:8080;
-        fi
+    user: root
+    entrypoint: cloudflared
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
     depends_on:
       - keycloak
     networks:

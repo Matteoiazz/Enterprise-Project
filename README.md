@@ -70,9 +70,26 @@ Poi apri `.env` e valorizza le variabili:
 >
 > **A) Tunnel "quick" (gratis, zero setup, URL instabile).** Lascia `CLOUDFLARE_TUNNEL_TOKEN` vuoto. Primo `docker compose up -d`, poi leggi l'URL da `docker compose logs cloudflared` (`https://<parole-a-caso>.trycloudflare.com`) e mettilo in `KEYCLOAK_PUBLIC_URL`, poi `docker compose up -d --no-deps` sui servizi Java. **L'URL cambia ogni volta che `cloudflared` riparte** → non riavviarlo durante la demo.
 >
-> **B) Named tunnel su dominio proprio (URL stabile, ~1 €/anno).** Registra un dominio economico (es. `.xyz`), aggiungilo a Cloudflare (piano free). Poi Cloudflare → **Zero Trust → Networks → Tunnels → Create tunnel → Cloudflared**: dai un nome, copia il **token** in `CLOUDFLARE_TUNNEL_TOKEN`; nel tunnel aggiungi un **Public Hostname** `keycloak.tuo-dominio.xyz` → Service `HTTP` → `keycloak:8080`. Metti `KEYCLOAK_PUBLIC_URL=https://keycloak.tuo-dominio.xyz`. Da qui in poi l'URL non cambia mai.
+> **B) Named tunnel su dominio proprio (URL stabile, ~1 €/anno).** Registra un dominio (es. `.xyz`, `.cloud`) e aggiungilo a Cloudflare (piano free, nameserver puntati a Cloudflare). Poi, **da terminale, senza dashboard né carta**:
+> ```bash
+> brew install cloudflared
+> cloudflared tunnel login                                  # scegli la tua zona, Authorize
+> cloudflared tunnel create tripify-keycloak                # annota l'UUID
+> cloudflared tunnel route dns tripify-keycloak keycloak.tuo-dominio.xyz
+> cp ~/.cloudflared/<UUID>.json backend/cloudflared/
+> ```
+> Crea `backend/cloudflared/config.yml`:
+> ```yaml
+> tunnel: <UUID>
+> credentials-file: /etc/cloudflared/<UUID>.json
+> ingress:
+>   - hostname: keycloak.tuo-dominio.xyz
+>     service: http://keycloak:8080
+>   - service: http_status:404
+> ```
+> Metti `KEYCLOAK_PUBLIC_URL=https://keycloak.tuo-dominio.xyz` e lascia `CLOUDFLARE_TUNNEL_TOKEN` vuoto. `backend/cloudflared/` è gitignored (contiene il segreto del tunnel). In alternativa, con un metodo di pagamento sul profilo Cloudflare, si crea il tunnel dalla dashboard Zero Trust e si mette solo il `CLOUDFLARE_TUNNEL_TOKEN` (vedi `.env.example`).
 >
-> **In entrambi i casi** `KEYCLOAK_PUBLIC_URL` va copiato identico in `frontend/local.properties` (`KEYCLOAK_IP`) e nel redirect URI della Google Console, e l'app Android va **ricompilata** dopo ogni cambio (i valori finiscono in `BuildConfig` a compile-time). Col modo B lo fai una volta sola.
+> **In entrambi i casi** `KEYCLOAK_PUBLIC_URL` va copiato identico in `frontend/local.properties` (`KEYCLOAK_IP`) e nel redirect URI della Google Console (`https://<host>/realms/tripify/broker/google/endpoint`), e l'app Android va **ricompilata** dopo ogni cambio (i valori finiscono in `BuildConfig` a compile-time). Col modo B lo fai una volta sola.
 
 ## 2. Avvio del backend
 
