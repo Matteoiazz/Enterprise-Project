@@ -290,10 +290,10 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     healthcheck:
-
-      # curl (non wget): la base non-alpine non ha wget
+      # curl con GET vera: "wget --spider" manda una HEAD, che il permitAll()
+      # solo-GET della security config non copre (401), facendo fallire il
+      # controllo anche a servizio perfettamente funzionante.
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8082/api/v1/catalog/items/search"]
-
       interval: 10s
       timeout: 5s
       retries: 15
@@ -322,7 +322,7 @@ services:
       CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
       BOOKING_SERVICE_URL: http://booking-service:8083
     healthcheck:
-      # curl (non wget): la base non-alpine non ha wget
+      # curl con GET vera: stesso motivo del catalog-service qui sopra.
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8085/api/v1/itinerary/public"]
       interval: 10s
       timeout: 5s

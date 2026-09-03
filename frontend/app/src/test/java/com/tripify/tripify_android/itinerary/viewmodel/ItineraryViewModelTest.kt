@@ -6,6 +6,7 @@ import com.tripify.tripify_android.itinerary.data.BookAllResultDto
 import com.tripify.tripify_android.itinerary.data.CreateListRequest
 import com.tripify.tripify_android.itinerary.data.FavoriteListDto
 import com.tripify.tripify_android.itinerary.data.FavoriteListItemDto
+import com.tripify.tripify_android.itinerary.data.GenerateItineraryRequest
 import com.tripify.tripify_android.itinerary.data.ItineraryApi
 import com.tripify.tripify_android.itinerary.data.ItineraryRetrofit
 import com.tripify.tripify_android.itinerary.data.LikeResponse
@@ -57,6 +58,10 @@ class ItineraryViewModelTest {
     private fun viewModel(): ItineraryViewModel = ItineraryViewModel(mockk<TokenManager>(relaxed = true))
 
     private fun errorBody(message: String) = message.toResponseBody("text/plain".toMediaTypeOrNull())
+
+    /** Corpo d'errore realistico: il backend risponde sempre con un ApiError JSON (vedi GlobalExceptionHandler), mai testo semplice. */
+    private fun jsonErrorBody(message: String) =
+        """{"status":400,"error":"Bad Request","message":"$message"}""".toResponseBody("application/json".toMediaTypeOrNull())
 
     private fun list(id: Long = 1L, name: String = "Viaggio", ownerId: String = "owner-1") = FavoriteListDto(
         id = id, name = name, ownerId = ownerId, visibility = "PRIVATE", publicToken = null, collabToken = null, city = null
@@ -263,7 +268,7 @@ class ItineraryViewModelTest {
 
     @Test
     fun updateVisibilitySurfacesTheServerMessageWhenRequirementsAreNotMet() = runTest(mainDispatcher) {
-        coEvery { api.updateVisibility(any(), any()) } returns Response.error(400, errorBody("Servono almeno 2 componenti"))
+        coEvery { api.updateVisibility(any(), any()) } returns Response.error(400, jsonErrorBody("Servono almeno 2 componenti"))
         val vm = viewModel()
 
         var error: String? = null
@@ -414,6 +419,86 @@ class ItineraryViewModelTest {
 
         var error: String? = null
         vm.exportCalendar(mockk(relaxed = true), 1L, "Viaggio") { error = it }
+        advanceUntilIdle()
+
+        assertEquals("Nessuna connessione al server", error)
+    }
+
+    @Test
+    fun cloneListReturnsTheNewListIdOnSuccess() = runTest(mainDispatcher) {
+        coEvery { api.cloneList(1L) } returns Response.success(list(id = 2L, name = "Copia di Viaggio"))
+        val vm = viewModel()
+
+        var newId: Long? = null
+        var error: String? = "non toccato"
+        vm.cloneList(1L) { id, e -> newId = id; error = e }
+        advanceUntilIdle()
+
+        assertEquals(2L, newId)
+        assertNull(error)
+    }
+
+    @Test
+    fun cloneListSurfacesTheServerMessageOnFailure() = runTest(mainDispatcher) {
+        coEvery { api.cloneList(any()) } returns Response.error(403, jsonErrorBody("Non hai i permessi per modificare questa lista"))
+        val vm = viewModel()
+
+        var newId: Long? = 1L
+        var error: String? = null
+        vm.cloneList(1L) { id, e -> newId = id; error = e }
+        advanceUntilIdle()
+
+        assertNull(newId)
+        assertEquals("Non hai i permessi per modificare questa lista", error)
+    }
+
+    @Test
+    fun cloneListReportsConnectionErrorOnException() = runTest(mainDispatcher) {
+        coEvery { api.cloneList(any()) } throws IOException()
+        val vm = viewModel()
+
+        var error: String? = null
+        vm.cloneList(1L) { _, e -> error = e }
+        advanceUntilIdle()
+
+        assertEquals("Nessuna connessione al server", error)
+    }
+
+    @Test
+    fun generateItineraryReturnsTheNewListIdOnSuccess() = runTest(mainDispatcher) {
+        coEvery { api.generateItinerary(GenerateItineraryRequest("Milano", "Roma", 3, 2, true, null)) } returns
+            Response.success(list(id = 5L, name = "Viaggio a Roma"))
+        val vm = viewModel()
+
+        var newId: Long? = null
+        vm.generateItinerary("Milano", "Roma", 3, 2, true, null) { id, _ -> newId = id }
+        advanceUntilIdle()
+
+        assertEquals(5L, newId)
+    }
+
+    @Test
+    fun generateItinerarySurfacesTheServerMessageOnFailure() = runTest(mainDispatcher) {
+        coEvery { api.generateItinerary(any()) } returns
+            Response.error(400, jsonErrorBody("Nessun volo con hotel disponibile per Atlantide: prova un'altra destinazione"))
+        val vm = viewModel()
+
+        var newId: Long? = 1L
+        var error: String? = null
+        vm.generateItinerary("Milano", "Atlantide", 3, 1, false, null) { id, e -> newId = id; error = e }
+        advanceUntilIdle()
+
+        assertNull(newId)
+        assertEquals("Nessun volo con hotel disponibile per Atlantide: prova un'altra destinazione", error)
+    }
+
+    @Test
+    fun generateItineraryReportsConnectionErrorOnException() = runTest(mainDispatcher) {
+        coEvery { api.generateItinerary(any()) } throws IOException()
+        val vm = viewModel()
+
+        var error: String? = null
+        vm.generateItinerary("Milano", "Roma", 3, 1, false, null) { _, e -> error = e }
         advanceUntilIdle()
 
         assertEquals("Nessuna connessione al server", error)

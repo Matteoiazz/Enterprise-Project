@@ -1,7 +1,10 @@
 package com.tripify.tripify_android.itinerary.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,7 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.tripify.tripify_android.BuildConfig
 import com.tripify.tripify_android.catalog.model.CatalogItem
+import com.tripify.tripify_android.catalog.ui.components.pressScale
 import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.itinerary.util.extractUserNameFromToken
@@ -49,7 +54,8 @@ fun ItineraryDetailScreen(
     tokenManager: TokenManager,
     onNavigateBack: () -> Unit,
     onNavigateToComponent: (String) -> Unit,
-    onChatWithOrganizer: (String) -> Unit
+    onChatWithOrganizer: (String) -> Unit,
+    onCloned: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -60,6 +66,7 @@ fun ItineraryDetailScreen(
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var isBooking by remember { mutableStateOf(false) }
     var isChatting by remember { mutableStateOf(false) }
+    var isCloning by remember { mutableStateOf(false) }
     var showPublishDialog by remember { mutableStateOf(false) }
     var showItemPickerDialog by remember { mutableStateOf(false) }
     var pendingCatalogItem by remember { mutableStateOf<CatalogItem?>(null) }
@@ -117,6 +124,32 @@ fun ItineraryDetailScreen(
                             context.startActivity(Intent.createChooser(sendIntent, "Condividi itinerario"))
                         }) {
                             Icon(Icons.Filled.Share, contentDescription = "Condividi", tint = CatalogColors.Ink)
+                        }
+                    }
+                    if (currentList != null && !isOwnerTopLevel) {
+                        IconButton(
+                            enabled = !isCloning,
+                            onClick = {
+                                if (currentUserId == null) {
+                                    scope.launch { snackbarHostState.showSnackbar("Accedi per copiare questo itinerario") }
+                                    return@IconButton
+                                }
+                                isCloning = true
+                                viewModel.cloneList(currentList.id) { newListId, error ->
+                                    isCloning = false
+                                    if (newListId != null) {
+                                        onCloned(newListId)
+                                    } else {
+                                        scope.launch { snackbarHostState.showSnackbar(error ?: "Impossibile copiare l'itinerario") }
+                                    }
+                                }
+                            }
+                        ) {
+                            if (isCloning) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = CatalogColors.AccentDark)
+                            } else {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copia nei miei itinerari", tint = CatalogColors.Ink)
+                            }
                         }
                     }
                     if (isOwnerTopLevel) {
@@ -259,22 +292,27 @@ fun ItineraryDetailScreen(
                                     )
                                 )
                         )
-                        IconButton(
-                            onClick = {
-                                if (currentUserId != null) {
-                                    viewModel.toggleLike(list.id)
-                                } else {
-                                    scope.launch { snackbarHostState.showSnackbar("Accedi per mettere mi piace") }
-                                }
-                            },
-                            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).size(38.dp).clip(CircleShape).background(Color.White)
-                        ) {
-                            Icon(
-                                if (list.likedByMe) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = "Mi piace",
-                                tint = CatalogColors.Alert,
-                                modifier = Modifier.size(18.dp)
-                            )
+                        // Non ha senso mettere like al proprio itinerario (il backend lo rifiuta
+                        // esplicitamente): nascosto per il proprietario, stessa logica già usata
+                        // per il pulsante "Clona" in questa schermata.
+                        if (!isOwnerTopLevel) {
+                            IconButton(
+                                onClick = {
+                                    if (currentUserId != null) {
+                                        viewModel.toggleLike(list.id)
+                                    } else {
+                                        scope.launch { snackbarHostState.showSnackbar("Accedi per mettere mi piace") }
+                                    }
+                                },
+                                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).size(38.dp).clip(CircleShape).background(Color.White)
+                            ) {
+                                Icon(
+                                    if (list.likedByMe) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    contentDescription = "Mi piace",
+                                    tint = CatalogColors.Alert,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
 
@@ -521,6 +559,18 @@ fun ItineraryDetailScreen(
                                     }
                                 }
                             }
+                        }
+
+                        val hotelsWithCoords = resolvedComponents.filterIsInstance<CatalogItem.Hotel>()
+                            .filter { it.locationLat != null && it.locationLng != null }
+                        if (hotelsWithCoords.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(22.dp))
+                            Text("MAPPA", style = CatalogType.Overline, color = CatalogColors.InkMuted)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            ItineraryMapPreview(
+                                hotels = hotelsWithCoords,
+                                onNoMapsApp = { scope.launch { snackbarHostState.showSnackbar("Nessuna app per le mappe trovata sul dispositivo") } }
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -854,6 +904,55 @@ private fun ItineraryComponentCard(
                 } else {
                     Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CatalogColors.InkSubtle)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Anteprima su un'unica mappa statica di tutti gli hotel dell'itinerario con coordinate
+ * note (le attività non hanno lat/lng nel catalogo, i voli non hanno una posizione
+ * puntuale). Senza center/zoom espliciti, Google adatta automaticamente l'inquadratura
+ * per contenere tutti i marker, sia con uno solo che con più di uno.
+ */
+@Composable
+private fun ItineraryMapPreview(hotels: List<CatalogItem.Hotel>, onNoMapsApp: () -> Unit) {
+    val context = LocalContext.current
+
+    val markersParam = hotels.withIndex().joinToString("&") { (index, hotel) ->
+        "markers=color:0x1B4332%7Clabel:${index + 1}%7C${hotel.locationLat},${hotel.locationLng}"
+    }
+    val staticMapUrl = "https://maps.googleapis.com/maps/api/staticmap?size=600x300&scale=2&$markersParam&key=${BuildConfig.MAPS_API_KEY}"
+
+    fun openMaps() {
+        val first = hotels.first()
+        val geoUri = Uri.parse("geo:${first.locationLat},${first.locationLng}?q=${first.locationLat},${first.locationLng}(${Uri.encode(first.title)})")
+        try {
+            val mapsIntent = Intent(Intent.ACTION_VIEW, geoUri).apply { setPackage("com.google.android.apps.maps") }
+            context.startActivity(mapsIntent)
+        } catch (e: ActivityNotFoundException) {
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, geoUri))
+            } catch (e: ActivityNotFoundException) {
+                onNoMapsApp()
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp)
+            .clip(CatalogShapes.Field)
+            .border(1.dp, CatalogColors.Hairline, CatalogShapes.Field)
+            .pressScale { openMaps() }
+    ) {
+        AsyncImage(model = staticMapUrl, contentDescription = "Mappa delle tappe", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        Surface(color = CatalogColors.Surface.copy(alpha = 0.95f), shape = CatalogShapes.Pill, modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                Icon(Icons.Filled.Map, contentDescription = null, tint = CatalogColors.Accent, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Apri in Maps", style = CatalogType.Caption.copy(fontWeight = FontWeight.SemiBold), color = CatalogColors.Ink)
             }
         }
     }

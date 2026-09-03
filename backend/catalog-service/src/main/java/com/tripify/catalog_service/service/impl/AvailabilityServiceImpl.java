@@ -83,6 +83,9 @@ public class AvailabilityServiceImpl implements AvailabilityService {
                 .orElseThrow(() -> new CatalogItemNotFoundException(fareClassId));
 
         LocalDateTime now = LocalDateTime.now();
+        if (fareClass.getFlight().getDepartureTime() != null && !fareClass.getFlight().getDepartureTime().isAfter(now)) {
+            throw new IllegalArgumentException("Il volo è già partito, non è più possibile prenotare posti");
+        }
         int available = computeSeatAvailability(fareClass, now);
         if (available < seats) {
             throw new InsufficientAvailabilityException("Disponibilità insufficiente per la classe \"" + fareClass.getName() + "\"");

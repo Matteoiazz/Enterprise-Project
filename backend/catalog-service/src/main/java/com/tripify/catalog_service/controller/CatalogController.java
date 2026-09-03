@@ -276,12 +276,21 @@ public class CatalogController {
         return ResponseEntity.ok(catalogMapper.toDto(updated));
     }
 
+    /** Dashboard privata del proprietario: include anche gli annunci disattivati (a differenza della vetrina pubblica). */
     @GetMapping("/items/mine")
     public ResponseEntity<List<CatalogItemDTO>> getMyItems(@AuthenticationPrincipal Jwt jwt) {
-        List<CatalogItemDTO> items = catalogService.getItemsByHost(hostIdOf(jwt)).stream()
+        List<CatalogItemDTO> items = catalogService.getAllItemsByHost(hostIdOf(jwt)).stream()
                 .map(catalogMapper::toDto)
                 .toList();
         return ResponseEntity.ok(items);
+    }
+
+    /** Riattiva un annuncio disattivato in precedenza: torna visibile in ricerca/vetrina. */
+    @PatchMapping("/items/{id}/reactivate")
+    public ResponseEntity<Void> reactivateItem(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        requireOwnedItem(id, jwt);
+        catalogService.reactivateItem(id);
+        return ResponseEntity.ok().build();
     }
 
     private UUID hostIdOf(Jwt jwt) {

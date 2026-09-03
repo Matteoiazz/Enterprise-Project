@@ -17,6 +17,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.PUT
 import retrofit2.http.POST
 import retrofit2.http.Part
@@ -94,6 +95,9 @@ interface CatalogApi {
 
     @DELETE("/api/v1/catalog/items/{id}")
     suspend fun deleteItem(@Path("id") id: Int): Response<Unit>
+
+    @PATCH("/api/v1/catalog/items/{id}/reactivate")
+    suspend fun reactivateItem(@Path("id") id: Int): Response<Unit>
 
     @Multipart
     @POST("/api/v1/catalog/items/{id}/images")

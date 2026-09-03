@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Copre la disattivazione (soft delete) di un item del catalogo: prima di questo fix,
@@ -155,5 +156,74 @@ class CatalogServiceImplTest {
 
         assertThat(risultati.getContent()).extracting(CatalogItemDTO::getTitle).contains("Hotel con suite");
         assertThat(risultati.getContent()).extracting(CatalogItemDTO::getTitle).doesNotContain("Hotel con singola");
+    }
+
+    @Test
+    void ilProprietarioVedeAncheIPropriAnnunciDisattivatiEPuoRiattivarli() {
+        Flight flight = saveFlight();
+        UUID hostId = flight.getHostId();
+        catalogService.deactivateItem(flight.getId());
+
+        // Prima del fix: getItemsByHost (usato anche dalla dashboard privata "i miei
+        // annunci") filtrava isActive=true, rendendo la disattivazione irreversibile
+        // e invisibile anche per il proprietario stesso.
+        assertThat(catalogService.getItemsByHost(hostId)).extracting(CatalogItem::getId).doesNotContain(flight.getId());
+        assertThat(catalogService.getAllItemsByHost(hostId)).extracting(CatalogItem::getId).contains(flight.getId());
+
+        catalogService.reactivateItem(flight.getId());
+
+        assertThat(catalogItemRepository.findById(flight.getId()).orElseThrow().isActive()).isTrue();
+        assertThat(catalogService.getItemsByHost(hostId)).extracting(CatalogItem::getId).contains(flight.getId());
+    }
+
+    @Test
+    void unVoloConArrivoPrimaDellaPartenzaVieneRifiutatoDallaValidazione() {
+        Flight flight = new Flight();
+        flight.setHostId(UUID.randomUUID());
+        flight.setTitle("Volo assurdo");
+        flight.setPrice(new BigDecimal("50"));
+        flight.setCurrency("EUR");
+        flight.setCategory("Voli");
+        flight.setDepartureAirport("AAA");
+        flight.setArrivalAirport("BBB");
+        flight.setDepartureCity("Città A");
+        flight.setArrivalCity("Città B");
+        flight.setDepartureTime(LocalDateTime.now().plusDays(5).plusHours(2));
+        flight.setArrivalTime(LocalDateTime.now().plusDays(5)); // prima della partenza
+        flight.setTotalSeats(10);
+        flight.setStops(0);
+
+        assertThatThrownBy(() -> catalogItemRepository.saveAndFlush(flight))
+                .isInstanceOf(jakarta.validation.ConstraintViolationException.class);
+    }
+
+    @Test
+    void iSuggerimentiCittaTrovanoAncheUnaSottostringaNonSoloUnPrefisso() {
+        Hotel roma = new Hotel();
+        roma.setHostId(UUID.randomUUID());
+        roma.setTitle("Hotel a Roma");
+        roma.setPrice(new BigDecimal("100"));
+        roma.setCurrency("EUR");
+        roma.setCategory("Hotel");
+        roma.setCity("Roma");
+        roma.setLocationLat(41.9);
+        roma.setLocationLng(12.5);
+        roma.setAddress("Via Roma 1");
+        catalogItemRepository.save(roma);
+
+        Hotel cairo = new Hotel();
+        cairo.setHostId(UUID.randomUUID());
+        cairo.setTitle("Hotel al Cairo");
+        cairo.setPrice(new BigDecimal("100"));
+        cairo.setCurrency("EUR");
+        cairo.setCategory("Hotel");
+        cairo.setCity("Cairo");
+        cairo.setLocationLat(30.0);
+        cairo.setLocationLng(31.2);
+        cairo.setAddress("Via del Cairo 1");
+        catalogItemRepository.save(cairo);
+
+        // "ro" non è un prefisso di "Cairo": deve comunque comparire, essendo contenuto.
+        assertThat(catalogService.getCitySuggestions("ro")).containsExactlyInAnyOrder("Roma", "Cairo");
     }
 }

@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/*/rating").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/catalog/items/**").hasAuthority("ROLE_ORGANIZER")
 
                         // Compensazione: chiamata di servizio da booking-service, non un utente
                         // (vedi AvailabilityController.compensate), protetta dalla chiave interna.

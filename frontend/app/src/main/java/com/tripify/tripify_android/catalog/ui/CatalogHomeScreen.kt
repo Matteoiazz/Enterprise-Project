@@ -127,7 +127,10 @@ fun HomeScreen(
 
     Scaffold(
         containerColor = CatalogColors.Background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // La barra di navigazione flottante galleggia sopra questo Scaffold: senza
+        // questo margine la snackbar finirebbe nascosta (e illeggibile) dietro di
+        // lei, invece che sopra (vedi TripifyApp).
+        snackbarHost = { SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = LocalBottomNavBarHeight.current)) },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(

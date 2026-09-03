@@ -92,6 +92,21 @@ fun MyItinerariesScreen(
         }
     }
 
+    // Rientrando su questa schermata dopo aver clonato/generato un itinerario da un
+    // dettaglio aperto altrove (che naviga dritto al nuovo itinerario, senza passare
+    // da qui), l'elenco non si aggiorna da solo: lo ricarica ogni volta che la
+    // schermata torna in primo piano (stesso pattern di ItineraryListScreen).
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && isLoggedIn) {
+                reload()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Scaffold(
         containerColor = CatalogColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },

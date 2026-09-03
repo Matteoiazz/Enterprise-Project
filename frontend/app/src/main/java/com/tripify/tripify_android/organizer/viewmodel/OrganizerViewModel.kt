@@ -37,6 +37,12 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    // Vera per tutta la durata di una scrittura (crea/modifica/elimina/riattiva annuncio):
+    // impedisce un doppio tap su "Salva"/"Elimina"/"Riattiva" che altrimenti spedirebbe
+    // due richieste identiche prima che la prima risposta torni.
+    private val _isSubmitting = MutableStateFlow(false)
+    val isSubmitting: StateFlow<Boolean> = _isSubmitting
+
     fun loadMyItems() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -74,14 +80,16 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     fun updateActivity(id: Int, request: CreateActivityRequest, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.updateActivity(id, request) }
 
     fun deleteItem(id: Int, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.deleteItem(id) }
+    fun reactivateItem(id: Int, onResult: (Boolean) -> Unit) = launchWrite(onResult) { catalogApi.reactivateItem(id) }
 
 
     fun createHotel(request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
+            _isSubmitting.value = true
             try {
                 val response = catalogApi.createHotel(request)
                 if (!response.isSuccessful) {
-                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    _errorMessage.value = extractErrorMessage(response.errorBody()?.string(), "Operazione non riuscita")
                     onResult(false); return@launch
                 }
                 val newId = response.body()?.id
@@ -90,16 +98,19 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
                 onResult(true)
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"; onResult(false)
+            } finally {
+                _isSubmitting.value = false
             }
         }
     }
 
     fun updateHotel(id: Int, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
+            _isSubmitting.value = true
             try {
                 val response = catalogApi.updateHotel(id, request)
                 if (!response.isSuccessful) {
-                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    _errorMessage.value = extractErrorMessage(response.errorBody()?.string(), "Operazione non riuscita")
                     onResult(false); return@launch
                 }
                 if (imageUris.isNotEmpty()) uploadImages(id, imageUris, context)
@@ -107,6 +118,8 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
                 onResult(true)
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"; onResult(false)
+            } finally {
+                _isSubmitting.value = false
             }
         }
     }
@@ -143,20 +156,33 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
         }
     }
 
+    /** Estrae il campo "message" del corpo di errore JSON (vedi ApiError sul backend), con un fallback leggibile. */
+    private fun extractErrorMessage(raw: String?, fallback: String): String {
+        if (raw.isNullOrBlank()) return fallback
+        return try {
+            org.json.JSONObject(raw).optString("message").ifBlank { fallback }
+        } catch (e: Exception) {
+            fallback
+        }
+    }
+
     private fun launchWrite(onResult: (Boolean) -> Unit, call: suspend () -> retrofit2.Response<*>) {
         viewModelScope.launch {
+            _isSubmitting.value = true
             try {
                 val response = call()
                 if (response.isSuccessful) {
                     loadMyItems()
                     onResult(true)
                 } else {
-                    _errorMessage.value = response.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: "Operazione non riuscita"
+                    _errorMessage.value = extractErrorMessage(response.errorBody()?.string(), "Operazione non riuscita")
                     onResult(false)
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Nessuna connessione al server"
                 onResult(false)
+            } finally {
+                _isSubmitting.value = false
             }
         }
     }

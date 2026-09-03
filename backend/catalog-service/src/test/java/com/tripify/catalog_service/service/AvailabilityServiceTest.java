@@ -174,4 +174,32 @@ class AvailabilityServiceTest {
         assertThatThrownBy(() -> availabilityService.holdSeats(fareClass.getId(), 1, "user-2"))
                 .isInstanceOf(InsufficientAvailabilityException.class);
     }
+
+    @Test
+    void rifiutaUnHoldSuUnVoloGiaPartito() {
+        // Prima del fix: a differenza di holdRoom (che rifiuta un checkIn nel passato),
+        // holdSeats non controllava affatto l'orario del volo — chiunque poteva
+        // continuare a "prenotare" posti su un volo già decollato indefinitamente.
+        Flight flightPartito = new Flight();
+        flightPartito.setHostId(UUID.randomUUID());
+        flightPartito.setTitle("Volo già partito");
+        flightPartito.setPrice(new BigDecimal("50"));
+        flightPartito.setCurrency("EUR");
+        flightPartito.setCategory("Voli");
+        flightPartito.setDepartureAirport("AAA");
+        flightPartito.setArrivalAirport("BBB");
+        flightPartito.setDepartureCity("Città A");
+        flightPartito.setArrivalCity("Città B");
+        flightPartito.setDepartureTime(LocalDateTime.now().minusHours(2));
+        flightPartito.setArrivalTime(LocalDateTime.now().minusHours(1));
+        flightPartito.setTotalSeats(10);
+        flightPartito.setStops(0);
+        flightPartito = (Flight) catalogItemRepository.save(flightPartito);
+
+        FareClass fareClassPartita = fareClassRepository.save(FareClass.builder()
+                .flight(flightPartito).name("Economy").price(new BigDecimal("50")).totalSeats(10).build());
+
+        assertThatThrownBy(() -> availabilityService.holdSeats(fareClassPartita.getId(), 1, "user-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

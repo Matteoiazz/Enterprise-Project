@@ -4,6 +4,7 @@ import com.tripify.itinerary_service.dto.AddListItemRequestDTO;
 import com.tripify.itinerary_service.dto.BookAllResultDTO;
 import com.tripify.itinerary_service.dto.CreateListRequestDTO;
 import com.tripify.itinerary_service.dto.FavoriteListResponseDTO;
+import com.tripify.itinerary_service.dto.GenerateItineraryRequestDTO;
 import com.tripify.itinerary_service.dto.RemoveItemResultDTO;
 import com.tripify.itinerary_service.dto.UpdateVisibilityRequestDTO;
 import com.tripify.itinerary_service.entity.FavoriteList;
@@ -34,6 +35,24 @@ public class ItineraryController {
                                                 @AuthenticationPrincipal Jwt jwt) {
         FavoriteList created = service.createList(request.name(), jwt.getSubject());
         return ResponseEntity.status(HttpStatus.CREATED).body(FavoriteListResponseDTO.forOwner(created));
+    }
+
+    /** Copia i componenti di una lista accessibile (pubblica, propria o condivisa) in una nuova lista privata di chi clona. */
+    @PostMapping("/{id}/clone")
+    public ResponseEntity<FavoriteListResponseDTO> cloneList(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        FavoriteList cloned = service.cloneList(id, jwt.getSubject());
+        service.applyTotalPrice(cloned);
+        return ResponseEntity.status(HttpStatus.CREATED).body(FavoriteListResponseDTO.forOwner(cloned));
+    }
+
+    /** Genera una bozza di itinerario per una città a partire dal catalogo esistente. */
+    @PostMapping("/generate")
+    public ResponseEntity<FavoriteListResponseDTO> generate(@Valid @RequestBody GenerateItineraryRequestDTO request,
+                                                              @AuthenticationPrincipal Jwt jwt) {
+        FavoriteList generated = service.generateItinerary(request.departureCity(), request.city(), request.days(),
+                request.travelers(), request.returnFlight(), request.budget(), jwt.getSubject());
+        service.applyTotalPrice(generated);
+        return ResponseEntity.status(HttpStatus.CREATED).body(FavoriteListResponseDTO.forOwner(generated));
     }
 
     @PostMapping("/{id}/items")

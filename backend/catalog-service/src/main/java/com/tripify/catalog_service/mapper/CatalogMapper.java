@@ -38,6 +38,7 @@ public class CatalogMapper {
                 .imageUrls(extractedUrls)
                 .hostId(item.getHostId() != null ? item.getHostId().toString() : null)
                 .isUserGenerated(item.isUserGenerated())
+                .isActive(item.isActive())
                 .itemType(item.getClass().getSimpleName());
 
         if (item instanceof com.tripify.catalog_service.entity.Flight flight) {
