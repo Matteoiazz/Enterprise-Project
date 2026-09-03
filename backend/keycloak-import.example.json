@@ -1660,7 +1660,7 @@
     "envelopeFrom": "",
     "ssl": "true",
     "timeout": "10000",
-    "password": "grwn kfwe nvin dvry",
+    "password": "CHANGEME",
     "port": "465",
     "host": "smtp.gmail.com",
     "replyTo": "",
@@ -1689,7 +1689,7 @@
       "providerId": "google",
       "enabled": true,
       "config": {
-        "clientSecret": "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",
+        "clientSecret": "CHANGEME",
         "clientId": "29035195985-tgspb5klhued54dskhnjf6lqj8boh1rd.apps.googleusercontent.com",
         "issuer": "https://accounts.google.com",
         "jwtAuthorizationGrantMaxAllowedAssertionExpiration": "3600",
