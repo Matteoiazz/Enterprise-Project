@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 @FeignClient(name = "catalog-service", url = "${catalog.service.url:http://localhost:8082}", configuration = FeignClientConfig.class)
 public interface CatalogClient {
 
-    // Chiamata di servizio, non di un utente: la chiave sostituisce il JWT (che catalog-service
-    // qui non richiede, vedi CatalogController.updateRating/SecurityConfig).
     @PutMapping("/api/v1/catalog/items/{id}/rating")
     void updateRating(@PathVariable("id") Long id,
                        @RequestHeader("X-Internal-Key") String internalKey,

@@ -18,9 +18,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Manteniamo aperto solo ciò che è strettamente pubblico
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/item/*").permitAll()
-                        // Tutte le rotte, incluse /chat/** e /ws-chat/**, ora richiedono il token
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
