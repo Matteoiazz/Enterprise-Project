@@ -8,15 +8,12 @@ import retrofit2.http.Path
 
 interface NotificationApi {
 
-    // 1. Ottiene la lista delle notifiche dell'utente loggato
     @GET("api/notifications")
     suspend fun getNotifications(): Response<List<NotificationModel>>
 
-    // 2. Segna una specifica notifica come letta
     @PATCH("api/notifications/{id}/read")
     suspend fun markAsRead(@Path("id") notificationId: Long): Response<NotificationModel>
 
-    // 3. Ottiene il conteggio delle notifiche non lette
     @GET("api/notifications/unread-count")
     suspend fun getUnreadCount(): Response<Long>
 }

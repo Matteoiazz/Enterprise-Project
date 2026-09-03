@@ -1,4 +1,4 @@
-package com.tripify.tripify_android.communication.data.model // Adatta il package in base alla struttura del vostro progetto
+package com.tripify.tripify_android.communication.data.model
 
 import com.google.gson.annotations.SerializedName
 
@@ -19,5 +19,5 @@ data class NotificationModel(
     val isRead: Boolean,
 
     @SerializedName("createdAt")
-    val createdAt: String // O LocalDateTime/Long a seconda di come gestite le date nel parsing JSON
+    val createdAt: String
 )

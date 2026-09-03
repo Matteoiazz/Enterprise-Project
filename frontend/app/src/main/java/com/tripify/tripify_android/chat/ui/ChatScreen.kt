@@ -108,9 +108,9 @@ fun ChatScreen(
                             Surface(
                                 modifier = Modifier.widthIn(max = 300.dp),
                                 color = if (isMyMessage)
-                                    CatalogColors.Ink // Usa il colore scuro/primario della home per i tuoi messaggi
+                                    CatalogColors.Ink
                                 else
-                                    CatalogColors.SurfaceMuted, // Superficie neutra per gli altri
+                                    CatalogColors.SurfaceMuted,
                                 shape = RoundedCornerShape(
                                     topStart = 16.dp,
                                     topEnd = 16.dp,
@@ -141,14 +141,12 @@ fun ChatScreen(
 
                                     val timeString = try {
                                         if (msg.timestamp.isNullOrEmpty()) {
-                                            // Se il timestamp non c'è ancora, prendi l'ora esatta del telefono
                                             java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
                                         } else {
                                             val parsed = java.time.LocalDateTime.parse(msg.timestamp)
                                             parsed.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
                                         }
                                     } catch (e: Exception) {
-                                        // Fallback di sicurezza
                                         java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
                                     }
 
@@ -167,7 +165,6 @@ fun ChatScreen(
                     }
                 }
 
-                // Barra di scrittura inferiore coerente
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = CatalogColors.Surface,

@@ -42,7 +42,6 @@ class ChatViewModel(
 
     init {
         viewModelScope.launch {
-            // Forza il prelievo del token più recente ed evita token obsoleti
             val token = tokenManager.tokenFlow.first() ?: ""
             currentUserId = extractUserIdFromToken(token)
 
@@ -75,7 +74,6 @@ class ChatViewModel(
 
         stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl, httpHeaders)
 
-        // 1. Gestione del ciclo di vita della connessione
         val lifecycleDisposable = stompClient.lifecycle()
             .subscribeOn(Schedulers.io())
             .subscribe(
@@ -99,7 +97,6 @@ class ChatViewModel(
             )
         compositeDisposable.add(lifecycleDisposable)
 
-        // 2. Sottoscrizione al topic: la libreria lo spedisce solo DOPO il frame STOMP CONNECTED
         val topicDisposable = stompClient.topic("/topic/room/$roomId")
             .subscribeOn(Schedulers.io())
             .subscribe(
@@ -120,7 +117,6 @@ class ChatViewModel(
             )
         compositeDisposable.add(topicDisposable)
 
-        // 3. Avvio dell'handshake
         val stompHeaders = listOf(StompHeader("Authorization", "Bearer $token"))
         stompClient.connect(stompHeaders)
     }
@@ -154,7 +150,6 @@ class ChatViewModel(
             content = messageText
         )
 
-        // Aggiornamento ottimistico dell'UI
         _messages.value = _messages.value + chatMessage
 
         val jsonPayload = gson.toJson(chatMessage)
