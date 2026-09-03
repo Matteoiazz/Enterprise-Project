@@ -50,6 +50,8 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
         viewModelScope.launch { tokenManager.setChatAlertsEnabled(value) }
     }
 
+    fun clearError() { errorMessage = null }
+
     fun deleteAccount(onSuccess: () -> Unit) {
         viewModelScope.launch {
             errorMessage = null

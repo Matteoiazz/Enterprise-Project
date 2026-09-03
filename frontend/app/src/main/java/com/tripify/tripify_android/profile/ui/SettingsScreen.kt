@@ -46,6 +46,7 @@ fun SettingsScreen(
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
         }
     }
 

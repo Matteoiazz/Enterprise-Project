@@ -210,20 +210,10 @@ class CatalogViewModel(
 
     fun clearErrorMessage() { _errorMessage.value = null }
 
-    private fun formatPrice(amount: Double, currency: String?): String {
-        val symbol = when (currency?.uppercase()) {
-            "EUR", null, "" -> "€"
-            "USD" -> "$"
-            "GBP" -> "£"
-            else -> currency.uppercase() + " "
-        }
-        val n = if (amount % 1.0 == 0.0) amount.toLong().toString()
-                else String.format(java.util.Locale.ITALY, "%.2f", amount)
-        return "$symbol $n"
-    }
-
     private fun mapDtoToItem(dto: CatalogItemDto): CatalogItem {
-        val priceString = formatPrice(dto.price, dto.currency)
+        // Il campo price (String) e' un fallback: le schede usano formattedPrice()
+        // con la valuta scelta nelle Impostazioni. Qui i listini sono in EUR.
+        val priceString = com.tripify.tripify_android.catalog.util.CatalogPriceFormatter.format(dto.price, "EUR")
         val immaginiReali = if (!dto.imageUrls.isNullOrEmpty()) dto.imageUrls else listOf(
             "https://picsum.photos/seed/${dto.id}A/600/800",
             "https://picsum.photos/seed/${dto.id}B/600/800"

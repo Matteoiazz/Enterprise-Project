@@ -90,11 +90,11 @@ class CompanionsViewModel(
                 )
                 apiService.addCompanion(newCompanion)
                 loadCompanions()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: HttpException) {
                 _errorMessage.value = e.parseApiError("Errore durante il salvataggio.")
                 Log.e("CompanionsVM", "Add Error", e)
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
                 _errorMessage.value = "Errore di rete durante il salvataggio. Riprova."
                 Log.e("CompanionsVM", "Add Error", e)
