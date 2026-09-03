@@ -104,7 +104,10 @@ services:
       # recensione (ReviewService -> BookingClient). Senza, Feign va su
       # localhost:8083 dentro il container e il controllo salta.
       BOOKING_SERVICE_URL: http://booking-service:8083
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env}
     networks:
       - travel-network
@@ -173,6 +176,10 @@ services:
       # solo loggato) la compensazione degli hold verso catalog-service.
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?imposta INTERNAL_SERVICE_KEY in backend/.env, stessa chiave su booking-service, catalog-service e communication-service}
       LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
@@ -227,8 +234,11 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      # issuer fisso = IP LAN: stesso "iss" per app e container
-      KC_HOSTNAME: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180
+      # hostname pubblico HTTPS (tunnel Cloudflare su keycloak): stesso "iss"
+      # per app, container e per il redirect dell'IdP Google. Il default
+      # localhost e' solo per far partire lo stack prima di conoscere l'URL
+      # del tunnel (vedi commento sul servizio cloudflared).
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
@@ -265,7 +275,10 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-catalog:5432/db_catalog
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?serve una chiave, vedi backend/.env.example}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
@@ -296,7 +309,10 @@ services:
       - "8085:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-itinerary:5432/db_itinerary
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}:8180/realms/tripify
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
       CATALOG_SERVICE_URL: http://catalog-service:8082/api/v1/catalog
       BOOKING_SERVICE_URL: http://booking-service:8083
     healthcheck:
@@ -330,6 +346,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-auth:5432/db_auth
       DB_PASSWORD: ${DB_PASSWORD:-password}
       LOCAL_IP: ${LOCAL_IP:?imposta LOCAL_IP in backend/.env con l'IP LAN della macchina}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/tripify
+      # le chiavi si prendono dalla rete Docker interna: cosi' l'avvio NON
+      # dipende dal tunnel pubblico, ma l'"iss" atteso resta quello pubblico
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/tripify/protocol/openid-connect/certs
       KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8080
       KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -359,6 +379,23 @@ services:
       ITINERARY_SERVICE_URL: http://itinerary-service:8085
       GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
       GATEWAY_RATE_LIMIT_MAX: ${GATEWAY_RATE_LIMIT_MAX:-3000}
+    networks:
+      - travel-network
+
+  # Tunnel Cloudflare "quick" davanti a Keycloak: espone keycloak:8080 su un
+  # URL https://<random>.trycloudflare.com (cert valido, NESSUN interstitial,
+  # gratis, senza dominio). Serve perche' l'IdP Google rifiuta redirect in
+  # http o su IP. L'URL lo stampa nei log all'avvio: prendilo e mettilo in
+  # backend/.env come KEYCLOAK_PUBLIC_URL, poi "docker compose up -d".
+  # NB: l'URL cambia a ogni riavvio del container -> tienilo su per la demo.
+  # ngrok resta com'e' per il backend (porta 8080), non c'entra con questo.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://keycloak:8080
+    depends_on:
+      - keycloak
     networks:
       - travel-network
 
