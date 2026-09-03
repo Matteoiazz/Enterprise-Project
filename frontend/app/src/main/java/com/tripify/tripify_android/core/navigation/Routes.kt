@@ -30,7 +30,9 @@ sealed class Route(val path: String) {
 
     object OrganizerSearch : Route("organizer_search")
     object OrganizerShowcase : Route("organizer_showcase/{hostId}") {
-        fun path(hostId: String) = "organizer_showcase/$hostId"
+        // encode: hostId di norma e' un UUID, ma se arriva un'email (fallback)
+        // "@", "+" ecc. romperebbero la route. Navigation ridecodifica in lettura.
+        fun path(hostId: String) = "organizer_showcase/${android.net.Uri.encode(hostId)}"
     }
 
 }

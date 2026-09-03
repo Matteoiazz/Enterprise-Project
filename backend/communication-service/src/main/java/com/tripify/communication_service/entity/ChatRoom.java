@@ -18,18 +18,18 @@ import java.util.UUID;
 public class ChatRoom {
 
     @Id
-    private String id; // L'ID della stanza diventa un UUID in formato String
+    private String id;
 
     @Column(nullable = false)
-    private String travelerId; // L'ID del viaggiatore (UUID di Keycloak)
+    private String travelerId;
 
     @Column(nullable = false)
-    private String hostId; // L'ID dell'organizzatore (UUID di Keycloak)
+    private String hostId;
 
     @Column(name = "traveler_name")
     private String travelerName;
 
-    // NUOVO CAMPO
+
     private String title;
 
     private LocalDateTime createdAt;
@@ -37,7 +37,7 @@ public class ChatRoom {
     @PrePersist
     protected void onCreate() {
         if (this.id == null) {
-            this.id = UUID.randomUUID().toString(); // Genera un UUID casuale prima di salvare se non è presente
+            this.id = UUID.randomUUID().toString();
         }
         this.createdAt = LocalDateTime.now();
     }

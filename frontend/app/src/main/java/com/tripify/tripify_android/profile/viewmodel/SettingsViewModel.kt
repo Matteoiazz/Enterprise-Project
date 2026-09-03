@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.data.TokenManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -61,6 +62,8 @@ class SettingsViewModel(private val tokenManager: TokenManager, private val prof
                 } else {
                     errorMessage = "Impossibile eliminare l'account in questo momento (${response.code()}). Riprova."
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "deleteAccount fallita", e)
                 errorMessage = "Errore di rete durante l'eliminazione. Riprova."

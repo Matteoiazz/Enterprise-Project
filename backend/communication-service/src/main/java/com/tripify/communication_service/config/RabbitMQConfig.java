@@ -22,14 +22,12 @@ public class RabbitMQConfig {
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        // Usiamo il costruttore vuoto della nuova libreria
+
         JacksonJsonMessageConverter converter = new JacksonJsonMessageConverter();
 
-        // Mappatura esplicita per ignorare il TypeId del mittente
         DefaultClassMapper classMapper = new DefaultClassMapper();
-        classMapper.setTrustedPackages("*"); // Accettiamo pacchetti da altri servizi
+        classMapper.setTrustedPackages("*");
 
-        // Diciamo a RabbitMQ: "Qualsiasi cosa arrivi, prova a convertirla nel nostro NotificationEvent"
         Map<String, Class<?>> idClassMapping = new HashMap<>();
         idClassMapping.put("com.tripify.booking_service.messaging.BookingNotificationEvent",
                 com.tripify.communication_service.messaging.NotificationEvent.class);

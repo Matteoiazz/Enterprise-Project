@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.tripify.tripify_android.BuildConfig
 import com.tripify.tripify_android.data.RetrofitClient
 import com.tripify.tripify_android.data.TokenManager
+import com.tripify.tripify_android.data.parseApiError
 import com.tripify.tripify_android.data.model.UpdatePecRequest
 import com.tripify.tripify_android.data.model.UpdateProfileRequest
 import kotlinx.coroutines.CancellationException
@@ -108,7 +109,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 if (response.isSuccessful && response.body() != null) {
                     profilePictureUrl = response.body()?.get("imageUrl")
                 } else {
-                    errorMessage = readableError(response, "Errore durante il caricamento dell'immagine (${response.code()}).")
+                    errorMessage = response.parseApiError("Errore durante il caricamento dell'immagine (${response.code()}).")
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -122,32 +123,39 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
-    private fun readableError(response: retrofit2.Response<*>, fallback: String): String {
-        val raw = try { response.errorBody()?.string() } catch (e: Exception) { null }
-        if (raw.isNullOrBlank()) return fallback
-        return try {
-            val json = org.json.JSONObject(raw)
-            val messages = json.optJSONObject("messages")
-            when {
-                messages != null && messages.length() > 0 ->
-                    messages.keys().asSequence().map { messages.getString(it) }.joinToString("\n")
-                json.optString("error").isNotBlank() -> json.getString("error")
-                else -> raw
-            }
-        } catch (e: Exception) {
-            raw
-        }
-    }
-
+    // Decodifica ridimensionando e ricomprime in JPEG: una foto da fotocamera
+    // puo' superare il limite di 10MB del backend (e prima veniva salvata con
+    // estensione .jpg qualunque fosse il formato reale). Doppio passaggio con
+    // inSampleSize per non rischiare OOM su foto enormi.
     private fun copyUriToCache(context: Context, uri: Uri): File? {
         val tempFile = File.createTempFile("profile_img", ".jpg", context.cacheDir)
         return try {
-            val stream = context.contentResolver.openInputStream(uri)
-            if (stream == null) {
-                tempFile.delete()
-                return null
+            val maxSide = 1440
+
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use {
+                android.graphics.BitmapFactory.decodeStream(it, null, bounds)
+            } ?: run { tempFile.delete(); return null }
+
+            var sample = 1
+            while (bounds.outWidth / sample > maxSide * 2 || bounds.outHeight / sample > maxSide * 2) sample *= 2
+
+            val decodeOpts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+            val decoded = context.contentResolver.openInputStream(uri)?.use {
+                android.graphics.BitmapFactory.decodeStream(it, null, decodeOpts)
+            } ?: run { tempFile.delete(); return null }
+
+            val scale = minOf(1f, maxSide.toFloat() / maxOf(decoded.width, decoded.height))
+            val scaled = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(
+                decoded, (decoded.width * scale).toInt().coerceAtLeast(1),
+                (decoded.height * scale).toInt().coerceAtLeast(1), true
+            ) else decoded
+
+            FileOutputStream(tempFile).use { out ->
+                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
             }
-            stream.use { input -> FileOutputStream(tempFile).use { output -> input.copyTo(output) } }
+            if (scaled !== decoded) scaled.recycle()
+            decoded.recycle()
             tempFile
         } catch (e: Exception) {
             android.util.Log.e("ProfileViewModel", "copyUriToCache fallita", e)
@@ -191,7 +199,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     if (newAddress.isNotBlank()) address = newAddress
                     onSuccess()
                 } else {
-                    errorMessage = readableError(response, "Errore durante il salvataggio (${response.code()}).")
+                    errorMessage = response.parseApiError("Errore durante il salvataggio (${response.code()}).")
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -209,18 +217,12 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
     }
 
     fun getEndSessionIntent(context: Context, idToken: String?): Intent {
-        val serviceConfig = AuthorizationServiceConfiguration(
-            Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/auth"),
-            Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/token")
-        )
-
-        val endSessionEndpoint = Uri.parse("${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect/logout")
-
+        val base = "${BuildConfig.KEYCLOAK_BASE_URL}/realms/tripify/protocol/openid-connect"
         val endSessionConfig = AuthorizationServiceConfiguration(
-            serviceConfig.authorizationEndpoint,
-            serviceConfig.tokenEndpoint,
+            Uri.parse("$base/auth"),
+            Uri.parse("$base/token"),
             null,
-            endSessionEndpoint
+            Uri.parse("$base/logout")
         )
 
         val builder = EndSessionRequest.Builder(endSessionConfig)
@@ -274,7 +276,7 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     pec = newPec
                     onSuccess()
                 } else {
-                    errorMessage = readableError(response, "Errore durante il salvataggio (${response.code()}).")
+                    errorMessage = response.parseApiError("Errore durante il salvataggio (${response.code()}).")
                 }
             } catch (e: CancellationException) {
                 throw e

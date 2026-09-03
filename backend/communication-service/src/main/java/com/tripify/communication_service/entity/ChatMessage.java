@@ -17,16 +17,16 @@ public class ChatMessage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // L'ID progressivo del singolo messaggio può rimanere Long o diventare UUID, ma come chiave primaria numerica va benissimo
+    private Long id;
 
     @Column(nullable = false)
-    private String roomId; // ID della ChatRoom (ora è una Stringa UUID)
+    private String roomId;
 
     @Column(nullable = false)
-    private String senderId; // Chi invia il messaggio (UUID di Keycloak)
+    private String senderId;
 
     @Column(nullable = false, length = 1000)
-    private String content; // Il testo del messaggio
+    private String content;
 
     @Column(nullable = false)
     private LocalDateTime timestamp;

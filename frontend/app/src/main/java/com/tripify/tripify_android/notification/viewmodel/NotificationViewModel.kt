@@ -22,7 +22,7 @@ import ua.naiksoftware.stomp.dto.StompHeader
 
 class NotificationViewModel(
     private val repository: NotificationRepository,
-    private val tokenManager: TokenManager // <-- Iniettiamo il TokenManager per ricavare l'ID utente
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     var notifications by mutableStateOf<List<NotificationModel>>(emptyList())
@@ -42,7 +42,7 @@ class NotificationViewModel(
     init {
         loadNotifications()
         loadUnreadCount()
-        initRealTimeNotifications() // <-- Avviamo l'ascolto live all'avvio
+        initRealTimeNotifications()
     }
 
     private fun initRealTimeNotifications() {
@@ -72,7 +72,6 @@ class NotificationViewModel(
     }
 
     private fun connectNotificationWebSocket(serverUrl: String, token: String, userId: String) {
-        // Stesso URL di base della chat, ma con l'endpoint dei websocket
         val wsUrl = serverUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws-chat/websocket"
 
         val httpHeaders = mutableMapOf("Authorization" to "Bearer $token")
@@ -81,18 +80,14 @@ class NotificationViewModel(
         val stompHeaders = listOf(StompHeader("Authorization", "Bearer $token"))
         stompClient.connect(stompHeaders)
 
-        // Ci iscriviamo al canale privato dell'utente configurato nel backend
         notificationSubscription = stompClient.topic("/topic/notifications/$userId")
             .subscribeOn(Schedulers.io())
             .subscribe({ stompMessage ->
                 try {
-                    // Mappiamo l'evento in arrivo sul NotificationModel
                     val event = gson.fromJson(stompMessage.payload, NotificationModel::class.java)
 
-                    // Aggiungiamo la nuova notifica in cima alla lista esistente
                     notifications = listOf(event) + notifications
 
-                    // Incrementiamo il contatore delle non lette al volo
                     unreadCount += 1
                 } catch (e: Exception) {
                     e.printStackTrace()

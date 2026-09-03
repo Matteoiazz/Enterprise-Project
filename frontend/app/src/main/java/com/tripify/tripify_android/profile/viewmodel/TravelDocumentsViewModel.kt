@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.tripify.tripify_android.data.parseApiError
 import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -87,8 +88,7 @@ class TravelDocumentsViewModel(private val apiService: ProfileApiService) : View
             } catch (e: CancellationException) {
                 throw e
             } catch (e: HttpException) {
-                val serverMessage = try { e.response()?.errorBody()?.string() } catch (ex: Exception) { null }
-                _errorMessage.value = if (!serverMessage.isNullOrBlank()) serverMessage else "Errore durante il salvataggio."
+                _errorMessage.value = e.parseApiError("Errore durante il salvataggio.")
                 Log.e("TravelDocsVM", "Error adding doc", e)
             } catch (e: Exception) {
                 _errorMessage.value = "Errore di rete durante il salvataggio. Riprova."

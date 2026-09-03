@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 val context = LocalContext.current
 
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
 
                 val loginViewModel = remember { LoginViewModel(tokenManager) }
 

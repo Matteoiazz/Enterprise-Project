@@ -15,10 +15,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     List<ChatMessage> findByRoomIdOrderByTimestampAsc(String roomId);
 
-    // Conta i messaggi non letti in una stanza, escludendo quelli inviati da te
     int countByRoomIdAndSenderIdNotAndIsReadFalse(String roomId, String senderId);
 
-    // Aggiorna lo stato dei messaggi a 'letti' (solo quelli inviati dall'altro utente)
     @Modifying
     @Transactional
     @Query("UPDATE ChatMessage m SET m.isRead = true WHERE m.roomId = :roomId AND m.senderId != :userId AND m.isRead = false")

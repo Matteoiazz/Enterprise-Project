@@ -23,7 +23,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import com.tripify.tripify_android.booking.component.CardNumberVisualTransformation
+import com.tripify.tripify_android.booking.component.cardProviderOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -351,15 +356,32 @@ fun AddPaymentForm(
     onSave: (String, String, String) -> Unit,
     onCancel: () -> Unit
 ) {
-    var provider by remember { mutableStateOf("Visa") }
+    var provider by remember { mutableStateOf(cardProviderOptions.first()) }
     var cardNumber by remember { mutableStateOf("") }
     var expiration by remember { mutableStateOf("") }
-
-    val providerOptions = listOf("Visa", "Mastercard", "American Express", "Maestro")
     var expanded by remember { mutableStateOf(false) }
+    var submitAttempted by remember { mutableStateOf(false) }
 
-    var isExpError by remember { mutableStateOf(false) }
-    var expErrorMsg by remember { mutableStateOf("") }
+    // Stesse regole del form di pagamento al checkout (booking/component/CardPaymentForm):
+    // 16 cifre, scadenza MMAA nel futuro, circuito da elenco.
+    val expiryMonth = expiration.take(2).toIntOrNull()
+    val expiryYear = expiration.drop(2).toIntOrNull()
+    val expiryValid = expiration.length == 4 && expiryMonth != null && expiryMonth in 1..12 &&
+        expiryYear != null && !YearMonth.of(2000 + expiryYear, expiryMonth).isBefore(YearMonth.now())
+
+    val cardNumberError: String? = when {
+        cardNumber.isBlank() -> if (submitAttempted) "Il numero della carta è obbligatorio" else null
+        cardNumber.length != 16 -> "Il numero della carta deve avere 16 cifre"
+        else -> null
+    }
+    val expiryError: String? = when {
+        expiration.isBlank() -> if (submitAttempted) "La data di scadenza è obbligatoria" else null
+        expiration.length < 4 -> null
+        expiryMonth == null || expiryMonth !in 1..12 -> "Mese non valido"
+        !expiryValid -> "La carta è scaduta"
+        else -> null
+    }
+    val isFormValid = cardNumber.length == 16 && expiryValid
 
     Column(
         modifier = Modifier
@@ -397,7 +419,7 @@ fun AddPaymentForm(
                         onDismissRequest = { expanded = false },
                         modifier = Modifier.background(CatalogColors.Surface)
                     ) {
-                        providerOptions.forEach { selectionOption ->
+                        cardProviderOptions.forEach { selectionOption ->
                             DropdownMenuItem(
                                 text = { Text(selectionOption, style = CatalogType.LabelStrong, color = CatalogColors.Ink) },
                                 onClick = {
@@ -413,63 +435,46 @@ fun AddPaymentForm(
                     value = cardNumber,
                     label = "Numero Carta",
                     placeholder = "0000 0000 0000 0000",
-                    onValueChange = {
-                        val digits = it.filter { char -> char.isDigit() }
-                        if (digits.length <= 16) cardNumber = digits
-                    },
+                    isError = cardNumberError != null,
+                    supportingText = cardNumberError,
+                    onValueChange = { cardNumber = it.filter { char -> char.isDigit() }.take(16) },
+                    visualTransformation = CardNumberVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
                 PaymentOutlinedTextField(
                     value = expiration,
-                    label = "Scadenza (MMAA)",
-                    placeholder = "1228",
-                    isError = isExpError,
-                    supportingText = if (isExpError) expErrorMsg else null,
-                    onValueChange = {
-                        val digits = it.filter { char -> char.isDigit() }
-                        if (digits.length <= 4) {
-                            expiration = digits
-                            if (digits.length == 4) {
-                                val month = digits.substring(0, 2).toIntOrNull() ?: 0
-                                val year = digits.substring(2, 4).toIntOrNull() ?: 0
-                                if (month !in 1..12) {
-                                    isExpError = true
-                                    expErrorMsg = "Mese non valido"
-                                } else {
-                                    val currentYM = YearMonth.now()
-                                    val cardYM = YearMonth.of(2000 + year, month)
-                                    if (cardYM.isBefore(currentYM)) {
-                                        isExpError = true
-                                        expErrorMsg = "La carta è scaduta"
-                                    } else {
-                                        isExpError = false
-                                        expErrorMsg = ""
-                                    }
-                                }
-                            } else {
-                                isExpError = false
-                                expErrorMsg = ""
-                            }
+                    label = "Scadenza (MM/AA)",
+                    placeholder = "MM/AA",
+                    isError = expiryError != null,
+                    supportingText = expiryError,
+                    onValueChange = { expiration = it.filter { char -> char.isDigit() }.take(4) },
+                    visualTransformation = { text ->
+                        val digits = text.text
+                        val formatted = if (digits.length > 2) "${digits.take(2)}/${digits.drop(2)}" else digits
+                        val mapping = object : OffsetMapping {
+                            override fun originalToTransformed(offset: Int): Int = if (offset > 2) offset + 1 else offset
+                            override fun transformedToOriginal(offset: Int): Int = if (offset > 3) offset - 1 else offset.coerceAtMost(2)
                         }
+                        TransformedText(AnnotatedString(formatted), mapping)
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val isFormValid = provider.isNotBlank() && cardNumber.length == 16 && expiration.length == 4 && !isExpError
-
                 Button(
-                    onClick = { onSave(provider, cardNumber, expiration) },
+                    onClick = {
+                        submitAttempted = true
+                        if (isFormValid) onSave(provider, cardNumber, expiration)
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = CatalogColors.AccentDark,
                         disabledContainerColor = CatalogColors.SurfaceMuted,
                         disabledContentColor = CatalogColors.InkSubtle
                     ),
-                    shape = CatalogShapes.Pill,
-                    enabled = isFormValid
+                    shape = CatalogShapes.Pill
                 ) {
                     Text("AGGIUNGI CARTA", style = CatalogType.Button)
                 }
@@ -497,6 +502,8 @@ fun PaymentOutlinedTextField(
     supportingText: String? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation =
+        androidx.compose.ui.text.input.VisualTransformation.None,
     modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
@@ -510,6 +517,7 @@ fun PaymentOutlinedTextField(
         isError = isError,
         supportingText = supportingText?.let { { Text(it, style = CatalogType.Caption) } },
         keyboardOptions = keyboardOptions,
+        visualTransformation = visualTransformation,
         modifier = modifier.fillMaxWidth(),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = CatalogColors.Surface,

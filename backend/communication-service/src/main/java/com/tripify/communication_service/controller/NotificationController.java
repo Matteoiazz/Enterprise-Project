@@ -17,7 +17,6 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    // Metodo helper per estrarre l'ID utente reale da Keycloak
     private String extractUserId(Principal principal) {
         if (principal == null) {
             return "anonymous";
@@ -28,7 +27,6 @@ public class NotificationController {
         return principal.getName();
     }
 
-    // 1. Ottieni tutte le notifiche dell'utente loggato
     @GetMapping
     public ResponseEntity<List<Notification>> getMyNotifications(Principal principal) {
         String userId = extractUserId(principal);
@@ -36,7 +34,6 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-    // 2. Segna una specifica notifica come letta
     @PatchMapping("/{id}/read")
     public ResponseEntity<Notification> markAsRead(@PathVariable Long id, Principal principal) {
         String userId = extractUserId(principal);
@@ -44,7 +41,6 @@ public class NotificationController {
         return ResponseEntity.ok(updated);
     }
 
-    // 3. Ottieni il conteggio delle notifiche non lette (utile per la campanella)
     @GetMapping("/unread-count")
     public ResponseEntity<Long> getUnreadCount(Principal principal) {
         String userId = extractUserId(principal);

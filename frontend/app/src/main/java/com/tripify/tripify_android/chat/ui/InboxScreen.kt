@@ -112,8 +112,8 @@ fun InboxScreen(
                                     .fillMaxWidth()
                                     .clip(CatalogShapes.Card)
                                     .clickable {
-                                        viewModel.markAsRead(room.id) // Azzera il bollino visivamente
-                                        onChatRoomClick(room.id)      // Apre la chat
+                                        viewModel.markAsRead(room.id)
+                                        onChatRoomClick(room.id)
                                     },
                                 color = CatalogColors.Surface,
                                 shape = CatalogShapes.Card,

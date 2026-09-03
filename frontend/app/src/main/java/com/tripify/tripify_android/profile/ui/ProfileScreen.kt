@@ -62,7 +62,7 @@ fun ProfileScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val tokenManager = remember { TokenManager(context) }
+    val tokenManager = remember { TokenManager.getInstance(context) }
     val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
     val currentToken by tokenManager.tokenFlow.collectAsState(initial = null)
     val isOrganizer = currentToken?.let { extractRolesFromToken(it) }?.contains("ROLE_ORGANIZER") == true

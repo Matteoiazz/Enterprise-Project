@@ -25,6 +25,19 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "au
 class TokenManager(private val context: Context) {
 
     companion object {
+        // Istanza unica: il DataStore "auth_prefs" e' gia' un singleton di
+        // fatto, ma RetrofitClient cachea l'OkHttpClient legato al PRIMO
+        // TokenManager che riceve. Se ogni schermata ne creava uno nuovo con
+        // "TokenManager(context)", l'interceptor restava quello della prima
+        // istanza. getInstance() garantisce che sia sempre lo stesso oggetto.
+        @Volatile
+        private var INSTANCE: TokenManager? = null
+
+        fun getInstance(context: Context): TokenManager =
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: TokenManager(context.applicationContext).also { INSTANCE = it }
+            }
+
         val JWT_TOKEN_KEY = stringPreferencesKey("jwt_token")
         val ID_TOKEN_KEY = stringPreferencesKey("id_token")
         val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token") // 👉 AGGIUNTO

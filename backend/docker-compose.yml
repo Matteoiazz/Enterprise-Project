@@ -230,12 +230,10 @@ services:
         condition: service_healthy
     ports:
       - "8180:8080"
-    healthcheck:
-      test: [ "CMD-SHELL", "exec 3<> /dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+    # Niente healthcheck: l'immagine Keycloak non ha shell bash (il trucco
+    # /dev/tcp non funziona) ne' curl/wget, quindi ogni test resta "unhealthy"
+    # per sempre pur con Keycloak funzionante. Tutti i servizi dipendono da
+    # keycloak con "condition: service_started", quindi non serve.
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}

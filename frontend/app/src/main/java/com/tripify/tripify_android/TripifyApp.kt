@@ -127,7 +127,7 @@ fun TripifyApp(
     }
 
     val bookingContext = LocalContext.current
-    val bookingTokenManager = remember { TokenManager(bookingContext) }
+    val bookingTokenManager = remember { TokenManager.getInstance(bookingContext) }
     val cartViewModel = remember { CartViewModel(bookingTokenManager) }
     val bookingViewModel = remember { BookingViewModel(bookingTokenManager) }
 
@@ -190,7 +190,7 @@ fun TripifyApp(
             // ROTTA: Salvati
             composable("saved") {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
 
                 com.tripify.tripify_android.itinerary.ui.MyItinerariesScreen(
                     tokenManager = tokenManager,
@@ -223,7 +223,7 @@ fun TripifyApp(
             // ROTTA: Inbox (Messaggi)
             composable("chat") {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
 
                 val inboxViewModel: InboxViewModel = viewModel(
                     factory = InboxViewModelFactory(tokenManager)
@@ -240,7 +240,7 @@ fun TripifyApp(
             composable("chat_detail/{chatId}") { backStackEntry ->
                 val roomId = backStackEntry.arguments?.getString("chatId") ?: ""
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
 
                 val chatViewModel: ChatViewModel = viewModel(
                     factory = ChatViewModelFactory(
@@ -257,7 +257,7 @@ fun TripifyApp(
 
             composable("notifications") {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
 
                 // Creiamo il NotificationViewModel localmente con la sua factory pulita
                 val localNotificationViewModel: NotificationViewModel = viewModel(
@@ -364,7 +364,7 @@ fun TripifyApp(
 
             composable("itineraries") {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
                     factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
                 )
@@ -383,7 +383,7 @@ fun TripifyApp(
             // Form per generare una bozza di itinerario (volo+hotel+attività) dal catalogo esistente.
             composable("itinerary_generate") {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
                     factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
                 )
@@ -403,7 +403,7 @@ fun TripifyApp(
             composable("itinerary_detail/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id")?.toLongOrNull() ?: 0L
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
                     factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
                 )
@@ -430,7 +430,7 @@ fun TripifyApp(
             ) { backStackEntry ->
                 val token = backStackEntry.arguments?.getString("token") ?: return@composable
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
                     factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
                 )
@@ -457,7 +457,7 @@ fun TripifyApp(
             ) { backStackEntry ->
                 val token = backStackEntry.arguments?.getString("token") ?: return@composable
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val itineraryViewModel: com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModel = viewModel(
                     factory = com.tripify.tripify_android.itinerary.viewmodel.ItineraryViewModelFactory(tokenManager)
                 )
@@ -483,8 +483,7 @@ fun TripifyApp(
                         navController.navigate(Route.Home.path) {
                             popUpTo(Route.Auth.path) { inclusive = true }
                         }
-                    },
-                    onNavigateToRegister = {}
+                    }
                 )
             }
 
@@ -502,7 +501,7 @@ fun TripifyApp(
 
             composable("organizer") {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val organizerViewModel: com.tripify.tripify_android.organizer.viewmodel.OrganizerViewModel = viewModel(
                     factory = com.tripify.tripify_android.organizer.viewmodel.OrganizerViewModelFactory(tokenManager)
                 )
@@ -535,7 +534,7 @@ fun TripifyApp(
 
             composable(Route.Settings.path) {
                 val context = LocalContext.current
-                val tokenManager = remember { TokenManager(context) }
+                val tokenManager = remember { TokenManager.getInstance(context) }
                 val profileApi = remember { RetrofitClient.createProfileApi(tokenManager) }
                 val currentSettingsViewModel = remember {
                     SettingsViewModel(tokenManager, profileApi)
