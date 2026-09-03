@@ -17,8 +17,14 @@ object CatalogPriceFormatter {
     fun convert(amountEur: Double, currency: String): Double =
         if (currency == "USD") amountEur * EUR_TO_USD_RATE else amountEur
 
-    fun format(amountEur: Double, currency: String): String =
-        "${symbolFor(currency)} ${convert(amountEur, currency).toInt()}"
+    // Tiene i centesimi quando ci sono (es. 45,99), altrimenti mostra l'intero
+    // (45). Prima ".toInt()" troncava sempre: un annuncio a 45.99 usciva "€ 45".
+    fun format(amountEur: Double, currency: String): String {
+        val amount = convert(amountEur, currency)
+        val n = if (amount % 1.0 == 0.0) amount.toLong().toString()
+                else String.format(java.util.Locale.ITALY, "%.2f", amount)
+        return "${symbolFor(currency)} $n"
+    }
 }
 
 /** Valuta scelta nelle Impostazioni, osservata in tempo reale (stesso storage del resto dell'app). */
