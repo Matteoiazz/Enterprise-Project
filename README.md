@@ -4,6 +4,8 @@ Piattaforma di prenotazione viaggi (voli, hotel, attività) a **microservizi**: 
 
 Il backend gira **tutto in Docker** — 6 microservizi, un database Postgres per servizio, Keycloak, RabbitMQ e il tunnel: non serve installare Java o Maven. L'app Android si compila con Android Studio.
 
+> **Prima di iniziare.** Il codice sta nel repo, ma le **credenziali no**: `.env`, `local.properties`, il realm Keycloak e le chiavi del tunnel sono in `.gitignore` (il repo è pubblico). Avere accesso al repo **non basta**: serve anche l'archivio **`tripify-config.tgz`**, consegnato a parte dal gruppo (email / piattaforma del corso). Senza quello lo stack non parte. Vedi [passo 2](#avvio-rapido-per-il-docente).
+
 ---
 
 ## Indice
