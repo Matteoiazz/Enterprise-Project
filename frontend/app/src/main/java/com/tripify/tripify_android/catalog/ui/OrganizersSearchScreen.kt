@@ -38,15 +38,12 @@ fun OrganizersSearchScreen(
     val isLoading = viewModel.isLoadingOrganizers
     val loadError = viewModel.organizersError
 
-    // Stato per la barra di ricerca
     var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.loadOrganizers()
     }
 
-    // Filtro in tempo reale, ricalcolato solo quando cambia la lista o la query
-    // (prima girava a ogni recomposition).
     val filteredOrganizers = remember(organizers, searchQuery) {
         val query = searchQuery.trim().lowercase()
         if (query.isEmpty()) organizers
@@ -80,9 +77,7 @@ fun OrganizersSearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            // La barra di navigazione flottante galleggia sopra il contenuto (non
-            // riserva più spazio suo): senza questo margine extra in fondo, l'ultima
-            // card resterebbe per metà nascosta sotto di lei.
+
             contentPadding = PaddingValues(
                 start = CatalogSpacing.Section,
                 end = CatalogSpacing.Section,
@@ -111,7 +106,6 @@ fun OrganizersSearchScreen(
                 )
             }
 
-            // BARRA DI RICERCA
             item {
                 OutlinedTextField(
                     value = searchQuery,
@@ -185,8 +179,7 @@ fun OrganizersSearchScreen(
             } else {
                 items(filteredOrganizers, key = { it.id ?: it.email ?: it.hashCode().toString() }) { org ->
                     val displayName = "${org.name ?: ""} ${org.surname ?: ""}".trim().ifEmpty { "Organizzatore" }
-                    // Naviga col sub Keycloak (id), non con l'email: cosi' non
-                    // passa PII nella route e niente problemi di URL-encoding.
+
                     val organizerRef = org.id ?: org.email
 
                     Card(

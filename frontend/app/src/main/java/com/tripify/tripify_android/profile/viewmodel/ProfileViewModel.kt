@@ -123,10 +123,6 @@ class ProfileViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
-    // Decodifica ridimensionando e ricomprime in JPEG: una foto da fotocamera
-    // puo' superare il limite di 10MB del backend (e prima veniva salvata con
-    // estensione .jpg qualunque fosse il formato reale). Doppio passaggio con
-    // inSampleSize per non rischiare OOM su foto enormi.
     private fun copyUriToCache(context: Context, uri: Uri): File? {
         val tempFile = File.createTempFile("profile_img", ".jpg", context.cacheDir)
         return try {

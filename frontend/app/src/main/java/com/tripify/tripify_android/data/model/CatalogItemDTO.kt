@@ -19,12 +19,9 @@ data class CatalogItemDto(
     @SerializedName("userGenerated")
     val isUserGenerated: Boolean = false,
 
-    // Esposto solo dalla dashboard privata dell'organizzatore (/items/mine): sulla
-    // vetrina pubblica un annuncio disattivato non compare mai, quindi qui è sempre true.
     @SerializedName("active")
     val isActive: Boolean = true,
 
-    // --- CAMPI SPECIFICI VOLO ---
     val departureAirport: String?,
     val arrivalAirport: String?,
     val departureCity: String?,
@@ -35,7 +32,6 @@ data class CatalogItemDto(
     val stops: Int?,
     val fareClasses: List<FareClassDto>?,
 
-    // --- CAMPI SPECIFICI HOTEL ---
     val locationLat: Double?,
     val locationLng: Double?,
     val address: String?,
@@ -43,7 +39,6 @@ data class CatalogItemDto(
     val amenities: List<String>?,
     val roomTypes: List<RoomTypeDto>?,
 
-    // --- CAMPI SPECIFICI ATTIVITÀ ---
     val activityType: String?,
     val duration: String?,
     val meetingPoint: String?,

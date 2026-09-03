@@ -687,7 +687,7 @@ private fun DetailContent(
                                 val hostUuid = item.hostId
 
                                 try {
-                                    // Chiamata di rete protetta dal try/catch
+
                                     val chatRoom = com.tripify.tripify_android.chat.repository.ChatRepository.getOrCreateChatRoom(
                                         hostId = hostUuid,
                                         title = "Organizzatore ${item.title}",
@@ -700,7 +700,7 @@ private fun DetailContent(
                                         snackbarHostState.showSnackbar("Impossibile aprire la chat con l'organizzatore")
                                     }
                                 } catch (e: Exception) {
-                                    // Gestione dell'eccezione imprevista con feedback visivo
+
                                     snackbarHostState.showSnackbar("Errore di connessione: impossibile avviare la chat")
                                 }
                             }

@@ -27,7 +27,6 @@ public class Companion {
     @Column(nullable = false)
     private LocalDate dateOfBirth;
 
-    // Molti compagni sono salvati nella rubrica di UN utente
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

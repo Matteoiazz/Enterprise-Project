@@ -7,7 +7,7 @@ data class BookingLineDTO(
     val quantity: Int? = null,
     val roomTypeId: Long? = null,
     val fareClassId: Long? = null,
-    val checkIn: String? = null, // "yyyy-MM-dd"
+    val checkIn: String? = null,
     val checkOut: String? = null,
     val passengerCount: Int = 0
 )

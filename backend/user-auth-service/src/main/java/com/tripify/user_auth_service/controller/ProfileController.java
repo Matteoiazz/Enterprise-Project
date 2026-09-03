@@ -30,7 +30,6 @@ public class ProfileController {
         }
     }
 
-    // --- COMPANIONS ---
     @GetMapping("/companions")
     public ResponseEntity<List<CompanionDto>> getCompanions(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(profileService.getCompanions(jwt.getClaimAsString("email")));
@@ -47,7 +46,6 @@ public class ProfileController {
         return ResponseEntity.ok().build();
     }
 
-    // --- TRAVEL DOCUMENTS ---
     @GetMapping("/documents")
     public ResponseEntity<List<TravelDocumentDto>> getTravelDocuments(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(profileService.getTravelDocuments(jwt.getClaimAsString("email")));
@@ -68,7 +66,6 @@ public class ProfileController {
         return ResponseEntity.ok().build();
     }
 
-    // --- PAYMENT METHODS ---
     @GetMapping("/payments")
     public ResponseEntity<List<PaymentMethodDto>> getPayments(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(profileService.getPaymentMethods(jwt.getClaimAsString("email")));
@@ -91,7 +88,6 @@ public class ProfileController {
         return ResponseEntity.ok().build();
     }
 
-    // --- PROFILO UTENTE ---
     @GetMapping("/me")
     public ResponseEntity<com.tripify.user_auth_service.dto.response.UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
         String email = jwt.getClaimAsString("email");

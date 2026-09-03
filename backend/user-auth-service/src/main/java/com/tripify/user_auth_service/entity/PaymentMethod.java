@@ -4,7 +4,6 @@ import lombok.*;
 import jakarta.persistence.*;
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "payment_methods", indexes = @Index(name = "idx_payment_methods_user", columnList = "user_id"))
 @Getter
@@ -19,13 +18,13 @@ public class PaymentMethod {
     private UUID id;
 
     @Column(nullable = false)
-    private String cardProvider; // Es. "VISA", "MASTERCARD"
+    private String cardProvider;
 
     @Column(nullable = false, length = 4)
-    private String lastFourDigits; // Salviamo SOLO le ultime 4 cifre per sicurezza
+    private String lastFourDigits;
 
     @Column(nullable = false)
-    private String expirationMonthYear; // Es. "12/28"
+    private String expirationMonthYear;
 
     @Column(name = "is_default", nullable = false, columnDefinition = "boolean not null default false")
     private boolean isDefault;

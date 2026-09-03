@@ -12,7 +12,6 @@ import com.tripify.tripify_android.catalog.ui.theme.CatalogColors
 import com.tripify.tripify_android.catalog.ui.theme.CatalogShapes
 import com.tripify.tripify_android.catalog.ui.theme.CatalogType
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HotelSearchForm(
