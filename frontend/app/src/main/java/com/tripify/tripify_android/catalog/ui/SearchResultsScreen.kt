@@ -51,9 +51,6 @@ fun SearchResultsScreen(
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Qui dentro un errore (ricerca o "carica altri" falliti) non veniva mostrato in
-    // nessun modo: la lista restava semplicemente com'era, senza alcun avviso. Stesso
-    // snackbar già usato in HomeScreen per viewModel.errorMessage.
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -113,7 +110,6 @@ fun SearchResultsScreen(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CatalogColors.Surface)
                 )
 
-                // Barra di ricerca modificabile in cima ai risultati, stile Booking
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = CatalogSpacing.Gutter, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -139,7 +135,6 @@ fun SearchResultsScreen(
                     )
                 }
 
-                // Chip dei filtri attivi, tap per riaprire il bottom sheet
                 QuickFilterChips(
                     maxPrice = maxPrice,
                     minRating = minRating,
@@ -216,7 +211,6 @@ fun SearchResultsScreen(
                             }
                         }
 
-                        // --- RACCOMANDAZIONI: hanno senso solo dentro un contesto di ricerca già fatta ---
                         if (hasSearched && recommendedItems.isNotEmpty()) {
                             item(key = "recommendations") {
                                 Spacer(modifier = Modifier.height(24.dp))

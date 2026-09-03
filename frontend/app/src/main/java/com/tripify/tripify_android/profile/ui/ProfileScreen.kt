@@ -69,12 +69,7 @@ fun ProfileScreen(
 
     var docAlertCount by remember { mutableStateOf(0) }
     var docHasExpired by remember { mutableStateOf(false) }
-    // isLoggedIn dipende solo dal token: prima richiedeva anche name.isNotEmpty(), quindi
-    // se loadUserProfile() falliva per un problema temporaneo (rete instabile, server
-    // lento) un utente comunque autenticato si ritrovava catapultato sulla schermata
-    // "Accedi al tuo mondo" come se avesse fatto logout, pur avendo ancora una sessione
-    // valida. Il caso "token cancellato" (logout o eliminazione account) resta comunque
-    // coperto, dato che currentToken passa a null in entrambi i casi.
+
     val isLoggedIn = currentToken != null
 
     val logoutLauncher = rememberLauncherForActivityResult(
@@ -109,11 +104,6 @@ fun ProfileScreen(
         }
     }
 
-    // Prima gli errori di loadUserProfile/uploadProfilePicture/updateProfile finivano
-    // solo in Logcat: se il caricamento del profilo falliva o l'upload della foto non
-    // andava a buon fine, l'utente non aveva nessun avviso e non capiva perché la
-    // schermata restava vuota o la foto non cambiava. Stesso pattern già usato in
-    // SettingsScreen per viewModel.errorMessage.
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -307,9 +297,7 @@ fun LoggedProfileContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        // La barra di navigazione flottante galleggia sopra questo Scaffold: senza
-        // questo margine extra l'ultima voce (es. "Esci") resterebbe nascosta
-        // sotto di lei (vedi TripifyApp).
+
         contentPadding = PaddingValues(bottom = 40.dp + LocalBottomNavBarHeight.current)
     ) {
         item {

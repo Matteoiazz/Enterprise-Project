@@ -22,7 +22,6 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
-
 class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
 
     private val catalogApi = RetrofitClient.createCatalogApi(tokenManager)
@@ -40,9 +39,6 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // Vera per tutta la durata di una scrittura (crea/modifica/elimina/riattiva annuncio):
-    // impedisce un doppio tap su "Salva"/"Elimina"/"Riattiva" che altrimenti spedirebbe
-    // due richieste identiche prima che la prima risposta torni.
     private val _isSubmitting = MutableStateFlow(false)
     val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
 
@@ -101,8 +97,6 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
     fun updateHotel(id: Int, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) =
         saveHotel(id = id, request = request, imageUris = imageUris, context = context, onResult = onResult)
 
-    // Creazione e modifica hotel: stesso flusso (salva l'annuncio, poi carica le
-    // eventuali foto). Differenza: in creazione l'id lo restituisce il backend.
     private fun saveHotel(id: Int?, request: CreateHotelRequest, imageUris: List<Uri>, context: Context, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             _isSubmitting.value = true
@@ -145,7 +139,7 @@ class OrganizerViewModel(tokenManager: TokenManager) : ViewModel() {
             try {
                 val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@mapIndexedNotNull null
                 val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
-                // "image/jpeg" -> "jpg", "image/png" -> "png", altro/strano -> "jpg"
+
                 val ext = mime.substringAfterLast('/', "jpg").takeWhile { it.isLetterOrDigit() }.ifBlank { "jpg" }
                 val body = bytes.toRequestBody(mime.toMediaTypeOrNull())
                 MultipartBody.Part.createFormData("files", "photo_$index.$ext", body)

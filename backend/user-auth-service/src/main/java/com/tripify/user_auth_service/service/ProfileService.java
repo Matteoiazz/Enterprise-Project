@@ -46,7 +46,6 @@ public class ProfileService {
 
     private static final long KEYCLOAK_SYNC_TTL_MINUTES = 10;
 
-
     @Value("${keycloak.admin.server-url:http://localhost:8180}")
     private String keycloakAdminServerUrl;
 
@@ -237,10 +236,7 @@ public class ProfileService {
             List<UserRepresentation> matches = keycloak.realm("tripify").users().searchByEmail(email, true);
 
             if (matches.isEmpty()) {
-                // Keycloak raggiungibile ma nessun utente con questa email: il token
-                // e' obsoleto (email cambiata) o non valido. Non creiamo una riga
-                // "fantasma": senza questo, un JWT vecchio dopo un cambio email
-                // generava un secondo utente con la mail vecchia.
+
                 throw new ResourceNotFoundException("Nessun utente Keycloak per " + email);
             }
 
@@ -254,8 +250,7 @@ public class ProfileService {
         } catch (ResourceNotFoundException staleOrUnknown) {
             throw staleOrUnknown;
         } catch (Exception e) {
-            // Keycloak irraggiungibile: NON blocchiamo il primo login legittimo,
-            // creiamo con i default e i campi si completano al sync successivo.
+
             log.warn("Impossibile contattare Keycloak per l'utente {}, uso i valori di default: {}", email, e.getMessage());
         }
 
@@ -699,7 +694,6 @@ public class ProfileService {
         return "•••• " + trimmed.substring(trimmed.length() - 4);
     }
 
-
     @org.springframework.transaction.annotation.Transactional
     public List<com.tripify.user_auth_service.dto.response.UserResponse> getAllOrganizers() {
         return userRepository.findByRole(Role.ROLE_ORGANIZER).stream()
@@ -766,10 +760,7 @@ public class ProfileService {
                         return java.util.Optional.empty();
                     }
                 })
-                // Ultima spiaggia: il chiamante (es. booking-service per l'invito
-                // amici) passa il "sub" Keycloak, ma quell'utente non ha ancora
-                // colpito /profile/** quindi la colonna username non e' popolata.
-                // Chiediamo a Keycloak l'email dal sub e risolviamo per email.
+
                 .or(() -> resolveEmailFromKeycloakId(identifier)
                         .flatMap(userRepository::findByEmail));
     }

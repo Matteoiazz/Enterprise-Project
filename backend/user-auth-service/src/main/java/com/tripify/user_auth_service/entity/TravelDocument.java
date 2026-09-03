@@ -32,5 +32,5 @@ public class TravelDocument {
     private LocalDate expirationDate;
 
     @Column(nullable = false, length = 3)
-    private String issuingCountry; // Es: ITA
+    private String issuingCountry;
 }

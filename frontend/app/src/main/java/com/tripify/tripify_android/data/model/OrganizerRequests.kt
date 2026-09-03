@@ -1,9 +1,5 @@
 package com.tripify.tripify_android.data.model
 
-// Corpi delle richieste di creazione/modifica annuncio: rispecchiano solo i campi
-// che un organizzatore può impostare (hostId/isUserGenerated li valorizza il
-// backend dal JWT, non vanno mandati dal client).
-
 data class CreateFareClassRequest(
     val name: String,
     val price: Double,
@@ -20,7 +16,7 @@ data class CreateFlightRequest(
     val arrivalAirport: String,
     val departureCity: String,
     val arrivalCity: String,
-    val departureTime: String, // "yyyy-MM-ddTHH:mm:ss"
+    val departureTime: String,
     val arrivalTime: String,
     val totalSeats: Int,
     val stops: Int = 0,
@@ -63,11 +59,6 @@ data class CreateActivityRequest(
     val guideIncluded: Boolean = false
 )
 
-// Vista minima di un annuncio nella lista "I miei annunci": basta a mostrare la
-// riga; per i dettagli completi/modifica si può ancora chiamare getItemById.
-// isActive distingue un annuncio disattivato (visibile solo qui, con opzione di
-// riattivarlo) da uno attivo: sulla vetrina pubblica un annuncio disattivato non
-// compare comunque mai.
 data class OrganizerItemDto(
     val id: Int,
     val itemType: String,

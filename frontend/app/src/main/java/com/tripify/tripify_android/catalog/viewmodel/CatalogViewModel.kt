@@ -102,7 +102,6 @@ class CatalogViewModel(
     val isLastPage: StateFlow<Boolean> = _isLastPage.asStateFlow()
     private var currentPage = 0
 
-    // Totale reale dei risultati (non solo quelli caricati): serve per "N risultati".
     private val _totalResults = MutableStateFlow(0L)
     val totalResults: StateFlow<Long> = _totalResults.asStateFlow()
 
@@ -131,10 +130,8 @@ class CatalogViewModel(
     private var searchDebounceJob: Job? = null
     private var nextPageJob: Job? = null
 
-    /** L'identità reale (JWT) la legge il backend: qui serve solo per decidere se mostrare la UI di prenotazione. */
     suspend fun isLoggedIn(): Boolean = !tokenManager?.tokenFlow?.first().isNullOrBlank()
 
-    /** Versione osservabile di isLoggedIn(), per aggiornare la UI (es. il bottone Accedi) quando cambia il token. */
     val isLoggedInState: StateFlow<Boolean> = (tokenManager?.tokenFlow?.map { !it.isNullOrBlank() } ?: MutableStateFlow(false))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -211,16 +208,13 @@ class CatalogViewModel(
     fun clearErrorMessage() { _errorMessage.value = null }
 
     private fun mapDtoToItem(dto: CatalogItemDto): CatalogItem {
-        // Il campo price (String) e' un fallback: le schede usano formattedPrice()
-        // con la valuta scelta nelle Impostazioni. Qui i listini sono in EUR.
+
         val priceString = com.tripify.tripify_android.catalog.util.CatalogPriceFormatter.format(dto.price, "EUR")
         val immaginiReali = if (!dto.imageUrls.isNullOrEmpty()) dto.imageUrls else listOf(
             "https://picsum.photos/seed/${dto.id}A/600/800",
             "https://picsum.photos/seed/${dto.id}B/600/800"
         )
-        // solo ratingAvg: media reale calcolata da communication-service sulle
-        // recensioni. niente stelline finché non c'è almeno una recensione,
-        // il rating "starter" del seed non va mostrato.
+
         val rating = dto.ratingAvg
         val reviewCount = dto.reviewCount ?: 0
 
@@ -263,7 +257,7 @@ class CatalogViewModel(
                     )
                 } ?: emptyList()
             )
-            // "ACTIVITY" e qualsiasi tipo sconosciuto -> Escursione (stesso mapping)
+
             else -> CatalogItem.Excursion(
                 id = dto.id, title = dto.title, price = priceString, priceValue = dto.price.toInt(),
                 imageUrls = immaginiReali,
@@ -482,8 +476,7 @@ class CatalogViewModel(
 
     fun onItemViewed(item: CatalogItem) {
         _hasSearched.value = true
-        // Aprire e riaprire lo stesso item (o scorrere avanti/indietro fra i
-        // dettagli) rilanciava ogni volta una searchCatalog per le raccomandazioni.
+
         if (item.id == lastRecommendedForItemId) return
         lastRecommendedForItemId = item.id
         val category = when (item) {
@@ -495,7 +488,6 @@ class CatalogViewModel(
             fetchRecommendations(category = category, excludeIds = setOf(item.id))
         }
     }
-
 
     suspend fun getOrFetchItem(id: Int): CatalogItem? {
         return try {
@@ -520,7 +512,6 @@ class CatalogViewModel(
         }
     }
 
-    /** Disponibilità vera per una tipologia di camera nelle date scelte (per notte, non un numero statico). */
     suspend fun fetchRoomAvailability(roomTypeId: Int, checkIn: LocalDate, checkOut: LocalDate): Int? {
         return try {
             api.getRoomAvailability(roomTypeId, checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE), checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE)).available
@@ -541,7 +532,6 @@ class CatalogViewModel(
         }
     }
 
-    /** Blocca temporaneamente N camere di una tipologia per il range di notti scelto. Richiede login. */
     suspend fun holdRoomType(roomTypeId: Int, checkIn: LocalDate, checkOut: LocalDate, rooms: Int): HoldOutcome {
         if (!isLoggedIn()) return HoldOutcome.RequiresLogin
         return runHold {
@@ -556,7 +546,6 @@ class CatalogViewModel(
         }
     }
 
-    /** Blocca temporaneamente N posti di una classe tariffaria. Richiede login. */
     suspend fun holdFareClass(fareClassId: Int, seats: Int): HoldOutcome {
         if (!isLoggedIn()) return HoldOutcome.RequiresLogin
         return runHold { api.holdSeats(fareClassId, SeatHoldRequest(seats = seats)) }
@@ -582,14 +571,9 @@ class CatalogViewModel(
     private var reviewsAndBookingJob: Job? = null
 
     fun loadReviewsAndBookingStatus(itemId: Long) {
-        // Annulla la richiesta precedente: senza, aprendo rapidamente due item diversi
-        // la risposta più lenta del primo potrebbe arrivare dopo e sovrascrivere
-        // recensioni/stato-prenotato mostrati per il secondo.
+
         reviewsAndBookingJob?.cancel()
-        // Azzera lo stato del vecchio item: se una delle due chiamate qui sotto
-        // fallisce per il nuovo item, senza questo reset resterebbero appiccicati
-        // recensioni e "hai prenotato" del precedente (form recensione mostrato
-        // a sproposito -> invio -> 403 dal backend).
+
         _itemReviews.value = emptyList()
         _hasBookedCurrentItem.value = false
         reviewsAndBookingJob = viewModelScope.launch {

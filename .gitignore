@@ -38,12 +38,12 @@ backend/keycloak-data/
 .env
 backend/.env
 
-# Realm Keycloak con i segreti reali dentro (password SMTP Gmail, client
-# secret Google): va consegnato fuori da Git come .env. Versionato solo il
-# template backend/keycloak-import.example.json (segreti = CHANGEME).
-# Il pattern puntava prima a "realm-export-4.json", un nome mai esistito
-# davvero: il file vero si chiama "realm-export.json" e non veniva escluso.
-backend/keycloak-import/realm-export.json
+# Realm Keycloak coi segreti reali dentro (password SMTP Gmail, client secret
+# Google): si consegna fuori da Git, come il .env. In repo sta solo il template
+# sanificato backend/keycloak-import.example.json (quei due campi = CHANGEME).
+# Il pattern prima puntava a "realm-export-4.json" (un nome mai esistito) e non
+# escludeva il file vero: ora il glob copre qualsiasi realm dentro la cartella.
+backend/keycloak-import/*.json
 
 # Tuning locale delle risorse (mem_limit, -Xmx) per la VM di Docker Desktop.
 # Non committato: ognuno lo tara sulla propria macchina.

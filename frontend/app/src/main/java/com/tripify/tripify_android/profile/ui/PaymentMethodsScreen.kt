@@ -362,8 +362,6 @@ fun AddPaymentForm(
     var expanded by remember { mutableStateOf(false) }
     var submitAttempted by remember { mutableStateOf(false) }
 
-    // Stesse regole del form di pagamento al checkout (booking/component/CardPaymentForm):
-    // 16 cifre, scadenza MMAA nel futuro, circuito da elenco.
     val expiryMonth = expiration.take(2).toIntOrNull()
     val expiryYear = expiration.drop(2).toIntOrNull()
     val expiryValid = expiration.length == 4 && expiryMonth != null && expiryMonth in 1..12 &&

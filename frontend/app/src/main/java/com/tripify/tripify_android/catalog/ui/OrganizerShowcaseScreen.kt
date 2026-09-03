@@ -172,7 +172,6 @@ fun OrganizerShowcaseScreen(
                             )
                         }
 
-                        // SEZIONE INFORMAZIONI AZIENDALI
                         if (!org.companyName.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(24.dp))
                             Card(

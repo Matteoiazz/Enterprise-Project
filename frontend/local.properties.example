@@ -1,0 +1,23 @@
+# Copia questo file in "local.properties" (stessa cartella) e valorizza le voci.
+# "local.properties" NON e' versionato: e' personale della macchina.
+
+# Percorso dell'Android SDK sulla tua macchina.
+#   macOS:   /Users/<tu>/Library/Android/sdk
+#   Linux:   /home/<tu>/Android/Sdk
+#   Windows: C:\\Users\\<tu>\\AppData\\Local\\Android\\Sdk
+sdk.dir=/Users/tuo-utente/Library/Android/sdk
+
+# Host del backend (api-gateway). Regola in app/build.gradle.kts:
+#   - se contiene "http" e' usato tale e quale  -> tunnel Cloudflare della demo
+#   - altrimenti diventa http://<valore>:8080   -> IP LAN della macchina, o
+#                                                  10.0.2.2 dall'emulatore
+# Per la consegna lascia l'URL del tunnel: funziona da qualsiasi rete.
+BACKEND_IP=https://api.tripify.cloud
+
+# URL di Keycloak: DEVE combaciare con KEYCLOAK_PUBLIC_URL in backend/.env.
+# Stessa regola di sopra ("http" -> usato com'e'; altrimenti http://<valore>:8180).
+KEYCLOAK_IP=https://keycloak.tripify.cloud
+
+# Opzionale: chiave Google Static Maps, serve solo alla mini-mappa nel dettaglio
+# di un annuncio. Senza, tutto il resto funziona.
+MAPS_API_KEY=

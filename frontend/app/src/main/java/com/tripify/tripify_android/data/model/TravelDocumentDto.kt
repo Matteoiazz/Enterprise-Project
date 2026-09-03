@@ -4,6 +4,6 @@ data class TravelDocumentDto(
     val id: String? = null,
     val documentType: String,
     val documentNumber: String,
-    val expirationDate: String, // "yyyy-MM-dd"
+    val expirationDate: String,
     val issuingCountry: String
 )

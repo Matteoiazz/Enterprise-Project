@@ -386,23 +386,30 @@ services:
     networks:
       - travel-network
 
-  # Tunnel Cloudflare davanti a Keycloak (l'IdP Google rifiuta redirect http/IP).
-  # L'immagine cloudflared non ha una shell: la modalita' si sceglie qui sul
-  # campo "command:", non con uno script. Modalita' attiva ora:
+  # Un solo tunnel Cloudflare STABILE davanti a TUTTO il sistema, due hostname:
+  #   - keycloak.tripify.cloud -> keycloak:8080   (l'IdP Google rifiuta redirect http/IP)
+  #   - api.tripify.cloud      -> api-gateway:8080 (il telefono raggiunge il backend
+  #                                                da qualsiasi rete, WebSocket inclusi)
+  # Le regole di instradamento stanno in backend/cloudflared/config.yml (gitignored,
+  # insieme a <UUID>.json con le credenziali del tunnel). L'immagine cloudflared non
+  # ha shell: la modalita' si sceglie qui sul campo "command:", non con uno script.
   #
-  #  CONFIG FILE (named tunnel STABILE su dominio proprio, creato da terminale
-  #  senza dashboard ne' carta). In backend/cloudflared/ ci sono config.yml +
-  #  <UUID>.json (credenziali, gitignored). Vedi backend/.env.example per come
-  #  rigenerarli (cloudflared tunnel login / create / route dns).
+  # Rigenerare il tunnel da zero (terminale, senza dashboard ne' carta):
+  #   cloudflared tunnel login
+  #   cloudflared tunnel create tripify-keycloak
+  #   cloudflared tunnel route dns tripify-keycloak keycloak.tripify.cloud
+  #   cloudflared tunnel route dns tripify-keycloak api.tripify.cloud
+  #   cp ~/.cloudflared/<UUID>.json backend/cloudflared/   (+ scrivere config.yml)
   #
-  # Alternative (sostituisci la riga "command:"):
+  # Alternative (sostituiscono la riga "command:"):
   #  - token da dashboard Zero Trust:
   #      command: ["tunnel","--no-autoupdate","run","--token","<IL-TUO-TOKEN>"]
-  #  - tunnel "quick" con URL random (per test veloci, senza dominio):
+  #  - tunnel "quick" con URL random, solo Keycloak (test veloci, senza dominio):
   #      command: ["tunnel","--no-autoupdate","--url","http://keycloak:8080"]
   #
-  # KEYCLOAK_PUBLIC_URL in .env deve combaciare con l'URL del tunnel e con
-  # KEYCLOAK_IP in frontend/local.properties. ngrok resta com'e' per il backend.
+  # KEYCLOAK_PUBLIC_URL in .env e KEYCLOAK_IP in frontend/local.properties devono
+  # essere https://keycloak.tripify.cloud ; BACKEND_IP in local.properties deve
+  # essere https://api.tripify.cloud .
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -414,6 +421,7 @@ services:
       - ./cloudflared:/etc/cloudflared:ro
     depends_on:
       - keycloak
+      - api-gateway
     networks:
       - travel-network
 

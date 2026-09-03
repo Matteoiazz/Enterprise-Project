@@ -8,7 +8,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.tripify.tripify_android.catalog.model.CatalogItem
 import com.tripify.tripify_android.data.TokenManager
 
-// Tasso fisso, nessun servizio di cambio reale collegato.
 private const val EUR_TO_USD_RATE = 1.08
 
 object CatalogPriceFormatter {
@@ -17,8 +16,6 @@ object CatalogPriceFormatter {
     fun convert(amountEur: Double, currency: String): Double =
         if (currency == "USD") amountEur * EUR_TO_USD_RATE else amountEur
 
-    // Tiene i centesimi quando ci sono (es. 45,99), altrimenti mostra l'intero
-    // (45). Prima ".toInt()" troncava sempre: un annuncio a 45.99 usciva "€ 45".
     fun format(amountEur: Double, currency: String): String {
         val amount = convert(amountEur, currency)
         val n = if (amount % 1.0 == 0.0) amount.toLong().toString()
@@ -27,7 +24,6 @@ object CatalogPriceFormatter {
     }
 }
 
-/** Valuta scelta nelle Impostazioni, osservata in tempo reale (stesso storage del resto dell'app). */
 @Composable
 fun rememberCatalogCurrency(): State<String> {
     val context = LocalContext.current
@@ -35,7 +31,6 @@ fun rememberCatalogCurrency(): State<String> {
     return tokenManager.currencyFlow.collectAsState(initial = "EUR")
 }
 
-/** Ricostruisce lo stesso formato di CatalogItem.price ma nella valuta scelta. */
 fun CatalogItem.formattedPrice(currency: String): String = when (this) {
     is CatalogItem.Flight -> "Da ${CatalogPriceFormatter.format(priceValue.toDouble(), currency)}"
     is CatalogItem.Hotel -> "Da ${CatalogPriceFormatter.format(priceValue.toDouble(), currency)}/notte"

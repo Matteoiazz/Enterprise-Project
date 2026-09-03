@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-
 public record CreateReviewRequest(
         @NotNull(message = "Il rating è obbligatorio")
         @Min(value = 1, message = "Il rating deve essere compreso tra 1 e 5")
